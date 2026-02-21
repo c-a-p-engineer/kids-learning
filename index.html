@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
     <title>キッズ学習コンテンツ</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
-    <script type="module" crossorigin src="./assets/main-Bf6x3uHj.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/main-CbXtarCp.css">
+    <script type="module" crossorigin src="./assets/main-DJTikbrW.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/main-Cn1iZhjA.css">
   </head>
   <body>
     <div id="app" class="app-shell">
@@ -47,7 +47,7 @@
 
           <div class="stroke-info">
             <p id="stroke-badge" class="stroke-badge">1画目</p>
-            <p class="stroke-note">ばんごうを みて かこう！</p>
+            <p class="stroke-note">さいごまで ていねいに かいてみよう！</p>
           </div>
 
           <div class="play-actions">
@@ -69,6 +69,22 @@
             <p id="add-error" class="error-text hidden">ひらがな・カタカナと回数(1-20)を入力してね！</p>
           </section>
 
+          <section class="card card-calendar">
+            <div class="calendar-header">
+              <button id="btn-calendar-prev" class="calendar-nav" type="button">◀</button>
+              <h3 id="calendar-label" class="calendar-label"></h3>
+              <button id="btn-calendar-next" class="calendar-nav" type="button">▶</button>
+            </div>
+            <div class="calendar-weekdays">
+              <span>日</span><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span>土</span>
+            </div>
+            <div id="calendar-grid" class="calendar-grid"></div>
+            <div class="calendar-log-wrap">
+              <h4 id="calendar-selected-date" class="calendar-log-title"></h4>
+              <ul id="calendar-log-list" class="calendar-log-list"></ul>
+            </div>
+          </section>
+
           <h3 class="history-title">れんしゅうのきろく</h3>
           <div id="history-grid" class="history-grid"></div>
         </section>
@@ -83,6 +99,11 @@
         </div>
         <button id="btn-close-replay" class="action-neutral" type="button">とじる</button>
       </div>
+    </div>
+
+    <div id="celebrate-stamp" class="celebrate-stamp hidden" aria-live="polite">
+      <p class="stamp-mark">💮</p>
+      <p class="stamp-text">ガンバったね！</p>
     </div>
 
   </body>
