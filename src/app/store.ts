@@ -35,12 +35,28 @@ function isHistoryEntry(value: unknown): value is HistoryEntry {
   if (!value || typeof value !== "object") return false;
   const entry = value as HistoryEntry;
   return (
+    typeof entry.missionId === "string" &&
     typeof entry.char === "string" &&
     typeof entry.img === "string" &&
     Number.isFinite(entry.time) &&
     Array.isArray(entry.data) &&
     entry.data.every(isPointStroke)
   );
+}
+
+function toHistoryEntry(value: unknown): HistoryEntry | null {
+  if (!value || typeof value !== "object") return null;
+  const raw = value as Partial<HistoryEntry> & { missionId?: unknown };
+
+  const normalized: HistoryEntry = {
+    missionId: typeof raw.missionId === "string" ? raw.missionId : "",
+    char: typeof raw.char === "string" ? raw.char : "",
+    img: typeof raw.img === "string" ? raw.img : "",
+    data: Array.isArray(raw.data) ? raw.data : [],
+    time: Number.isFinite(raw.time) ? Number(raw.time) : NaN,
+  };
+
+  return isHistoryEntry(normalized) ? normalized : null;
 }
 
 function toMission(value: unknown, index: number): Mission | null {
@@ -52,6 +68,9 @@ function toMission(value: unknown, index: number): Mission | null {
 
   const count = Number.isFinite(raw.count) ? Math.max(1, Math.floor(Number(raw.count))) : 1;
   const current = Number.isFinite(raw.current) ? Math.max(0, Math.floor(Number(raw.current))) : 0;
+  const lastPracticedAt = Number.isFinite(raw.lastPracticedAt)
+    ? Math.max(0, Math.floor(Number(raw.lastPracticedAt)))
+    : null;
   const id = typeof raw.id === "string" && raw.id.length > 0 ? raw.id : `mission-${index}-${raw.word}`;
   const title = typeof raw.title === "string" && raw.title.length > 0 ? raw.title : raw.word;
 
@@ -61,6 +80,7 @@ function toMission(value: unknown, index: number): Mission | null {
     word: raw.word,
     count,
     current: Math.min(current, count),
+    lastPracticedAt,
   };
 }
 
@@ -73,7 +93,7 @@ export function loadState(): AppState {
   const rawHistory = safeParse<unknown[]>(localStorage.getItem(STORAGE_KEYS.history)) ?? [];
 
   const missions = rawMissions.map(toMission).filter((mission): mission is Mission => mission !== null);
-  const history = rawHistory.filter(isHistoryEntry);
+  const history = rawHistory.map(toHistoryEntry).filter((entry): entry is HistoryEntry => entry !== null);
 
   return {
     missions: missions.length > 0 ? missions : cloneDefaultMissions(),
@@ -96,6 +116,7 @@ export function createMission(word: string, count: number): Mission {
     word,
     count: safeCount,
     current: 0,
+    lastPracticedAt: null,
   };
 }
 

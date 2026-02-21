@@ -30,11 +30,18 @@ export interface AppDom {
   parentCountInput: HTMLInputElement;
   addMissionButton: HTMLButtonElement;
   addError: HTMLElement;
+  calendarLabel: HTMLElement;
+  calendarGrid: HTMLElement;
+  calendarLogDate: HTMLElement;
+  calendarLogList: HTMLElement;
+  calendarPrevButton: HTMLButtonElement;
+  calendarNextButton: HTMLButtonElement;
   historyGrid: HTMLElement;
   replayOverlay: HTMLElement;
   replayTitle: HTMLElement;
   replayCanvas: HTMLCanvasElement;
   closeReplayButton: HTMLButtonElement;
+  celebrateStamp: HTMLElement;
 }
 
 export function getDom(): AppDom {
@@ -62,10 +69,17 @@ export function getDom(): AppDom {
     parentCountInput: byId<HTMLInputElement>("p-count"),
     addMissionButton: byId<HTMLButtonElement>("btn-add-mission"),
     addError: byId<HTMLElement>("add-error"),
+    calendarLabel: byId<HTMLElement>("calendar-label"),
+    calendarGrid: byId<HTMLElement>("calendar-grid"),
+    calendarLogDate: byId<HTMLElement>("calendar-selected-date"),
+    calendarLogList: byId<HTMLElement>("calendar-log-list"),
+    calendarPrevButton: byId<HTMLButtonElement>("btn-calendar-prev"),
+    calendarNextButton: byId<HTMLButtonElement>("btn-calendar-next"),
     historyGrid: byId<HTMLElement>("history-grid"),
     replayOverlay: byId<HTMLElement>("replay-overlay"),
     replayTitle: byId<HTMLElement>("replay-char"),
     replayCanvas: byId<HTMLCanvasElement>("modal-replay-canvas"),
     closeReplayButton: byId<HTMLButtonElement>("btn-close-replay"),
+    celebrateStamp: byId<HTMLElement>("celebrate-stamp"),
   };
 }

@@ -1,4 +1,4 @@
-import { CANVAS_SIZE, GUIDE_DATA, REPLAY_CANVAS_SIZE, STROKE_COLORS } from "./constants";
+import { CANVAS_SIZE, REPLAY_CANVAS_SIZE, STROKE_COLORS, getGuidesForChar } from "./constants";
 import type { HistoryEntry, Point } from "./types";
 
 interface CanvasHooks {
@@ -13,6 +13,8 @@ export class WritingCanvas {
   private readonly guideContext: CanvasRenderingContext2D;
 
   private drawing = false;
+  private guideAnimating = false;
+  private guideAnimationToken = 0;
   private currentPoints: Point[] = [];
 
   constructor(drawCanvas: HTMLCanvasElement, guideCanvas: HTMLCanvasElement) {
@@ -35,6 +37,7 @@ export class WritingCanvas {
   bindInput(hooks: CanvasHooks): void {
     this.drawCanvas.addEventListener("pointerdown", (event) => {
       event.preventDefault();
+      this.clearGuide();
       const point = this.getPoint(event);
       this.currentPoints = [point];
       this.drawing = true;
@@ -76,42 +79,60 @@ export class WritingCanvas {
     this.drawContext.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
   }
 
-  drawGuide(char: string, currentStrokeIndex: number): void {
+  clearGuide(): void {
     this.guideContext.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+    this.guideAnimationToken += 1;
+    this.guideAnimating = false;
+  }
 
-    const guides = GUIDE_DATA[char] ?? GUIDE_DATA.default;
-    guides.forEach((guide, index) => {
-      const isCurrent = index === currentStrokeIndex;
+  isGuideAnimating(): boolean {
+    return this.guideAnimating;
+  }
+
+  async playGuideAnimation(char: string): Promise<void> {
+    const token = this.guideAnimationToken + 1;
+    this.guideAnimationToken = token;
+    this.guideAnimating = true;
+    const guides = getGuidesForChar(char);
+
+    for (let index = 0; index < guides.length; index += 1) {
+      if (token !== this.guideAnimationToken) return;
+
+      const guide = guides[index];
       const color = STROKE_COLORS[index % STROKE_COLORS.length];
 
-      this.guideContext.globalAlpha = isCurrent ? 1 : 0.2;
+      this.guideContext.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+      this.guideContext.globalAlpha = 1;
       this.guideContext.fillStyle = color;
-      this.guideContext.font = "bold 28px sans-serif";
+      this.guideContext.font = "bold 32px sans-serif";
       this.guideContext.fillText(String(index + 1), guide.n[0], guide.n[1]);
+      this.guideContext.beginPath();
+      this.guideContext.arc(guide.s[0], guide.s[1], 8, 0, Math.PI * 2);
+      this.guideContext.fill();
 
       this.guideContext.strokeStyle = color;
-      this.guideContext.lineWidth = 4;
+      this.guideContext.lineWidth = 7;
       this.guideContext.beginPath();
       this.guideContext.moveTo(guide.s[0], guide.s[1]);
-      this.guideContext.lineTo(guide.e[0], guide.e[1]);
-      this.guideContext.stroke();
 
-      const angle = Math.atan2(guide.e[1] - guide.s[1], guide.e[0] - guide.s[0]);
-      this.guideContext.beginPath();
-      this.guideContext.moveTo(guide.e[0], guide.e[1]);
-      this.guideContext.lineTo(
-        guide.e[0] - 15 * Math.cos(angle - 0.5),
-        guide.e[1] - 15 * Math.sin(angle - 0.5),
-      );
-      this.guideContext.moveTo(guide.e[0], guide.e[1]);
-      this.guideContext.lineTo(
-        guide.e[0] - 15 * Math.cos(angle + 0.5),
-        guide.e[1] - 15 * Math.sin(angle + 0.5),
-      );
-      this.guideContext.stroke();
-    });
+      const steps = 20;
+      for (let step = 1; step <= steps; step += 1) {
+        if (token !== this.guideAnimationToken) return;
+        const t = step / steps;
+        const x = guide.s[0] + (guide.e[0] - guide.s[0]) * t;
+        const y = guide.s[1] + (guide.e[1] - guide.s[1]) * t;
+        this.guideContext.lineTo(x, y);
+        this.guideContext.stroke();
+        await this.wait(24);
+      }
 
-    this.guideContext.globalAlpha = 1;
+      await this.wait(320);
+    }
+
+    if (token === this.guideAnimationToken) {
+      await this.wait(200);
+      this.clearGuide();
+    }
   }
 
   toDataUrl(): string {
@@ -181,5 +202,11 @@ export class WritingCanvas {
       y: event.clientY - rect.top,
       t: Date.now(),
     };
+  }
+
+  private wait(ms: number): Promise<void> {
+    return new Promise((resolve) => {
+      window.setTimeout(resolve, ms);
+    });
   }
 }

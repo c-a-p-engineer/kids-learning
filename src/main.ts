@@ -29,6 +29,46 @@ const router = new ViewRouter({
 
 const state = loadState();
 const writingCanvas = new WritingCanvas(dom.drawCanvas, dom.guideCanvas);
+let calendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+let selectedCalendarDateKey: string | null = null;
+
+function toDateKey(timestamp: number): string {
+  const d = new Date(timestamp);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function formatPracticeDate(timestamp: number): string {
+  const d = new Date(timestamp);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}/${m}/${day}`;
+}
+
+function formatTime(timestamp: number): string {
+  const d = new Date(timestamp);
+  const h = String(d.getHours()).padStart(2, "0");
+  const m = String(d.getMinutes()).padStart(2, "0");
+  return `${h}:${m}`;
+}
+
+function getMissionById(missionId: string): Mission | null {
+  return state.missions.find((mission) => mission.id === missionId) ?? null;
+}
+
+function buildDailyPracticeMap(): Map<string, HistoryEntry[]> {
+  const map = new Map<string, HistoryEntry[]>();
+  state.history.forEach((entry) => {
+    const key = toDateKey(entry.time);
+    const list = map.get(key) ?? [];
+    list.push(entry);
+    map.set(key, list);
+  });
+  return map;
+}
 
 function renderContentList(): void {
   dom.contentList.innerHTML = LEARNING_CONTENTS.map(
@@ -44,23 +84,36 @@ function renderContentList(): void {
 
 function renderMissions(): void {
   dom.missionList.innerHTML = state.missions
-    .map(
-      (mission) => `
-        <button type="button" class="mission-card" data-mission-id="${mission.id}">
-          <span class="mission-title">${mission.title}</span>
-          <span class="mission-status">${mission.current >= mission.count ? "完了" : "練習"}</span>
+    .map((mission) => {
+      const isPracticed = mission.lastPracticedAt !== null;
+      const dateLabel =
+        mission.lastPracticedAt !== null ? formatPracticeDate(mission.lastPracticedAt) : "未練習";
+      const statusLabel = mission.current >= mission.count ? "完了" : isPracticed ? "練習済み" : "未練習";
+      const cardClass = isPracticed ? "mission-card mission-card--practiced" : "mission-card mission-card--new";
+
+      return `
+        <button type="button" class="${cardClass}" data-mission-id="${mission.id}">
+          <span class="mission-main">
+            <span class="mission-title">${mission.title}</span>
+            <span class="mission-date">最終練習日: ${dateLabel}</span>
+          </span>
+          <span class="mission-status">${statusLabel}</span>
         </button>
-      `,
-    )
+      `;
+    })
     .join("");
 }
 
 function renderHistory(): void {
-  const items = state.history.slice(0, 16);
+  const items = state.history.slice(0, 12);
 
   dom.historyGrid.innerHTML = items
-    .map(
-      (entry, index) => `
+    .map((entry, index) => {
+      const mission = getMissionById(entry.missionId);
+      const missionTitle = mission ? mission.title : "不明な課題";
+      const doneAt = `${formatPracticeDate(entry.time)} ${formatTime(entry.time)}`;
+
+      return `
         <article class="history-card" data-history-index="${index}">
           <div class="history-preview-wrap">
             <img src="${entry.img}" alt="${entry.char} の練習結果" class="history-preview" />
@@ -73,10 +126,76 @@ function renderHistory(): void {
               <button type="button" class="history-action download-video" data-action="download-video" data-history-index="${index}">動画</button>
             </div>
           </div>
+          <p class="history-detail">${doneAt} / ${missionTitle}</p>
         </article>
-      `,
-    )
+      `;
+    })
     .join("");
+}
+
+function renderCalendarLog(entries: HistoryEntry[]): void {
+  if (entries.length === 0) {
+    dom.calendarLogList.innerHTML = '<li class="calendar-log-empty">この日の練習記録はありません</li>';
+    return;
+  }
+
+  dom.calendarLogList.innerHTML = entries
+    .map((entry) => {
+      const mission = getMissionById(entry.missionId);
+      const missionTitle = mission ? mission.title : "不明な課題";
+      return `<li class="calendar-log-item">${formatTime(entry.time)} / ${missionTitle}（${entry.char}）</li>`;
+    })
+    .join("");
+}
+
+function renderCalendar(): void {
+  const y = calendarMonth.getFullYear();
+  const m = calendarMonth.getMonth();
+  const firstWeekday = new Date(y, m, 1).getDay();
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  const dailyMap = buildDailyPracticeMap();
+
+  dom.calendarLabel.textContent = `${y}年${m + 1}月`;
+
+  const practicedInMonth: string[] = [];
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const key = toDateKey(new Date(y, m, day).getTime());
+    if ((dailyMap.get(key) ?? []).length > 0) {
+      practicedInMonth.push(key);
+    }
+  }
+
+  if (!selectedCalendarDateKey || !selectedCalendarDateKey.startsWith(`${y}-${String(m + 1).padStart(2, "0")}`)) {
+    selectedCalendarDateKey = practicedInMonth[0] ?? toDateKey(new Date(y, m, 1).getTime());
+  }
+
+  const cells: string[] = [];
+  for (let i = 0; i < firstWeekday; i += 1) {
+    cells.push('<div class="calendar-day calendar-day--blank"></div>');
+  }
+
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const date = new Date(y, m, day);
+    const key = toDateKey(date.getTime());
+    const entries = dailyMap.get(key) ?? [];
+    const practicedClass = entries.length > 0 ? "calendar-day--practiced" : "calendar-day--empty";
+    const selectedClass = key === selectedCalendarDateKey ? "calendar-day--selected" : "";
+
+    cells.push(`
+      <button type="button" class="calendar-day ${practicedClass} ${selectedClass}" data-date-key="${key}">
+        <span class="calendar-day-num">${day}</span>
+        <span class="calendar-day-count">${entries.length > 0 ? `${entries.length}件` : ""}</span>
+      </button>
+    `);
+  }
+
+  dom.calendarGrid.innerHTML = cells.join("");
+
+  const selectedEntries = selectedCalendarDateKey ? dailyMap.get(selectedCalendarDateKey) ?? [] : [];
+  dom.calendarLogDate.textContent = selectedCalendarDateKey
+    ? selectedCalendarDateKey.replace(/-/g, "/")
+    : "日付を選んでください";
+  renderCalendarLog(selectedEntries);
 }
 
 function getActiveMission(): Mission | null {
@@ -111,8 +230,8 @@ function updatePlayScreen(): void {
   state.active.strokes = [];
   state.active.currentPoints = [];
   writingCanvas.clearDrawing();
+  writingCanvas.clearGuide();
   updateStrokeBadge();
-  writingCanvas.drawGuide(currentChar, state.active.strokes.length);
   speak(currentChar);
 }
 
@@ -250,12 +369,8 @@ function clearCurrentCanvas(): void {
   state.active.strokes = [];
   state.active.currentPoints = [];
   writingCanvas.clearDrawing();
+  writingCanvas.clearGuide();
   updateStrokeBadge();
-
-  const char = getActiveChar();
-  if (char) {
-    writingCanvas.drawGuide(char, state.active.strokes.length);
-  }
 }
 
 function handleNextChar(): void {
@@ -264,14 +379,17 @@ function handleNextChar(): void {
   if (state.active.strokes.length === 0) return;
 
   const currentChar = getActiveChar();
+  const practicedAt = Date.now();
 
   const historyEntry: HistoryEntry = {
+    missionId: mission.id,
     char: currentChar,
     img: writingCanvas.toDataUrl(),
     data: state.active.strokes.map((stroke) => [...stroke]),
-    time: Date.now(),
+    time: practicedAt,
   };
 
+  mission.lastPracticedAt = practicedAt;
   state.history.unshift(historyEntry);
 
   const isLastChar = state.active.charIdx >= mission.word.length - 1;
@@ -295,6 +413,8 @@ function handleNextChar(): void {
   saveState(state);
   renderMissions();
   renderHistory();
+  renderCalendar();
+  celebrateMissionDone();
   router.renderView("home");
 }
 
@@ -328,7 +448,43 @@ function launchContent(contentId: string): void {
   if (contentId !== "hirakana-master") return;
   renderMissions();
   renderHistory();
+  renderCalendar();
   router.renderView("home");
+}
+
+function playCelebrateSound(): void {
+  const AudioContextCtor =
+    window.AudioContext ||
+    (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  if (!AudioContextCtor) return;
+
+  const audioContext = new AudioContextCtor();
+  const notes = [523.25, 659.25, 783.99];
+
+  notes.forEach((freq, index) => {
+    const osc = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    osc.type = "triangle";
+    osc.frequency.value = freq;
+    gain.gain.value = 0.0001;
+    osc.connect(gain);
+    gain.connect(audioContext.destination);
+
+    const start = audioContext.currentTime + index * 0.12;
+    const end = start + 0.22;
+    gain.gain.exponentialRampToValueAtTime(0.16, start + 0.03);
+    gain.gain.exponentialRampToValueAtTime(0.0001, end);
+    osc.start(start);
+    osc.stop(end);
+  });
+}
+
+function celebrateMissionDone(): void {
+  dom.celebrateStamp.classList.remove("hidden");
+  playCelebrateSound();
+  window.setTimeout(() => {
+    dom.celebrateStamp.classList.add("hidden");
+  }, 1800);
 }
 
 function speak(text: string): void {
@@ -361,6 +517,7 @@ function bindEvents(): void {
 
   dom.parentTab.addEventListener("click", () => {
     renderHistory();
+    renderCalendar();
     router.renderView("parent");
   });
 
@@ -389,6 +546,30 @@ function bindEvents(): void {
       event.preventDefault();
       addMission();
     }
+  });
+
+  dom.calendarPrevButton.addEventListener("click", () => {
+    calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1);
+    selectedCalendarDateKey = null;
+    renderCalendar();
+  });
+
+  dom.calendarNextButton.addEventListener("click", () => {
+    calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1);
+    selectedCalendarDateKey = null;
+    renderCalendar();
+  });
+
+  dom.calendarGrid.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+
+    const day = target.closest<HTMLElement>("[data-date-key]");
+    const dateKey = day?.dataset.dateKey;
+    if (!dateKey) return;
+
+    selectedCalendarDateKey = dateKey;
+    renderCalendar();
   });
 
   dom.missionList.addEventListener("click", (event) => {
@@ -440,10 +621,6 @@ function bindEvents(): void {
     onStrokeComplete: (points) => {
       state.active.strokes.push(points);
       updateStrokeBadge();
-      const char = getActiveChar();
-      if (char) {
-        writingCanvas.drawGuide(char, state.active.strokes.length);
-      }
     },
   });
 }
@@ -453,6 +630,7 @@ function init(): void {
   renderContentList();
   renderMissions();
   renderHistory();
+  renderCalendar();
   updateStrokeBadge();
   router.renderView("portal");
 }

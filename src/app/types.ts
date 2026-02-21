@@ -18,9 +18,11 @@ export interface Mission {
   word: string;
   count: number;
   current: number;
+  lastPracticedAt: number | null;
 }
 
 export interface HistoryEntry {
+  missionId: string;
   char: string;
   img: string;
   data: Point[][];
