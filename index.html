@@ -3,12 +3,87 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-    <title>PROGRAMMED TO SURVIVE - Hello</title>
+    <title>キッズ学習コンテンツ</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
-    <script type="module" crossorigin src="./assets/main-DfXmxR3C.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/main-tPS693rU.css">
+    <script type="module" crossorigin src="./assets/main-Bf6x3uHj.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/main-CbXtarCp.css">
   </head>
   <body>
-    <div id="game-root" aria-label="game canvas"></div>
+    <div id="app" class="app-shell">
+      <header id="game-tabs" class="tab-bar hidden">
+        <button id="tab-home" class="tab active-tab" type="button">れんしゅう</button>
+        <button id="tab-parent" class="tab" type="button">おうちのひと</button>
+      </header>
+
+      <main class="view-root">
+        <section id="view-portal" class="view scrollable" aria-label="コンテンツ一覧ページ">
+          <h1 class="portal-title">キッズ学習コンテンツ</h1>
+          <p class="portal-subtitle">あそびたいコンテンツをえらんでね</p>
+          <div id="content-list" class="content-list"></div>
+        </section>
+
+        <section id="view-home" class="view scrollable hidden" aria-label="ミッション一覧">
+          <div class="home-header-row">
+            <h2 class="page-title">どれにする？</h2>
+            <button id="btn-back-portal" class="link-btn" type="button">← 一覧にもどる</button>
+          </div>
+          <div id="mission-list" class="mission-list"></div>
+        </section>
+
+        <section id="view-play" class="view hidden play-view" aria-label="れんしゅう画面">
+          <div class="play-header">
+            <button id="btn-back-home" class="link-btn" type="button">× やめる</button>
+            <p id="play-title" class="play-title"></p>
+            <div class="header-spacer"></div>
+          </div>
+
+          <p id="play-lap" class="play-lap"></p>
+
+          <div class="canvas-area">
+            <div id="target-char" class="guide-char-base"></div>
+            <canvas id="guide-canvas"></canvas>
+            <canvas id="draw-canvas"></canvas>
+          </div>
+
+          <div class="stroke-info">
+            <p id="stroke-badge" class="stroke-badge">1画目</p>
+            <p class="stroke-note">ばんごうを みて かこう！</p>
+          </div>
+
+          <div class="play-actions">
+            <button id="btn-done" class="action-primary" type="button">できた！</button>
+            <button id="btn-clear" class="link-btn" type="button">もういちど</button>
+          </div>
+        </section>
+
+        <section id="view-parent" class="view scrollable hidden parent-view" aria-label="おうちの人モード">
+          <h2 class="page-title dark">おうちの人 モード</h2>
+
+          <section class="card card-form">
+            <h3 class="card-title">あたらしい課題</h3>
+            <div class="new-mission-row">
+              <input id="p-word" type="text" placeholder="ひらがな・カタカナ" class="text-input" />
+              <input id="p-count" type="number" min="1" max="20" value="1" class="count-input" />
+              <button id="btn-add-mission" type="button" class="action-secondary">追加</button>
+            </div>
+            <p id="add-error" class="error-text hidden">ひらがな・カタカナと回数(1-20)を入力してね！</p>
+          </section>
+
+          <h3 class="history-title">れんしゅうのきろく</h3>
+          <div id="history-grid" class="history-grid"></div>
+        </section>
+      </main>
+    </div>
+
+    <div id="replay-overlay" class="overlay hidden" aria-hidden="true">
+      <div class="overlay-panel">
+        <h4 id="replay-char" class="overlay-title">再生</h4>
+        <div class="replay-canvas-wrap">
+          <canvas id="modal-replay-canvas" width="280" height="280"></canvas>
+        </div>
+        <button id="btn-close-replay" class="action-neutral" type="button">とじる</button>
+      </div>
+    </div>
+
   </body>
 </html>
