@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ひらがな・マスター Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@700&display=swap');
+        
+        body {
+            font-family: 'Zen+Maru+Gothic', sans-serif;
+            background-color: #FFFDF5;
+            touch-action: none;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .scrollable {
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .canvas-area {
+            position: relative;
+            border: 8px solid #FFB300;
+            border-radius: 24px;
+            width: 320px;
+            height: 320px;
+            box-shadow: 0 6px 0 #E6A100;
+            background: white;
+            overflow: hidden;
+        }
+
+        #draw-canvas, #guide-canvas, #replay-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 30;
+        }
+        #guide-canvas { z-index: 20; pointer-events: none; }
+        #replay-canvas { z-index: 40; pointer-events: none; background: rgba(255,255,255,0.8); display: none; }
+
+        .guide-char-base {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 260px;
+            color: #f8fafc;
+            z-index: 10;
+            line-height: 1;
+            user-select: none;
+        }
+
+        .active-tab {
+            background: #FFB300 !important;
+            color: white !important;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+        }
+        .calendar-day {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            font-size: 10px;
+            background: #f8fafc;
+        }
+        .practiced-day { background: #fff7ed; }
+        
+        @keyframes bounce-small {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-3px); }
+        }
+        .animate-bounce-small { animation: bounce-small 2s infinite; }
+    </style>
+</head>
+<body>
+
+    <!-- タブ -->
+    <div class="flex bg-white shadow-md flex-none">
+        <button id="tab-kids" onclick="showView('kids')" class="flex-1 py-4 font-bold text-lg active-tab">れんしゅう</button>
+        <button id="tab-parent" onclick="showView('parent')" class="flex-1 py-4 font-bold text-lg text-gray-400">おうちのひと</button>
+    </div>
+
+    <div class="flex-1 relative overflow-hidden">
+        
+        <!-- 【こども：ミッション一覧】 -->
+        <div id="view-kids-home" class="absolute inset-0 p-6 scrollable">
+            <h2 class="text-2xl font-bold text-orange-600 mb-6">どれにする？</h2>
+            <div id="mission-list" class="space-y-4 pb-24"></div>
+        </div>
+
+        <!-- 【こども：練習画面】 -->
+        <div id="view-kids-play" class="absolute inset-0 hidden flex flex-col items-center p-4 transition-colors duration-500">
+            <div class="w-full flex justify-between items-center mb-2">
+                <button onclick="showView('kids')" class="text-gray-400 font-bold">× やめる</button>
+                <div id="play-title" class="font-bold text-blue-600"></div>
+                <div class="w-10"></div>
+            </div>
+            
+            <div id="play-lap" class="text-sm text-orange-500 font-bold mb-2"></div>
+
+            <div class="canvas-area">
+                <div id="target-char" class="guide-char-base"></div>
+                <canvas id="guide-canvas"></canvas>
+                <canvas id="draw-canvas"></canvas>
+                <canvas id="replay-canvas"></canvas>
+            </div>
+
+            <div class="mt-4 flex flex-col items-center gap-1">
+                <div id="stroke-badge" class="px-6 py-1 rounded-full text-white font-bold text-lg shadow-sm">1画目</div>
+                <div class="text-[10px] text-gray-400">ばんごうを みて かこう！</div>
+            </div>
+
+            <div class="w-full max-w-[320px] mt-6">
+                <button id="btn-done" onclick="handleNextChar()" class="w-full py-5 bg-orange-500 text-white rounded-2xl font-bold text-2xl shadow-lg active:translate-y-1">できた！</button>
+                <button onclick="clearCurrentCanvas()" class="w-full mt-4 text-gray-400 underline text-sm">もういちど</button>
+            </div>
+        </div>
+
+        <!-- 【おうちの人】 -->
+        <div id="view-parent" class="absolute inset-0 hidden scrollable bg-gray-50 p-6">
+            <h2 class="text-2xl font-bold mb-6">おうちの人 モード</h2>
+
+            <section class="bg-white p-5 rounded-2xl shadow-sm mb-8">
+                <h3 class="font-bold text-blue-600 mb-4">＋ あたらしい課題</h3>
+                <div class="flex gap-2">
+                    <input type="text" id="p-word" placeholder="ひらがな" class="flex-1 p-3 border rounded-xl">
+                    <button onclick="addMission()" class="px-6 bg-blue-600 text-white rounded-xl font-bold">追加</button>
+                </div>
+                <p id="add-error" class="text-red-500 text-xs mt-2 hidden">ひらがなだけで入力してね！</p>
+            </section>
+
+            <h3 class="font-bold mb-4">📝 れんしゅうのきろく</h3>
+            <div id="history-grid" class="grid grid-cols-2 gap-4 pb-32"></div>
+        </div>
+    </div>
+
+    <!-- 再生用モーダル風オーバーレイ -->
+    <div id="replay-overlay" class="fixed inset-0 bg-black/80 z-[100] hidden flex flex-col items-center justify-center p-6">
+        <div class="bg-white rounded-3xl p-4 w-full max-w-sm flex flex-col items-center">
+            <h4 id="replay-char" class="text-2xl font-bold mb-4">「あ」の再生</h4>
+            <div class="canvas-area mb-6" style="width:280px; height:280px;">
+                <canvas id="modal-replay-canvas" width="280" height="280"></canvas>
+            </div>
+            <button onclick="closeReplay()" class="w-full py-3 bg-gray-200 rounded-xl font-bold">とじる</button>
+        </div>
+    </div>
+
+    <script>
+        const STROKE_COLORS = ['#EF4444', '#3B82F6', '#22C55E', '#EAB308', '#A855F7'];
+        const GUIDE_DATA = {
+            'あ': [{n:[80,140],s:[90,140],e:[230,140]},{n:[160,80],s:[160,85],e:[160,260]},{n:[210,180],s:[220,170],e:[130,240]}],
+            'い': [{n:[70,100],s:[90,100],e:[90,250]},{n:[200,100],s:[220,100],e:[220,200]}],
+            'う': [{n:[120,60],s:[140,70],e:[180,90]},{n:[90,150],s:[110,150],e:[200,250]}],
+            'え': [{n:[130,60],s:[140,70],e:[180,90]},{n:[100,160],s:[110,160],e:[220,260]}],
+            'お': [{n:[80,140],s:[90,140],e:[200,140]},{n:[160,80],s:[160,85],e:[160,240]},{n:[240,100],s:[245,105],e:[255,115]}],
+            'default': [{n:[150,80],s:[160,90],e:[160,240]}]
+        };
+
+        let db = {
+            missions: JSON.parse(localStorage.getItem('h_m_v12')) || [{ word: "あいうえお", count: 1, current: 0 }],
+            history: JSON.parse(localStorage.getItem('h_h_v12')) || []
+        };
+
+        let active = { missionIdx: -1, charIdx: 0, lap: 1, strokes: [], currentPoints: [] };
+        const canvas = document.getElementById('draw-canvas');
+        const gCanvas = document.getElementById('guide-canvas');
+        const ctx = canvas.getContext('2d');
+        const gctx = gCanvas.getContext('2d');
+
+        function init() {
+            [canvas, gCanvas].forEach(c => {
+                c.width = 320; c.height = 320;
+                const ct = c.getContext('2d');
+                ct.lineCap = 'round'; ct.lineJoin = 'round'; ct.lineWidth = 14;
+            });
+            renderMissions();
+
+            const getPos = (e) => {
+                const r = canvas.getBoundingClientRect();
+                const x = (e.clientX || (e.touches && e.touches[0].clientX)) - r.left;
+                const y = (e.clientY || (e.touches && e.touches[0].clientY)) - r.top;
+                return { x, y, t: Date.now() };
+            };
+
+            const start = (e) => {
+                e.preventDefault();
+                const p = getPos(e);
+                active.currentPoints = [p];
+                ctx.strokeStyle = STROKE_COLORS[active.strokes.length % STROKE_COLORS.length];
+                ctx.beginPath();
+                ctx.moveTo(p.x, p.y);
+                canvas.isDrawing = true;
+            };
+
+            const move = (e) => {
+                if(!canvas.isDrawing) return;
+                const p = getPos(e);
+                active.currentPoints.push(p);
+                ctx.lineTo(p.x, p.y);
+                ctx.stroke();
+            };
+
+            const stop = () => {
+                if(canvas.isDrawing) {
+                    active.strokes.push([...active.currentPoints]);
+                    updateUI();
+                }
+                canvas.isDrawing = false;
+            };
+
+            canvas.addEventListener('mousedown', start);
+            window.addEventListener('mousemove', move);
+            window.addEventListener('mouseup', stop);
+            canvas.addEventListener('touchstart', start, {passive: false});
+            window.addEventListener('touchmove', move, {passive: false});
+            window.addEventListener('touchend', stop);
+        }
+
+        function drawFixedGuide(char) {
+            gctx.clearRect(0, 0, 320, 320);
+            const guides = GUIDE_DATA[char] || GUIDE_DATA['default'];
+            guides.forEach((g, i) => {
+                const isCurrent = i === active.strokes.length;
+                gctx.globalAlpha = isCurrent ? 1.0 : 0.2;
+                const color = STROKE_COLORS[i % STROKE_COLORS.length];
+                gctx.fillStyle = color;
+                gctx.font = "bold 28px 'Zen Maru Gothic'";
+                gctx.fillText(`${i+1}`, g.n[0], g.n[1]);
+                gctx.strokeStyle = color;
+                gctx.lineWidth = 4;
+                gctx.beginPath();
+                gctx.moveTo(g.s[0], g.s[1]);
+                gctx.lineTo(g.e[0], g.e[1]);
+                gctx.stroke();
+                const angle = Math.atan2(g.e[1]-g.s[1], g.e[0]-g.s[0]);
+                gctx.beginPath();
+                gctx.moveTo(g.e[0], g.e[1]);
+                gctx.lineTo(g.e[0]-15*Math.cos(angle-0.5), g.e[1]-15*Math.sin(angle-0.5));
+                gctx.moveTo(g.e[0], g.e[1]);
+                gctx.lineTo(g.e[0]-15*Math.cos(angle+0.5), g.e[1]-15*Math.sin(angle+0.5));
+                gctx.stroke();
+            });
+            gctx.globalAlpha = 1.0;
+        }
+
+        function updateUI() {
+            const idx = active.strokes.length;
+            const badge = document.getElementById('stroke-badge');
+            badge.innerText = `${idx + 1}画目`;
+            badge.style.backgroundColor = STROKE_COLORS[idx % STROKE_COLORS.length];
+            drawFixedGuide(db.missions[active.missionIdx].word[active.charIdx]);
+        }
+
+        function showView(v) {
+            ['view-kids-home', 'view-kids-play', 'view-parent'].forEach(id => document.getElementById(id).classList.add('hidden'));
+            document.getElementById('tab-kids').classList.remove('active-tab');
+            document.getElementById('tab-parent').classList.remove('active-tab');
+
+            if(v === 'kids') {
+                document.getElementById('view-kids-home').classList.remove('hidden');
+                document.getElementById('tab-kids').classList.add('active-tab');
+                renderMissions();
+            } else if(v === 'play') {
+                document.getElementById('view-kids-play').classList.remove('hidden');
+            } else {
+                document.getElementById('view-parent').classList.remove('hidden');
+                document.getElementById('tab-parent').classList.add('active-tab');
+                renderParent();
+            }
+        }
+
+        function renderMissions() {
+            const list = document.getElementById('mission-list');
+            list.innerHTML = db.missions.map((m, i) => `
+                <div onclick="startMission(${i})" class="bg-white p-6 rounded-3xl shadow-sm border-l-8 border-orange-400 flex justify-between items-center active:scale-95 transition-transform">
+                    <div class="text-xl font-bold">${m.word}</div>
+                    <div class="text-2xl">${m.current >= m.count ? '✅' : '✏️'}</div>
+                </div>
+            `).join('');
+        }
+
+        function startMission(i) {
+            active.missionIdx = i; active.charIdx = 0; active.lap = 1; active.strokes = [];
+            showView('play');
+            updatePlay();
+        }
+
+        function updatePlay() {
+            const char = db.missions[active.missionIdx].word[active.charIdx];
+            document.getElementById('target-char').innerText = char;
+            document.getElementById('play-title').innerText = db.missions[active.missionIdx].word;
+            document.getElementById('play-lap').innerText = `${active.lap}/${db.missions[active.missionIdx].count}回目`;
+            clearCurrentCanvas();
+            drawFixedGuide(char);
+            speak(char);
+        }
+
+        function handleNextChar() {
+            if(active.strokes.length === 0) return;
+            db.history.unshift({
+                char: db.missions[active.missionIdx].word[active.charIdx],
+                img: canvas.toDataURL(),
+                data: active.strokes,
+                time: Date.now()
+            });
+            if(active.charIdx < db.missions[active.missionIdx].word.length - 1) {
+                active.charIdx++;
+            } else if(active.lap < db.missions[active.missionIdx].count) {
+                active.lap++; active.charIdx = 0;
+            } else {
+                db.missions[active.missionIdx].current = db.missions[active.missionIdx].count;
+                save(); showView('kids'); return;
+            }
+            active.strokes = [];
+            save(); updatePlay();
+        }
+
+        function renderParent() {
+            document.getElementById('history-grid').innerHTML = db.history.slice(0, 16).map((h, i) => `
+                <div class="bg-white border rounded-2xl p-3 shadow-sm flex flex-col items-center">
+                    <div class="relative w-full aspect-square bg-gray-50 rounded-xl mb-2 overflow-hidden">
+                        <img src="${h.img}" class="w-full h-full object-contain">
+                        <button onclick="playReplay(${i})" class="absolute inset-0 flex items-center justify-center bg-black/10 hover:bg-black/20 text-white text-3xl">▶️</button>
+                    </div>
+                    <div class="w-full flex justify-between items-center px-1">
+                        <span class="font-bold text-lg">${h.char}</span>
+                        <button onclick="downloadImg(${i})" class="text-xl p-1 bg-gray-100 rounded-lg">💾</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function playReplay(idx) {
+            const h = db.history[idx];
+            const overlay = document.getElementById('replay-overlay');
+            const mCanvas = document.getElementById('modal-replay-canvas');
+            const mCtx = mCanvas.getContext('2d');
+            document.getElementById('replay-char').innerText = `「${h.char}」をさいせい`;
+            overlay.classList.remove('hidden');
+            
+            mCtx.clearRect(0,0,280,280);
+            mCtx.lineCap = 'round'; mCtx.lineJoin = 'round'; mCtx.lineWidth = 12;
+
+            const scale = 280 / 320;
+            let currentStroke = 0;
+            let currentPoint = 0;
+
+            function step() {
+                if(currentStroke >= h.data.length) return;
+                const stroke = h.data[currentStroke];
+                const p = stroke[currentPoint];
+                
+                mCtx.strokeStyle = STROKE_COLORS[currentStroke % STROKE_COLORS.length];
+                if(currentPoint === 0) {
+                    mCtx.beginPath();
+                    mCtx.moveTo(p.x * scale, p.y * scale);
+                } else {
+                    const prev = stroke[currentPoint - 1];
+                    mCtx.lineTo(p.x * scale, p.y * scale);
+                    mCtx.stroke();
+                }
+
+                currentPoint++;
+                if(currentPoint >= stroke.length) {
+                    currentStroke++;
+                    currentPoint = 0;
+                    setTimeout(step, 300); // 画の間のタメ
+                } else {
+                    const wait = stroke[currentPoint].t - p.t;
+                    setTimeout(step, Math.min(wait, 50)); // 再生速度の調整
+                }
+            }
+            step();
+        }
+
+        function closeReplay() {
+            document.getElementById('replay-overlay').classList.add('hidden');
+        }
+
+        function downloadImg(idx) {
+            const item = db.history[idx];
+            const link = document.createElement('a');
+            link.download = `hiragana_${item.char}.png`;
+            link.href = item.img;
+            link.click();
+        }
+
+        function addMission() {
+            const word = document.getElementById('p-word').value.trim();
+            if(!word || !/^[ぁ-んー]+$/.test(word)) {
+                document.getElementById('add-error').classList.remove('hidden'); return;
+            }
+            document.getElementById('add-error').classList.add('hidden');
+            db.missions.unshift({ word, count: 1, current: 0 });
+            save();
+            document.getElementById('p-word').value = '';
+            showView('kids');
+        }
+
+        function clearCurrentCanvas() { 
+            ctx.clearRect(0,0,320,320); 
+            active.strokes = [];
+            updateUI();
+        }
+        function save() {
+            localStorage.setItem('h_m_v12', JSON.stringify(db.missions));
+            localStorage.setItem('h_h_v12', JSON.stringify(db.history.slice(0, 100)));
+        }
+        function speak(t) {
+            const u = new SpeechSynthesisUtterance(t);
+            u.lang = 'ja-JP'; u.rate = 0.8;
+            window.speechSynthesis.speak(u);
+        }
+        window.onload = init;
+    </script>
+</body>
+</html>
