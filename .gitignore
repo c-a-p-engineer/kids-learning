@@ -1,0 +1,5 @@
+# Generated build output (GitHub Pages deploy target)
+public/
+# Explicitly ignore placeholder in generated assets
+public/assets/.keep
+node_modules/

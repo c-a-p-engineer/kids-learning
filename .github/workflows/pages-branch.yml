@@ -1,0 +1,91 @@
+﻿name: Deploy GitHub Pages (branch preview)
+
+on:
+  push:
+    branches-ignore:
+      - master
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: ./scripts/build.sh
+
+      - name: Define SAFE_BRANCH
+        shell: bash
+        run: |
+          set -euo pipefail
+          SAFE_BRANCH=$(echo "${GITHUB_REF_NAME}" | sed -e 's#[/:@ ]#-#g' -e 's#[^A-Za-z0-9._-]#-#g')
+          echo "SAFE_BRANCH=${SAFE_BRANCH}" >> "$GITHUB_ENV"
+
+      - name: Startup test
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f public/index.html ]; then
+            echo "public/index.html not found" >&2
+            exit 1
+          fi
+          if [ ! -f public/assets/main.js ]; then
+            echo "public/assets/main.js not found" >&2
+            exit 1
+          fi
+          python -m http.server 8000 --directory public >/tmp/http.log 2>&1 &
+          SERVER_PID=$!
+          sleep 1
+          if ! curl -fsSL -o /dev/null -w "%{http_code}" http://localhost:8000/index.html | grep -q "200"; then
+            echo "index.html did not return HTTP 200" >&2
+            kill "$SERVER_PID"
+            exit 1
+          fi
+          kill "$SERVER_PID"
+
+      - name: Deploy to gh-pages preview
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: public
+          destination_dir: ${{ env.SAFE_BRANCH }}
+          keep_files: true
+
+      - name: Comment PR with preview URL
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          OWNER="${GITHUB_REPOSITORY%%/*}"
+          REPO="${GITHUB_REPOSITORY##*/}"
+          API_URL="https://api.github.com"
+          PR_JSON=$(curl -fsSL -H "Authorization: Bearer ${GITHUB_TOKEN}" -H "Accept: application/vnd.github+json" \
+            "${API_URL}/repos/${GITHUB_REPOSITORY}/pulls?head=${OWNER}:${GITHUB_REF_NAME}&state=open")
+          PR_NUMBER=$(echo "${PR_JSON}" | jq -r '.[0].number // empty')
+          if [ -z "${PR_NUMBER}" ]; then
+            echo "No open PR found for ${OWNER}:${GITHUB_REF_NAME}. Skip comment."
+            exit 0
+          fi
+          PREVIEW_URL="https://${OWNER}.github.io/${REPO}/${SAFE_BRANCH}/"
+          BODY=$(cat <<'BODY'
+          Preview: __PREVIEW_URL__
+
+          Checklist:
+          - [ ] Game boots and shows the bouncing ball
+          - [ ] Mobile portrait layout looks correct
+          BODY
+          )
+          BODY=${BODY/__PREVIEW_URL__/${PREVIEW_URL}}
+          curl -fsSL -X POST -H "Authorization: Bearer ${GITHUB_TOKEN}" -H "Accept: application/vnd.github+json" \
+            "${API_URL}/repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" \
+            -d "$(jq -n --arg body "${BODY}" '{body: $body}')"

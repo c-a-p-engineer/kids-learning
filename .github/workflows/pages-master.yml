@@ -1,0 +1,53 @@
+﻿name: Deploy GitHub Pages (master)
+
+on:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: ./scripts/build.sh
+
+      - name: Startup test
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f public/index.html ]; then
+            echo "public/index.html not found" >&2
+            exit 1
+          fi
+          if [ ! -f public/assets/main.js ]; then
+            echo "public/assets/main.js not found" >&2
+            exit 1
+          fi
+          python -m http.server 8000 --directory public >/tmp/http.log 2>&1 &
+          SERVER_PID=$!
+          sleep 1
+          if ! curl -fsSL -o /dev/null -w "%{http_code}" http://localhost:8000/index.html | grep -q "200"; then
+            echo "index.html did not return HTTP 200" >&2
+            kill "$SERVER_PID"
+            exit 1
+          fi
+          kill "$SERVER_PID"
+
+      - name: Deploy to gh-pages root
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: public
+          destination_dir: .
+          keep_files: true
