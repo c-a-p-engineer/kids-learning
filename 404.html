@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Redirecting...</title>
+    <script>
+      (function () {
+        var path = window.location.pathname + window.location.search + window.location.hash;
+        var segments = window.location.pathname.split("/").filter(Boolean);
+        var base = "/";
+
+        if (segments[0] === "kids-learning") {
+          var second = segments[1];
+          var known = { kakitori: true, home: true, play: true, parent: true, portal: true };
+          if (second && !known[second]) {
+            base = "/kids-learning/" + second + "/";
+          } else {
+            base = "/kids-learning/";
+          }
+        }
+
+        var target = new URL(base, window.location.origin);
+        target.searchParams.set("redirect", path);
+        window.location.replace(target.toString());
+      })();
+    </script>
+  </head>
+  <body></body>
+</html>
+
