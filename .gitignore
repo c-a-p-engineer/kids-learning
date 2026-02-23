@@ -1,5 +1,8 @@
 # Generated build output (GitHub Pages deploy target)
 public/
+# Keep SPA fallback source under src/ tracked
+!src/public/
+!src/public/404.html
 # Explicitly ignore placeholder in generated assets
 public/assets/.keep
 node_modules/

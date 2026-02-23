@@ -33,8 +33,13 @@ Minimal Phaser hello world for a portrait-first browser game.
   - `/kakitori/play`
   - `/kakitori/parent`
 - Rule for future contents:
-  - Add new content with unique `contentId` in `src/main.ts`.
+  - Add new content with unique `contentId` in `src/contents/`.
   - It will follow the same URL scheme automatically: `/<newContentId>` and `/<newContentId>/<view>`.
+
+## Direct URL Access on GitHub Pages
+- Added `src/public/404.html` fallback redirect.
+- A direct hit like `/kakitori/play` is redirected to `/?redirect=...`, then restored in app startup.
+- This prevents GitHub Pages static 404 from breaking deep links.
 
 ## Verification Checklist
 - Build succeeds (`./scripts/build.sh`)

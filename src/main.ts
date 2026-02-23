@@ -8,6 +8,15 @@ import { createMission, isValidMissionWord, loadState, saveState } from "./app/s
 import { LEARNING_CONTENTS } from "./contents";
 import type { HistoryEntry, Mission, ViewId } from "./app/types";
 
+function applyGithubPagesRedirectPath(): void {
+  const url = new URL(window.location.href);
+  const redirect = url.searchParams.get("redirect");
+  if (!redirect || !redirect.startsWith("/")) return;
+  window.history.replaceState(null, "", redirect);
+}
+
+applyGithubPagesRedirectPath();
+
 const dom = getDom();
 const router = new ViewRouter({
   gameTabs: dom.gameTabs,
