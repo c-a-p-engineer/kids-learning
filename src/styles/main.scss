@@ -192,6 +192,8 @@ input {
   display: flex;
   flex-direction: column;
   align-items: center;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .play-header {
@@ -226,8 +228,11 @@ input {
 
 .canvas-area {
   position: relative;
-  width: 320px;
-  height: 320px;
+  width: min(320px, calc(100vw - 2.5rem));
+  aspect-ratio: 1 / 1;
+  min-width: 220px;
+  min-height: 220px;
+  flex-shrink: 0;
   border: 8px solid #ffb300;
   border-radius: 1.25rem;
   box-shadow: 0 6px 0 #e6a100;
@@ -802,6 +807,7 @@ input {
 
   .canvas-area,
   .play-actions,
+  .play-progress,
   .play-header,
   .stroke-model {
     max-width: 100%;
@@ -810,9 +816,7 @@ input {
 
   .canvas-area {
     max-width: 320px;
-    max-height: 320px;
     width: min(320px, calc(100vw - 2rem));
-    height: min(320px, calc(100vw - 2rem));
     margin: 0 auto;
   }
 
