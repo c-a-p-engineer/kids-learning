@@ -20,6 +20,21 @@ Minimal Phaser hello world for a portrait-first browser game.
 ## GitHub Pages
 - Master: `https://<owner>.github.io/<repo>/`
 - Branch preview: `https://<owner>.github.io/<repo>/<SAFE_BRANCH>/`
+- Public URL: `https://c-a-p-engineer.github.io/kids-learning/`
+
+## URL Routing Convention
+- Portal (content list): `/`
+- Content top: `/<contentId>` (example: `/kakitori`)
+- Content internal pages: `/<contentId>/<view>`
+- Current internal views: `home`, `play`, `parent`
+- Example URLs:
+  - `/kakitori`
+  - `/kakitori/home`
+  - `/kakitori/play`
+  - `/kakitori/parent`
+- Rule for future contents:
+  - Add new content with unique `contentId` in `src/main.ts`.
+  - It will follow the same URL scheme automatically: `/<newContentId>` and `/<newContentId>/<view>`.
 
 ## Verification Checklist
 - Build succeeds (`./scripts/build.sh`)

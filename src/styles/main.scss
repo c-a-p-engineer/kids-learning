@@ -198,7 +198,7 @@ input {
   width: 100%;
   max-width: 320px;
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
   margin-bottom: 0.3rem;
 }
@@ -214,10 +214,6 @@ input {
   color: #f97316;
   font-weight: 700;
   font-size: 0.9rem;
-}
-
-.header-spacer {
-  width: 3rem;
 }
 
 .link-btn {
@@ -262,9 +258,57 @@ input {
   transform: translate(-50%, -50%);
   z-index: 0;
   font-size: 240px;
-  color: #f8fafc;
+  color: #dbeafe;
+  text-shadow: 0 2px 0 #bfdbfe;
+  font-weight: 700;
+  opacity: 0.95;
   line-height: 1;
   user-select: none;
+}
+
+.play-progress {
+  width: 100%;
+  max-width: 320px;
+  margin: 0 0 0.5rem;
+}
+
+.play-progress-track {
+  width: 100%;
+  height: 0.7rem;
+  border-radius: 999px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+
+.play-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #22c55e, #16a34a);
+  transition: width 220ms ease;
+}
+
+.play-progress-pips {
+  margin-top: 0.35rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  min-height: 0.7rem;
+}
+
+.play-progress-pip {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: #cbd5e1;
+}
+
+.play-progress-pip--done {
+  background: #16a34a;
+}
+
+.play-progress-pip--current {
+  background: #f59e0b;
+  box-shadow: 0 0 0 2px #fde68a;
 }
 
 .stroke-info {
@@ -286,6 +330,65 @@ input {
   margin: 0.2rem 0 0;
   font-size: 0.75rem;
   color: #94a3b8;
+}
+
+.stroke-model {
+  width: 100%;
+  max-width: 320px;
+  margin-top: 0.8rem;
+  padding: 0.55rem;
+  border-radius: 0.85rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.stroke-model-title {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #334155;
+  font-weight: 700;
+}
+
+.stroke-model-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.stroke-model-replay {
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.2rem 0.55rem;
+}
+
+.stroke-model-view {
+  margin-top: 0.35rem;
+  height: 140px;
+  border-radius: 0.65rem;
+  border: 1px dashed #cbd5e1;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  font-size: 0.72rem;
+  overflow: hidden;
+}
+
+.stroke-model-view svg {
+  width: 100%;
+  height: 100%;
+}
+
+.stroke-model-view--error {
+  color: #b91c1c;
+  border-color: #fecaca;
+  background: #fff1f2;
 }
 
 .play-actions {
@@ -333,6 +436,12 @@ input {
   color: #2563eb;
 }
 
+.card-subtitle {
+  margin: 0 0 0.45rem;
+  color: #334155;
+  font-size: 0.9rem;
+}
+
 .new-mission-row {
   display: flex;
   gap: 0.5rem;
@@ -366,6 +475,65 @@ input {
   font-size: 0.78rem;
 }
 
+.storage-card {
+  margin: 0 0 0.75rem;
+}
+
+.storage-summary {
+  margin: 0;
+  color: #475569;
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.storage-actions {
+  margin-top: 0.55rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.action-compact {
+  padding: 0.5rem 0.7rem;
+  border-radius: 0.75rem;
+  font-size: 0.75rem;
+}
+
+.action-warning {
+  border: 0;
+  border-radius: 0.75rem;
+  background: #f59e0b;
+  color: #fff;
+  padding: 0.5rem 0.7rem;
+  font-weight: 700;
+  font-size: 0.75rem;
+}
+
+.action-danger {
+  margin-top: 0.6rem;
+  border: 0;
+  border-radius: 0.75rem;
+  background: #dc2626;
+  color: #fff;
+  padding: 0.55rem 0.8rem;
+  font-weight: 700;
+  font-size: 0.78rem;
+}
+
+.action-quit {
+  border: 1px solid #fca5a5;
+  border-radius: 0.9rem;
+  background: #fff1f2;
+  color: #be123c;
+  padding: 0.65rem;
+  font-weight: 700;
+}
+
+.action-secondary:disabled,
+.action-warning:disabled {
+  opacity: 0.55;
+}
+
 .history-title {
   margin: 0 0 0.75rem;
 }
@@ -374,8 +542,6 @@ input {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: 0.7rem;
-  max-height: 380px;
-  overflow-y: auto;
   padding-bottom: 5rem;
 }
 
@@ -636,7 +802,8 @@ input {
 
   .canvas-area,
   .play-actions,
-  .play-header {
+  .play-header,
+  .stroke-model {
     max-width: 100%;
     width: 100%;
   }

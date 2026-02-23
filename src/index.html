@@ -30,12 +30,16 @@
 
         <section id="view-play" class="view hidden play-view" aria-label="れんしゅう画面">
           <div class="play-header">
-            <button id="btn-back-home" class="link-btn" type="button">× やめる</button>
             <p id="play-title" class="play-title"></p>
-            <div class="header-spacer"></div>
           </div>
 
           <p id="play-lap" class="play-lap"></p>
+          <div class="play-progress" aria-label="進み具合">
+            <div class="play-progress-track">
+              <div id="play-progress-fill" class="play-progress-fill"></div>
+            </div>
+            <div id="play-progress-pips" class="play-progress-pips"></div>
+          </div>
 
           <div class="canvas-area">
             <div id="target-char" class="guide-char-base"></div>
@@ -48,9 +52,19 @@
             <p class="stroke-note">さいごまで ていねいに かいてみよう！</p>
           </div>
 
+          <section class="stroke-model" aria-label="書き順のお手本">
+            <div class="stroke-model-head">
+              <p class="stroke-model-title">書き順のお手本</p>
+              <button id="btn-replay-model" class="stroke-model-replay" type="button">もういちど</button>
+            </div>
+            <div id="stroke-model" class="stroke-model-view">読み込み中...</div>
+          </section>
+
           <div class="play-actions">
             <button id="btn-done" class="action-primary" type="button">できた！</button>
+            <button id="btn-read-char" class="action-secondary action-compact" type="button">読む</button>
             <button id="btn-clear" class="link-btn" type="button">もういちど</button>
+            <button id="btn-back-home" class="action-quit" type="button">× やめる</button>
           </div>
         </section>
 
@@ -60,11 +74,11 @@
           <section class="card card-form">
             <h3 class="card-title">あたらしい課題</h3>
             <div class="new-mission-row">
-              <input id="p-word" type="text" placeholder="ひらがな・カタカナ" class="text-input" />
+              <input id="p-word" type="text" placeholder="れんしゅうしたい文字" class="text-input" />
               <input id="p-count" type="number" min="1" max="20" value="1" class="count-input" />
               <button id="btn-add-mission" type="button" class="action-secondary">追加</button>
             </div>
-            <p id="add-error" class="error-text hidden">ひらがな・カタカナと回数(1-20)を入力してね！</p>
+            <p id="add-error" class="error-text hidden">文字と回数(1-20)を入力してね！</p>
           </section>
 
           <section class="card card-calendar">
@@ -84,6 +98,20 @@
           </section>
 
           <h3 class="history-title">れんしゅうのきろく</h3>
+          <section class="card storage-card">
+            <h4 class="card-subtitle">保存状況</h4>
+            <p id="storage-summary" class="storage-summary"></p>
+            <div class="storage-actions">
+              <button id="btn-prune-old-history" type="button" class="action-warning">古い10件を削除</button>
+              <button id="btn-download-all-images" type="button" class="action-secondary action-compact">
+                画像を一括DL
+              </button>
+              <button id="btn-download-all-videos" type="button" class="action-secondary action-compact">
+                動画を一括DL
+              </button>
+            </div>
+            <button id="btn-reset-data" type="button" class="action-danger">データをリセット</button>
+          </section>
           <div id="history-grid" class="history-grid"></div>
         </section>
       </main>

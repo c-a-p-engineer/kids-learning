@@ -1,8 +1,6 @@
 import { DEFAULT_MISSIONS, STORAGE_KEYS } from "./constants";
 import type { ActiveState, AppState, HistoryEntry, Mission, Point } from "./types";
 
-const KANA_PATTERN = /^[ぁ-んァ-ンー]+$/;
-
 const DEFAULT_ACTIVE: ActiveState = {
   missionIdx: -1,
   charIdx: 0,
@@ -64,7 +62,7 @@ function toMission(value: unknown, index: number): Mission | null {
 
   const raw = value as Partial<Mission> & { word?: unknown; count?: unknown; current?: unknown };
   if (typeof raw.word !== "string") return null;
-  if (!KANA_PATTERN.test(raw.word)) return null;
+  if (raw.word.trim().length === 0) return null;
 
   const count = Number.isFinite(raw.count) ? Math.max(1, Math.floor(Number(raw.count))) : 1;
   const current = Number.isFinite(raw.current) ? Math.max(0, Math.floor(Number(raw.current))) : 0;
@@ -104,7 +102,7 @@ export function loadState(): AppState {
 
 export function saveState(state: AppState): void {
   localStorage.setItem(STORAGE_KEYS.missions, JSON.stringify(state.missions));
-  localStorage.setItem(STORAGE_KEYS.history, JSON.stringify(state.history.slice(0, 100)));
+  localStorage.setItem(STORAGE_KEYS.history, JSON.stringify(state.history));
 }
 
 export function createMission(word: string, count: number): Mission {
@@ -121,5 +119,5 @@ export function createMission(word: string, count: number): Mission {
 }
 
 export function isValidMissionWord(word: string): boolean {
-  return KANA_PATTERN.test(word);
+  return word.trim().length > 0;
 }

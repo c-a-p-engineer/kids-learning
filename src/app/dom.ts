@@ -20,9 +20,14 @@ export interface AppDom {
   backHomeButton: HTMLButtonElement;
   playTitle: HTMLElement;
   playLap: HTMLElement;
+  playProgressFill: HTMLElement;
+  playProgressPips: HTMLElement;
   targetChar: HTMLElement;
   strokeBadge: HTMLElement;
+  strokeModel: HTMLElement;
+  replayModelButton: HTMLButtonElement;
   doneButton: HTMLButtonElement;
+  readCharButton: HTMLButtonElement;
   clearButton: HTMLButtonElement;
   guideCanvas: HTMLCanvasElement;
   drawCanvas: HTMLCanvasElement;
@@ -36,6 +41,11 @@ export interface AppDom {
   calendarLogList: HTMLElement;
   calendarPrevButton: HTMLButtonElement;
   calendarNextButton: HTMLButtonElement;
+  storageSummary: HTMLElement;
+  pruneOldHistoryButton: HTMLButtonElement;
+  downloadAllImagesButton: HTMLButtonElement;
+  downloadAllVideosButton: HTMLButtonElement;
+  resetDataButton: HTMLButtonElement;
   historyGrid: HTMLElement;
   replayOverlay: HTMLElement;
   replayTitle: HTMLElement;
@@ -59,9 +69,14 @@ export function getDom(): AppDom {
     backHomeButton: byId<HTMLButtonElement>("btn-back-home"),
     playTitle: byId<HTMLElement>("play-title"),
     playLap: byId<HTMLElement>("play-lap"),
+    playProgressFill: byId<HTMLElement>("play-progress-fill"),
+    playProgressPips: byId<HTMLElement>("play-progress-pips"),
     targetChar: byId<HTMLElement>("target-char"),
     strokeBadge: byId<HTMLElement>("stroke-badge"),
+    strokeModel: byId<HTMLElement>("stroke-model"),
+    replayModelButton: byId<HTMLButtonElement>("btn-replay-model"),
     doneButton: byId<HTMLButtonElement>("btn-done"),
+    readCharButton: byId<HTMLButtonElement>("btn-read-char"),
     clearButton: byId<HTMLButtonElement>("btn-clear"),
     guideCanvas: byId<HTMLCanvasElement>("guide-canvas"),
     drawCanvas: byId<HTMLCanvasElement>("draw-canvas"),
@@ -75,6 +90,11 @@ export function getDom(): AppDom {
     calendarLogList: byId<HTMLElement>("calendar-log-list"),
     calendarPrevButton: byId<HTMLButtonElement>("btn-calendar-prev"),
     calendarNextButton: byId<HTMLButtonElement>("btn-calendar-next"),
+    storageSummary: byId<HTMLElement>("storage-summary"),
+    pruneOldHistoryButton: byId<HTMLButtonElement>("btn-prune-old-history"),
+    downloadAllImagesButton: byId<HTMLButtonElement>("btn-download-all-images"),
+    downloadAllVideosButton: byId<HTMLButtonElement>("btn-download-all-videos"),
+    resetDataButton: byId<HTMLButtonElement>("btn-reset-data"),
     historyGrid: byId<HTMLElement>("history-grid"),
     replayOverlay: byId<HTMLElement>("replay-overlay"),
     replayTitle: byId<HTMLElement>("replay-char"),

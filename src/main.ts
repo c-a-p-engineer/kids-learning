@@ -1,20 +1,12 @@
 import "./styles/main.scss";
 
-import { CANVAS_SIZE, STROKE_COLORS } from "./app/constants";
+import { CANVAS_SIZE, DEFAULT_MISSIONS, STORAGE_KEYS, STROKE_COLORS } from "./app/constants";
 import { WritingCanvas } from "./app/canvas";
 import { getDom } from "./app/dom";
 import { ViewRouter } from "./app/router";
 import { createMission, isValidMissionWord, loadState, saveState } from "./app/store";
-import type { HistoryEntry, LearningContent, Mission } from "./app/types";
-
-const LEARNING_CONTENTS: LearningContent[] = [
-  {
-    id: "hirakana-master",
-    title: "ひらカナマスター",
-    description: "ひらがな・カタカナの手書きれんしゅう",
-    tags: ["国語", "文字", "手書き"],
-  },
-];
+import { LEARNING_CONTENTS } from "./contents";
+import type { HistoryEntry, Mission, ViewId } from "./app/types";
 
 const dom = getDom();
 const router = new ViewRouter({
@@ -25,12 +17,106 @@ const router = new ViewRouter({
   homeView: dom.homeView,
   playView: dom.playView,
   parentView: dom.parentView,
-});
+}, LEARNING_CONTENTS.map((content) => content.id));
 
 const state = loadState();
 const writingCanvas = new WritingCanvas(dom.drawCanvas, dom.guideCanvas);
 let calendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 let selectedCalendarDateKey: string | null = null;
+let strokeModelRequestId = 0;
+let lastStrokeModelSvg: string | null = null;
+let bulkDownloadRunning = false;
+let activeContentId: string | null = null;
+
+const ANIM_CJK_BASE_URL = "https://cdn.jsdelivr.net/gh/parsimonhi/animCJK";
+
+function getAnimCjkUrls(char: string): string[] {
+  const codePoint = char.codePointAt(0);
+  if (typeof codePoint !== "number") return [];
+
+  const isKana =
+    (codePoint >= 0x3040 && codePoint <= 0x30ff) ||
+    (codePoint >= 0x31f0 && codePoint <= 0x31ff) ||
+    (codePoint >= 0xff66 && codePoint <= 0xff9d);
+
+  if (isKana) {
+    return [`${ANIM_CJK_BASE_URL}/svgsJaKana/${codePoint}.svg`, `${ANIM_CJK_BASE_URL}/svgsJa/${codePoint}.svg`];
+  }
+
+  return [`${ANIM_CJK_BASE_URL}/svgsJa/${codePoint}.svg`];
+}
+
+function sanitizeAnimCjkSvg(svg: string): string | null {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(svg, "image/svg+xml");
+  const parseError = doc.querySelector("parsererror");
+  if (parseError) return null;
+
+  const svgNode = doc.documentElement;
+  if (svgNode.tagName.toLowerCase() !== "svg") return null;
+
+  doc.querySelectorAll("script,foreignObject").forEach((node) => node.remove());
+
+  const elements = doc.querySelectorAll("*");
+  elements.forEach((element) => {
+    Array.from(element.attributes).forEach((attr) => {
+      if (attr.name.toLowerCase().startsWith("on")) {
+        element.removeAttribute(attr.name);
+      }
+    });
+  });
+
+  return svgNode.outerHTML;
+}
+
+async function renderStrokeModel(char: string): Promise<void> {
+  const requestId = ++strokeModelRequestId;
+  lastStrokeModelSvg = null;
+  dom.strokeModel.textContent = "お手本を読み込み中...";
+  dom.strokeModel.classList.remove("stroke-model-view--error");
+
+  const urls = getAnimCjkUrls(char);
+  if (urls.length === 0) {
+    dom.strokeModel.textContent = "お手本データがありません";
+    dom.strokeModel.classList.add("stroke-model-view--error");
+    return;
+  }
+
+  for (const url of urls) {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) continue;
+
+      const rawSvg = await response.text();
+      const sanitizedSvg = sanitizeAnimCjkSvg(rawSvg);
+      if (!sanitizedSvg) continue;
+      if (requestId !== strokeModelRequestId) return;
+
+      lastStrokeModelSvg = sanitizedSvg;
+      dom.strokeModel.innerHTML = sanitizedSvg;
+      dom.strokeModel.classList.remove("stroke-model-view--error");
+      return;
+    } catch {
+      // network error; try the next URL
+    }
+  }
+
+  if (requestId !== strokeModelRequestId) return;
+  dom.strokeModel.textContent = "通信エラーでお手本を表示できませんでした";
+  dom.strokeModel.classList.add("stroke-model-view--error");
+}
+
+function replayStrokeModel(): void {
+  if (lastStrokeModelSvg) {
+    dom.strokeModel.innerHTML = lastStrokeModelSvg;
+    dom.strokeModel.classList.remove("stroke-model-view--error");
+    return;
+  }
+
+  const currentChar = getActiveChar();
+  if (!currentChar) return;
+  void renderStrokeModel(currentChar);
+}
 
 function toDateKey(timestamp: number): string {
   const d = new Date(timestamp);
@@ -53,6 +139,24 @@ function formatTime(timestamp: number): string {
   const h = String(d.getHours()).padStart(2, "0");
   const m = String(d.getMinutes()).padStart(2, "0");
   return `${h}:${m}`;
+}
+
+function getByteSize(value: string): number {
+  return new TextEncoder().encode(value).length;
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function renderStorageSummary(): void {
+  const missionsRaw = localStorage.getItem(STORAGE_KEYS.missions) ?? JSON.stringify(state.missions);
+  const historyRaw = localStorage.getItem(STORAGE_KEYS.history) ?? JSON.stringify(state.history);
+  const usedBytes = getByteSize(missionsRaw) + getByteSize(historyRaw);
+  const entryCount = state.history.length;
+  dom.storageSummary.textContent = `保存中: ${entryCount}文字 / 現在の使用容量: ${formatBytes(usedBytes)}`;
 }
 
 function getMissionById(missionId: string): Mission | null {
@@ -131,6 +235,8 @@ function renderHistory(): void {
       `;
     })
     .join("");
+
+  renderStorageSummary();
 }
 
 function renderCalendarLog(entries: HistoryEntry[]): void {
@@ -215,10 +321,32 @@ function updateStrokeBadge(): void {
   dom.strokeBadge.style.backgroundColor = STROKE_COLORS[index % STROKE_COLORS.length];
 }
 
+function updatePlayProgress(): void {
+  const mission = getActiveMission();
+  if (!mission) {
+    dom.playProgressFill.style.width = "0%";
+    dom.playProgressPips.innerHTML = "";
+    return;
+  }
+
+  const total = Math.max(1, mission.word.length);
+  const currentIndex = Math.max(0, Math.min(state.active.charIdx, total - 1));
+  const ratio = (currentIndex + 1) / total;
+
+  dom.playProgressFill.style.width = `${Math.round(ratio * 100)}%`;
+  dom.playProgressPips.innerHTML = Array.from({ length: total }, (_, i) => {
+    const cls =
+      i < currentIndex ? "play-progress-pip play-progress-pip--done" : i === currentIndex
+        ? "play-progress-pip play-progress-pip--current"
+        : "play-progress-pip";
+    return `<span class="${cls}" aria-hidden="true"></span>`;
+  }).join("");
+}
+
 function updatePlayScreen(): void {
   const mission = getActiveMission();
   if (!mission) {
-    router.renderView("home");
+    renderRouteView({ contentId: activeContentId, view: "home" }, true);
     return;
   }
 
@@ -231,7 +359,9 @@ function updatePlayScreen(): void {
   state.active.currentPoints = [];
   writingCanvas.clearDrawing();
   writingCanvas.clearGuide();
+  updatePlayProgress();
   updateStrokeBadge();
+  void renderStrokeModel(currentChar);
   speak(currentChar);
 }
 
@@ -245,8 +375,7 @@ function startMission(missionId: string): void {
   state.active.strokes = [];
   state.active.currentPoints = [];
 
-  router.renderView("play");
-  updatePlayScreen();
+  renderRouteView({ contentId: activeContentId, view: "play" }, true);
 }
 
 function closeReplay(): void {
@@ -268,9 +397,25 @@ function downloadHistoryImage(index: number): void {
   const item = state.history[index];
   if (!item) return;
 
+  downloadHistoryImageEntry(item, index);
+}
+
+function buildHistoryFileStem(entry: HistoryEntry, serial: number): string {
+  const d = new Date(entry.time);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const h = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  const sec = String(d.getSeconds()).padStart(2, "0");
+  const order = String(serial + 1).padStart(3, "0");
+  return `kana_${entry.char}_${y}${m}${day}_${h}${min}${sec}_${order}`;
+}
+
+function downloadHistoryImageEntry(entry: HistoryEntry, serial: number): void {
   const link = document.createElement("a");
-  link.download = `kana_${item.char}.png`;
-  link.href = item.img;
+  link.download = `${buildHistoryFileStem(entry, serial)}.png`;
+  link.href = entry.img;
   link.click();
 }
 
@@ -326,6 +471,10 @@ async function renderStrokeAnimation(
 async function downloadHistoryVideo(index: number): Promise<void> {
   const item = state.history[index];
   if (!item) return;
+  await downloadHistoryVideoEntry(item, index);
+}
+
+async function downloadHistoryVideoEntry(item: HistoryEntry, serial: number): Promise<void> {
   if (!("MediaRecorder" in window)) return;
 
   const canvas = document.createElement("canvas");
@@ -359,10 +508,80 @@ async function downloadHistoryVideo(index: number): Promise<void> {
   const blob = await complete;
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
-  link.download = `kana_${item.char}.webm`;
+  link.download = `${buildHistoryFileStem(item, serial)}.webm`;
   link.href = url;
   link.click();
   URL.revokeObjectURL(url);
+}
+
+function setBulkButtonsDisabled(disabled: boolean): void {
+  dom.downloadAllImagesButton.disabled = disabled;
+  dom.downloadAllVideosButton.disabled = disabled;
+}
+
+function pruneOldHistory(): void {
+  if (state.history.length === 0) return;
+
+  const deleteCount = Math.min(10, state.history.length);
+  const ok = window.confirm(`古い記録を${deleteCount}件削除します。よろしいですか？`);
+  if (!ok) return;
+
+  state.history = state.history.slice(0, state.history.length - deleteCount);
+  saveState(state);
+  closeReplay();
+  renderHistory();
+  renderCalendar();
+}
+
+async function downloadAllHistoryImages(): Promise<void> {
+  if (bulkDownloadRunning) return;
+  const items = state.history;
+  if (items.length === 0) return;
+
+  const ok = window.confirm(
+    `${items.length}件の画像を一括ダウンロードします。ブラウザで複数ダウンロードの許可が必要な場合があります。実行しますか？`,
+  );
+  if (!ok) return;
+
+  bulkDownloadRunning = true;
+  setBulkButtonsDisabled(true);
+  try {
+    for (let i = 0; i < items.length; i += 1) {
+      downloadHistoryImageEntry(items[i], i);
+      await wait(120);
+    }
+  } finally {
+    bulkDownloadRunning = false;
+    setBulkButtonsDisabled(false);
+  }
+}
+
+async function downloadAllHistoryVideos(): Promise<void> {
+  if (bulkDownloadRunning) return;
+  if (typeof MediaRecorder === "undefined") {
+    window.alert("このブラウザは動画保存に対応していません。");
+    return;
+  }
+
+  const items = state.history;
+  if (items.length === 0) return;
+
+  const ok = window.confirm(
+    `${items.length}件の動画を順番に作成してダウンロードします。時間がかかります。実行しますか？`,
+  );
+  if (!ok) return;
+
+  bulkDownloadRunning = true;
+  setBulkButtonsDisabled(true);
+  try {
+    for (let i = 0; i < items.length; i += 1) {
+      await downloadHistoryVideoEntry(items[i], i);
+      await wait(150);
+    }
+  } finally {
+    bulkDownloadRunning = false;
+    setBulkButtonsDisabled(false);
+  }
 }
 
 function clearCurrentCanvas(): void {
@@ -415,7 +634,7 @@ function handleNextChar(): void {
   renderHistory();
   renderCalendar();
   celebrateMissionDone();
-  router.renderView("home");
+  renderRouteView({ contentId: activeContentId, view: "home" }, true);
 }
 
 function addMission(): void {
@@ -423,7 +642,7 @@ function addMission(): void {
   const count = Number.parseInt(dom.parentCountInput.value, 10);
 
   if (!word || !isValidMissionWord(word)) {
-    dom.addError.textContent = "ひらがな・カタカナだけで入力してね！";
+    dom.addError.textContent = "文字を入力してね！";
     dom.addError.classList.remove("hidden");
     return;
   }
@@ -441,15 +660,90 @@ function addMission(): void {
 
   saveState(state);
   renderMissions();
-  router.renderView("home");
+  renderRouteView({ contentId: activeContentId, view: "home" }, true);
 }
 
-function launchContent(contentId: string): void {
-  if (contentId !== "hirakana-master") return;
+function resetAllData(): void {
+  const ok = window.confirm("れんしゅう記録と課題を初期状態に戻します。よろしいですか？");
+  if (!ok) return;
+
+  state.missions = DEFAULT_MISSIONS.map((mission) => ({ ...mission }));
+  state.history = [];
+  state.active.missionIdx = -1;
+  state.active.charIdx = 0;
+  state.active.lap = 1;
+  state.active.strokes = [];
+  state.active.currentPoints = [];
+  selectedCalendarDateKey = null;
+  calendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+
+  writingCanvas.clearDrawing();
+  writingCanvas.clearGuide();
+  dom.targetChar.textContent = "";
+  dom.playTitle.textContent = "";
+  dom.playLap.textContent = "";
+  dom.strokeModel.textContent = "お手本を読み込み中...";
+  dom.strokeModel.classList.remove("stroke-model-view--error");
+  lastStrokeModelSvg = null;
+
+  saveState(state);
+  closeReplay();
   renderMissions();
   renderHistory();
   renderCalendar();
-  router.renderView("home");
+  renderRouteView({ contentId: activeContentId, view: "home" }, true);
+}
+
+function launchContent(contentId: string): void {
+  const content = LEARNING_CONTENTS.find((item) => item.id === contentId);
+  if (!content) return;
+  renderRouteView({ contentId: content.id, view: "home" }, true);
+}
+
+function getFallbackContentId(): string | null {
+  return LEARNING_CONTENTS[0]?.id ?? null;
+}
+
+function renderRouteView(route: { contentId: string | null; view: ViewId }, syncUrl: boolean): void {
+  if (route.view === "portal") {
+    activeContentId = null;
+    closeReplay();
+    router.renderView("portal", { syncUrl, contentId: null });
+    return;
+  }
+
+  const validContentId = LEARNING_CONTENTS.some((content) => content.id === route.contentId)
+    ? route.contentId
+    : getFallbackContentId();
+  if (!validContentId) {
+    activeContentId = null;
+    router.renderView("portal", { syncUrl, contentId: null });
+    return;
+  }
+  activeContentId = validContentId;
+
+  if (route.view === "home") {
+    renderMissions();
+    router.renderView("home", { syncUrl, contentId: validContentId });
+    return;
+  }
+
+  if (route.view === "parent") {
+    renderHistory();
+    renderCalendar();
+    router.renderView("parent", { syncUrl, contentId: validContentId });
+    return;
+  }
+
+  const mission = getActiveMission();
+  if (!mission) {
+    renderMissions();
+    router.renderView("home", { syncUrl, contentId: validContentId });
+    return;
+  }
+
+  router.renderView("play", { syncUrl, contentId: validContentId });
+  updatePlayScreen();
 }
 
 function playCelebrateSound(): void {
@@ -511,30 +805,37 @@ function bindEvents(): void {
   });
 
   dom.homeTab.addEventListener("click", () => {
-    renderMissions();
-    router.renderView("home");
+    renderRouteView({ contentId: activeContentId, view: "home" }, true);
   });
 
   dom.parentTab.addEventListener("click", () => {
-    renderHistory();
-    renderCalendar();
-    router.renderView("parent");
+    renderRouteView({ contentId: activeContentId, view: "parent" }, true);
   });
 
   dom.backPortalButton.addEventListener("click", () => {
-    closeReplay();
-    router.renderView("portal");
+    renderRouteView({ contentId: null, view: "portal" }, true);
   });
 
   dom.backHomeButton.addEventListener("click", () => {
-    renderMissions();
-    router.renderView("home");
+    renderRouteView({ contentId: activeContentId, view: "home" }, true);
   });
 
   dom.doneButton.addEventListener("click", handleNextChar);
+  dom.readCharButton.addEventListener("click", () => {
+    speak(getActiveChar());
+  });
   dom.clearButton.addEventListener("click", clearCurrentCanvas);
+  dom.replayModelButton.addEventListener("click", replayStrokeModel);
 
   dom.addMissionButton.addEventListener("click", addMission);
+  dom.pruneOldHistoryButton.addEventListener("click", pruneOldHistory);
+  dom.downloadAllImagesButton.addEventListener("click", () => {
+    void downloadAllHistoryImages();
+  });
+  dom.downloadAllVideosButton.addEventListener("click", () => {
+    void downloadAllHistoryVideos();
+  });
+  dom.resetDataButton.addEventListener("click", resetAllData);
   dom.parentInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
       event.preventDefault();
@@ -616,6 +917,10 @@ function bindEvents(): void {
     }
   });
 
+  window.addEventListener("popstate", () => {
+    renderRouteView(router.resolveUrlRoute(), false);
+  });
+
   writingCanvas.bindInput({
     getStrokeIndex: () => state.active.strokes.length,
     onStrokeComplete: (points) => {
@@ -632,7 +937,8 @@ function init(): void {
   renderHistory();
   renderCalendar();
   updateStrokeBadge();
-  router.renderView("portal");
+  updatePlayProgress();
+  renderRouteView(router.resolveUrlRoute(), true);
 }
 
 init();
