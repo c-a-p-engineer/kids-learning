@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
     <title>キッズ学習コンテンツ</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
-    <script type="module" crossorigin src="./assets/main-BSs2Otu5.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/main-DbCAfF5f.css">
+    <script type="module" crossorigin src="./assets/main-DH6_iQlv.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/main-z_vDXWF1.css">
   </head>
   <body>
     <div id="app" class="app-shell">
@@ -23,11 +23,20 @@
         </section>
 
         <section id="view-home" class="view scrollable hidden" aria-label="ミッション一覧">
-          <div class="home-header-row">
-            <h2 class="page-title">どれにする？</h2>
-            <button id="btn-back-portal" class="link-btn" type="button">← 一覧にもどる</button>
+          <div id="kakitori-home" class="home-content">
+            <div class="home-header-row">
+              <h2 class="page-title">どれにする？</h2>
+              <button id="btn-back-portal" class="link-btn" type="button">← 一覧にもどる</button>
+            </div>
+            <div id="mission-list" class="mission-list"></div>
           </div>
-          <div id="mission-list" class="mission-list"></div>
+          <div id="dotburst-home" class="home-content hidden">
+            <div class="home-header-row">
+              <h2 class="page-title">ドットバースト</h2>
+              <button id="btn-dotburst-back-portal" class="link-btn" type="button">← 一覧にもどる</button>
+            </div>
+            <div id="dotburst-root" class="dotburst-root"></div>
+          </div>
         </section>
 
         <section id="view-play" class="view hidden play-view" aria-label="れんしゅう画面">
