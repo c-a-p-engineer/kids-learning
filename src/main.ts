@@ -10,6 +10,8 @@ import { DOTBURST_CONTENT } from "./contents/dotburst";
 import { DotBurstGame } from "./contents/dotburst-game";
 import type { HistoryEntry, Mission, ViewId } from "./app/types";
 
+type PortalTheme = "warm" | "cool" | "fancy" | "cyber";
+
 function applyGithubPagesRedirectPath(): void {
   const url = new URL(window.location.href);
   const redirect = url.searchParams.get("redirect");
@@ -39,6 +41,14 @@ let lastStrokeModelSvg: string | null = null;
 let bulkDownloadRunning = false;
 let activeContentId: string | null = null;
 const dotBurstGame = new DotBurstGame(dom.dotburstRoot);
+const UI_THEME_STORAGE_KEY = "ui_theme_v1";
+let portalTheme: PortalTheme = loadPortalTheme();
+const themeButtons: Record<PortalTheme, HTMLButtonElement> = {
+  warm: dom.themeWarmButton,
+  cool: dom.themeCoolButton,
+  fancy: dom.themeFancyButton,
+  cyber: dom.themeCyberButton,
+};
 
 const ANIM_CJK_BASE_URL = "https://cdn.jsdelivr.net/gh/parsimonhi/animCJK";
 
@@ -196,6 +206,28 @@ function renderContentList(): void {
       </button>
     `,
   ).join("");
+}
+
+function loadPortalTheme(): PortalTheme {
+  const saved = localStorage.getItem(UI_THEME_STORAGE_KEY);
+  if (saved === "warm" || saved === "cool" || saved === "fancy" || saved === "cyber") {
+    return saved;
+  }
+  if (saved === "girls") return "fancy";
+  if (saved === "boys") return "warm";
+  return "warm";
+}
+
+function applyPortalTheme(theme: PortalTheme): void {
+  portalTheme = theme;
+  document.body.dataset.theme = theme;
+  localStorage.setItem(UI_THEME_STORAGE_KEY, theme);
+  (Object.keys(themeButtons) as PortalTheme[]).forEach((key) => {
+    const button = themeButtons[key];
+    const active = key === theme;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
 }
 
 function setHomeContentVisibility(contentId: string): void {
@@ -839,6 +871,10 @@ function bindEvents(): void {
   dom.homeTab.addEventListener("click", () => {
     renderRouteView({ contentId: activeContentId, view: "home" }, true);
   });
+  dom.themeWarmButton.addEventListener("click", () => applyPortalTheme("warm"));
+  dom.themeCoolButton.addEventListener("click", () => applyPortalTheme("cool"));
+  dom.themeFancyButton.addEventListener("click", () => applyPortalTheme("fancy"));
+  dom.themeCyberButton.addEventListener("click", () => applyPortalTheme("cyber"));
 
   dom.parentTab.addEventListener("click", () => {
     renderRouteView({ contentId: activeContentId, view: "parent" }, true);
@@ -966,6 +1002,7 @@ function bindEvents(): void {
 }
 
 function init(): void {
+  applyPortalTheme(portalTheme);
   bindEvents();
   renderContentList();
   renderMissions();

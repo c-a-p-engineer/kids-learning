@@ -9,6 +9,10 @@ function byId<T extends HTMLElement>(id: string): T {
 export interface AppDom {
   gameTabs: HTMLElement;
   contentList: HTMLElement;
+  themeWarmButton: HTMLButtonElement;
+  themeCoolButton: HTMLButtonElement;
+  themeFancyButton: HTMLButtonElement;
+  themeCyberButton: HTMLButtonElement;
   homeTab: HTMLButtonElement;
   parentTab: HTMLButtonElement;
   portalView: HTMLElement;
@@ -62,6 +66,10 @@ export function getDom(): AppDom {
   return {
     gameTabs: byId<HTMLElement>("game-tabs"),
     contentList: byId<HTMLElement>("content-list"),
+    themeWarmButton: byId<HTMLButtonElement>("btn-theme-warm"),
+    themeCoolButton: byId<HTMLButtonElement>("btn-theme-cool"),
+    themeFancyButton: byId<HTMLButtonElement>("btn-theme-fancy"),
+    themeCyberButton: byId<HTMLButtonElement>("btn-theme-cyber"),
     homeTab: byId<HTMLButtonElement>("tab-home"),
     parentTab: byId<HTMLButtonElement>("tab-parent"),
     portalView: byId<HTMLElement>("view-portal"),

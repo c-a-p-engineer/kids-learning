@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DOT BURST - COMPLETE</title>
+    <style>
+        :root {
+            /* COOL THEME (Default) */
+            --bg: #05050a;
+            --panel: rgba(20, 20, 40, 0.8);
+            --text: #00ffff;
+            --accent-ok: #39ff14;
+            --accent-ng: #ff00ff;
+            --dot-color: #00ffff;
+            --btn-bg: rgba(0, 255, 255, 0.1);
+            --font: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        .theme-cute {
+            --bg: #fff0f5;
+            --panel: rgba(255, 255, 255, 0.9);
+            --text: #ff69b4;
+            --accent-ok: #ff8c00;
+            --accent-ng: #ff1493;
+            --dot-color: #ff69b4;
+            --btn-bg: #ffffff;
+            --font: 'Hiragino Maru Gothic ProN', 'Meiryo', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            margin: 0; padding: 0;
+            font-family: var(--font);
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex; justify-content: center;
+            height: 100dvh; overflow: hidden; user-select: none;
+            transition: background 0.3s ease;
+        }
+
+        #game-container {
+            width: 100%; max-width: 500px;
+            display: flex; flex-direction: column;
+            position: relative;
+            background: var(--bg);
+        }
+
+        /* ヘッダー */
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px 15px; height: 50px;
+        }
+        .time-display { font-size: 24px; font-weight: bold; }
+        .score-display { font-size: 16px; opacity: 0.8; }
+
+        /* 統計エリア */
+        .stats-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            gap: 2px; background: var(--text); border-top: 2px solid var(--text); border-bottom: 2px solid var(--text);
+        }
+        .stat-item { background: var(--bg); text-align: center; padding: 4px 0; }
+        .stat-emoji { font-size: 18px; display: block; }
+        .stat-val { font-size: 30px; font-weight: 900; display: block; line-height: 1.1; }
+        #live-ok { color: var(--accent-ok); }
+        #live-ng { color: var(--accent-ng); }
+
+        /* メインキャンバス */
+        #display-area {
+            flex-grow: 1; position: relative;
+            margin: 10px; border-radius: 20px;
+            background: var(--panel); border: 3px solid var(--text);
+            overflow: hidden;
+        }
+
+        .dot {
+            position: absolute; width: 55px; height: 55px;
+            background: radial-gradient(circle, #fff 0%, var(--dot-color) 50%, transparent 80%);
+            border-radius: 50%; transform: scale(0);
+        }
+        .dot.show { animation: pop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.2) forwards; }
+        @keyframes pop { to { transform: scale(1); } }
+
+        /* キーパッド */
+        #input-grid {
+            display: grid; grid-template-columns: repeat(5, 1fr);
+            gap: 8px; padding: 10px 15px 15px 15px;
+        }
+        .num-btn {
+            aspect-ratio: 1/1; border: 3px solid var(--text);
+            background: var(--btn-bg); color: var(--text);
+            font-size: 28px; font-weight: bold; border-radius: 15px;
+            cursor: pointer;
+        }
+        .num-btn:active { transform: scale(0.92); background: var(--text); color: var(--bg); }
+
+        /* モーダル */
+        .modal {
+            position: absolute; inset: 0;
+            background: var(--bg); display: flex;
+            flex-direction: column; justify-content: center;
+            align-items: center; z-index: 200; padding: 20px;
+            text-align: center;
+        }
+
+        .title-area { margin-bottom: 15px; }
+        .main-title { font-size: 38px; margin: 0; font-weight: 900; }
+        
+        .style-toggle-box {
+            display: flex; background: var(--btn-bg); border: 2px solid var(--text);
+            border-radius: 30px; margin-bottom: 25px; overflow: hidden;
+        }
+        .style-btn {
+            padding: 8px 18px; border: none; background: transparent;
+            color: var(--text); font-weight: bold; cursor: pointer; font-size: 14px;
+        }
+        .style-btn.active { background: var(--text); color: var(--bg); }
+
+        .menu-btn {
+            width: 85%; padding: 16px; font-size: 20px; margin: 8px;
+            border: 3px solid var(--text); border-radius: 20px;
+            background: var(--btn-bg); color: var(--text); font-weight: bold;
+            font-family: inherit;
+        }
+
+        /* 履歴リスト */
+        .history-box {
+            width: 100%; max-height: 40vh; overflow-y: auto;
+            border: 2px solid var(--text); margin: 15px 0; border-radius: 10px;
+        }
+        .h-item {
+            display: grid; grid-template-columns: 1.5fr 1fr 0.8fr 0.8fr;
+            padding: 12px 8px; border-bottom: 1px solid rgba(128,128,128,0.3); font-size: 13px;
+        }
+
+        #feedback {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%); font-size: 100px;
+            opacity: 0; pointer-events: none; z-index: 100;
+        }
+        .fb-anim { animation: fb 0.4s ease-out; }
+        @keyframes fb {
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+            50% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+            100% { opacity: 0; transform: translate(-50%, -50%) scale(1.3); }
+        }
+    </style>
+</head>
+<body id="body">
+
+<div id="game-container">
+    <div class="header">
+        <div class="time-display">⏳<span id="time-val">30.0</span></div>
+        <div class="score-display">✨<span id="score-val">0</span></div>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-item"><span class="stat-emoji">⭕</span><span id="live-ok" class="stat-val">0</span></div>
+        <div class="stat-item"><span class="stat-emoji">❌</span><span id="live-ng" class="stat-val">0</span></div>
+        <div class="stat-item"><span class="stat-emoji">🔥</span><span id="live-combo" class="stat-val">0</span></div>
+    </div>
+
+    <div id="display-area">
+        <div id="dots-container"></div>
+        <div id="feedback">⭕</div>
+    </div>
+
+    <div id="input-grid"></div>
+
+    <!-- スタート画面 (ホーム) -->
+    <div id="start-modal" class="modal">
+        <div class="title-area">
+            <div id="title-emoji" style="font-size: 50px;">👾</div>
+            <h1 class="main-title">DOT BURST</h1>
+        </div>
+
+        <div class="style-toggle-box">
+            <button id="btn-cyber" class="style-btn active" onclick="setTheme('cyber')">かっこいい</button>
+            <button id="btn-cute" class="style-btn" onclick="setTheme('cute')">かわいい</button>
+        </div>
+
+        <button class="menu-btn" onclick="startGame('BEGINNER')">🐣 かんたん (1-5)</button>
+        <button class="menu-btn" onclick="startGame('NORMAL')">🦁 ふつう (1-10)</button>
+        <button class="menu-btn" style="font-size: 16px; border:none; text-decoration: underline;" onclick="toggleModal('history-modal', true)">📜 記録をみる</button>
+    </div>
+
+    <!-- リザルト画面 -->
+    <div id="result-modal" class="modal" style="display: none;">
+        <div style="font-size: 50px;">🏆</div>
+        <h2 style="margin: 5px 0;">おしまい！</h2>
+        
+        <div style="margin: 10px 0;">
+            <div style="font-size: 14px; opacity: 0.8;">今回のスコア</div>
+            <div id="final-score" style="font-size: 52px; font-weight: 900; line-height: 1;">0</div>
+        </div>
+
+        <div style="width: 80%; display: flex; justify-content: space-around; margin: 15px 0; font-size: 20px; background: rgba(128,128,128,0.1); padding: 10px; border-radius: 10px;">
+            <div>⭕ <span id="res-ok">0</span></div>
+            <div>❌ <span id="res-ng">0</span></div>
+        </div>
+
+        <div id="best-score-label" style="font-size: 14px; color: var(--accent-ok); margin-bottom: 20px;"></div>
+
+        <button class="menu-btn" onclick="goHome()">🏠 ホームにもどる</button>
+    </div>
+
+    <!-- 履歴画面 -->
+    <div id="history-modal" class="modal" style="display: none;">
+        <h2 style="margin-top: 0;">📜 これまでの記録</h2>
+        <div class="history-box" id="history-list"></div>
+        <button class="menu-btn" onclick="toggleModal('history-modal', false)">もどる</button>
+    </div>
+</div>
+
+<script>
+    let audioCtx = null;
+    let gameActive = false;
+    let currentLevel = 'NORMAL';
+    let score = 0, ok = 0, ng = 0, combo = 0;
+    let startTime = 0, duration = 30000;
+    let currentCount = 0;
+    let timerId = null;
+
+    // テーマ設定
+    function setTheme(theme) {
+        const body = document.getElementById('body');
+        const cyberBtn = document.getElementById('btn-cyber');
+        const cuteBtn = document.getElementById('btn-cute');
+        const emoji = document.getElementById('title-emoji');
+
+        if(theme === 'cute') {
+            body.classList.add('theme-cute');
+            cuteBtn.classList.add('active');
+            cyberBtn.classList.remove('active');
+            emoji.textContent = '🐰';
+        } else {
+            body.classList.remove('theme-cute');
+            cyberBtn.classList.add('active');
+            cuteBtn.classList.remove('active');
+            emoji.textContent = '👾';
+        }
+    }
+
+    function toggleModal(id, show) {
+        document.getElementById(id).style.display = show ? 'flex' : 'none';
+        if(id === 'history-modal' && show) renderHistory();
+    }
+
+    // ホームへ戻る
+    function goHome() {
+        toggleModal('result-modal', false);
+        toggleModal('start-modal', true);
+        resetGameStats();
+    }
+
+    function resetGameStats() {
+        score = 0; ok = 0; ng = 0; combo = 0;
+        document.getElementById('time-val').textContent = "30.0";
+        updateUI();
+    }
+
+    // ゲーム開始
+    function startGame(lv) {
+        currentLevel = lv;
+        if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        toggleModal('start-modal', false);
+        resetGameStats();
+        gameActive = true;
+        initButtons();
+        startTime = performance.now();
+        tick();
+        nextQuestion();
+    }
+
+    function initButtons() {
+        const grid = document.getElementById('input-grid');
+        grid.innerHTML = '';
+        const max = currentLevel === 'BEGINNER' ? 5 : 10;
+        for(let i=1; i<=max; i++) {
+            const b = document.createElement('button');
+            b.className = 'num-btn';
+            b.textContent = i;
+            b.onclick = () => check(i);
+            grid.appendChild(b);
+        }
+    }
+
+    function tick() {
+        if(!gameActive) return;
+        const diff = duration - (performance.now() - startTime);
+        if(diff <= 0) {
+            endGame();
+        } else {
+            document.getElementById('time-val').textContent = (diff/1000).toFixed(1);
+            timerId = requestAnimationFrame(tick);
+        }
+    }
+
+    function nextQuestion() {
+        const container = document.getElementById('dots-container');
+        container.innerHTML = '';
+        const max = currentLevel === 'BEGINNER' ? 5 : 10;
+        currentCount = Math.floor(Math.random() * max) + 1;
+        
+        const rect = document.getElementById('display-area').getBoundingClientRect();
+        const dots = [];
+        for(let i=0; i<currentCount; i++) {
+            let x, y, safe = 0;
+            while(safe < 50) {
+                x = Math.random() * (rect.width - 65) + 5;
+                y = Math.random() * (rect.height - 65) + 5;
+                if(!dots.some(d => Math.hypot(d.x - x, d.y - y) < 60)) break;
+                safe++;
+            }
+            dots.push({x, y});
+            const d = document.createElement('div');
+            d.className = 'dot';
+            d.style.left = x + 'px';
+            d.style.top = y + 'px';
+            container.appendChild(d);
+            setTimeout(() => d.classList.add('show'), i * 30);
+        }
+    }
+
+    function check(n) {
+        if(!gameActive) return;
+        if(n === currentCount) {
+            ok++; combo++;
+            score += 100 * combo;
+            beep(440 + (combo * 30), 'sine');
+            showFeedback('⭕', 'var(--accent-ok)');
+        } else {
+            ng++; combo = 0;
+            beep(140, 'square');
+            showFeedback('❌', 'var(--accent-ng)');
+        }
+        updateUI();
+        nextQuestion();
+    }
+
+    function showFeedback(txt, col) {
+        const fb = document.getElementById('feedback');
+        fb.textContent = txt;
+        fb.style.color = col;
+        fb.classList.remove('fb-anim');
+        void fb.offsetWidth;
+        fb.classList.add('fb-anim');
+    }
+
+    function updateUI() {
+        document.getElementById('live-ok').textContent = ok;
+        document.getElementById('live-ng').textContent = ng;
+        document.getElementById('live-combo').textContent = combo;
+        document.getElementById('score-val').textContent = score.toLocaleString();
+    }
+
+    function beep(f, type) {
+        if(!audioCtx) return;
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.type = type; o.frequency.value = f;
+        g.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+        o.connect(g); g.connect(audioCtx.destination);
+        o.start(); o.stop(audioCtx.currentTime + 0.2);
+    }
+
+    function endGame() {
+        gameActive = false;
+        cancelAnimationFrame(timerId);
+        
+        // スコア保存
+        const best = saveRecord(score, ok, ng);
+        
+        document.getElementById('final-score').textContent = score.toLocaleString();
+        document.getElementById('res-ok').textContent = ok;
+        document.getElementById('res-ng').textContent = ng;
+        
+        const bestLabel = document.getElementById('best-score-label');
+        bestLabel.textContent = score >= best ? "🎉 じこベストこうしん！" : `ベストきろく: ${best.toLocaleString()}`;
+        
+        toggleModal('result-modal', true);
+    }
+
+    function saveRecord(s, o, n) {
+        const h = JSON.parse(localStorage.getItem('dot_burst_v8') || '[]');
+        const d = new Date();
+        const ds = `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`;
+        h.unshift({s, o, n, d: ds});
+        localStorage.setItem('dot_burst_v8', JSON.stringify(h.slice(0, 50)));
+        
+        // ベストスコアを計算して返す
+        return Math.max(...h.map(item => item.s));
+    }
+
+    function renderHistory() {
+        const h = JSON.parse(localStorage.getItem('dot_burst_v8') || '[]');
+        const list = document.getElementById('history-list');
+        list.innerHTML = h.length ? '' : '<div style="padding:40px; text-align:center;">きろくがありません</div>';
+        h.forEach(i => {
+            const div = document.createElement('div');
+            div.className = 'h-item';
+            div.innerHTML = `<div>${i.d}</div><div style="font-weight:bold; color:var(--text)">${i.s.toLocaleString()}</div><div style="color:var(--accent-ok)">⭕${i.o}</div><div style="color:var(--accent-ng)">❌${i.n}</div>`;
+            list.appendChild(div);
+        });
+    }
+</script>
+</body>
+</html>
