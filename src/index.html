@@ -21,11 +21,20 @@
         </section>
 
         <section id="view-home" class="view scrollable hidden" aria-label="ミッション一覧">
-          <div class="home-header-row">
-            <h2 class="page-title">どれにする？</h2>
-            <button id="btn-back-portal" class="link-btn" type="button">← 一覧にもどる</button>
+          <div id="kakitori-home" class="home-content">
+            <div class="home-header-row">
+              <h2 class="page-title">どれにする？</h2>
+              <button id="btn-back-portal" class="link-btn" type="button">← 一覧にもどる</button>
+            </div>
+            <div id="mission-list" class="mission-list"></div>
           </div>
-          <div id="mission-list" class="mission-list"></div>
+          <div id="dotburst-home" class="home-content hidden">
+            <div class="home-header-row">
+              <h2 class="page-title">ドットバースト</h2>
+              <button id="btn-dotburst-back-portal" class="link-btn" type="button">← 一覧にもどる</button>
+            </div>
+            <div id="dotburst-root" class="dotburst-root"></div>
+          </div>
         </section>
 
         <section id="view-play" class="view hidden play-view" aria-label="れんしゅう画面">

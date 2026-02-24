@@ -6,6 +6,8 @@ import { getDom } from "./app/dom";
 import { ViewRouter } from "./app/router";
 import { createMission, isValidMissionWord, loadState, saveState } from "./app/store";
 import { LEARNING_CONTENTS } from "./contents";
+import { DOTBURST_CONTENT } from "./contents/dotburst";
+import { DotBurstGame } from "./contents/dotburst-game";
 import type { HistoryEntry, Mission, ViewId } from "./app/types";
 
 function applyGithubPagesRedirectPath(): void {
@@ -36,6 +38,7 @@ let strokeModelRequestId = 0;
 let lastStrokeModelSvg: string | null = null;
 let bulkDownloadRunning = false;
 let activeContentId: string | null = null;
+const dotBurstGame = new DotBurstGame(dom.dotburstRoot);
 
 const ANIM_CJK_BASE_URL = "https://cdn.jsdelivr.net/gh/parsimonhi/animCJK";
 
@@ -193,6 +196,13 @@ function renderContentList(): void {
       </button>
     `,
   ).join("");
+}
+
+function setHomeContentVisibility(contentId: string): void {
+  const isDotBurst = contentId === DOTBURST_CONTENT.id;
+  dom.kakitoriHome.classList.toggle("hidden", isDotBurst);
+  dom.dotburstHome.classList.toggle("hidden", !isDotBurst);
+  dom.gameTabs.classList.toggle("hidden", isDotBurst);
 }
 
 function renderMissions(): void {
@@ -716,6 +726,7 @@ function getFallbackContentId(): string | null {
 function renderRouteView(route: { contentId: string | null; view: ViewId }, syncUrl: boolean): void {
   if (route.view === "portal") {
     activeContentId = null;
+    dotBurstGame.hide();
     closeReplay();
     router.renderView("portal", { syncUrl, contentId: null });
     return;
@@ -726,10 +737,22 @@ function renderRouteView(route: { contentId: string | null; view: ViewId }, sync
     : getFallbackContentId();
   if (!validContentId) {
     activeContentId = null;
+    dotBurstGame.hide();
     router.renderView("portal", { syncUrl, contentId: null });
     return;
   }
   activeContentId = validContentId;
+  setHomeContentVisibility(validContentId);
+
+  if (validContentId === DOTBURST_CONTENT.id) {
+    closeReplay();
+    router.renderView("home", { syncUrl, contentId: validContentId });
+    setHomeContentVisibility(validContentId);
+    dotBurstGame.show();
+    return;
+  }
+
+  dotBurstGame.hide();
 
   if (route.view === "home") {
     renderMissions();
@@ -822,6 +845,9 @@ function bindEvents(): void {
   });
 
   dom.backPortalButton.addEventListener("click", () => {
+    renderRouteView({ contentId: null, view: "portal" }, true);
+  });
+  dom.dotburstBackPortalButton.addEventListener("click", () => {
     renderRouteView({ contentId: null, view: "portal" }, true);
   });
 

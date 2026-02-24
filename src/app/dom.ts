@@ -13,10 +13,14 @@ export interface AppDom {
   parentTab: HTMLButtonElement;
   portalView: HTMLElement;
   homeView: HTMLElement;
+  kakitoriHome: HTMLElement;
+  dotburstHome: HTMLElement;
+  dotburstRoot: HTMLElement;
   playView: HTMLElement;
   parentView: HTMLElement;
   missionList: HTMLElement;
   backPortalButton: HTMLButtonElement;
+  dotburstBackPortalButton: HTMLButtonElement;
   backHomeButton: HTMLButtonElement;
   playTitle: HTMLElement;
   playLap: HTMLElement;
@@ -62,10 +66,14 @@ export function getDom(): AppDom {
     parentTab: byId<HTMLButtonElement>("tab-parent"),
     portalView: byId<HTMLElement>("view-portal"),
     homeView: byId<HTMLElement>("view-home"),
+    kakitoriHome: byId<HTMLElement>("kakitori-home"),
+    dotburstHome: byId<HTMLElement>("dotburst-home"),
+    dotburstRoot: byId<HTMLElement>("dotburst-root"),
     playView: byId<HTMLElement>("view-play"),
     parentView: byId<HTMLElement>("view-parent"),
     missionList: byId<HTMLElement>("mission-list"),
     backPortalButton: byId<HTMLButtonElement>("btn-back-portal"),
+    dotburstBackPortalButton: byId<HTMLButtonElement>("btn-dotburst-back-portal"),
     backHomeButton: byId<HTMLButtonElement>("btn-back-home"),
     playTitle: byId<HTMLElement>("play-title"),
     playLap: byId<HTMLElement>("play-lap"),
