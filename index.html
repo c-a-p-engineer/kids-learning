@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
     <title>キッズ学習コンテンツ</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
-    <script type="module" crossorigin src="./assets/main-DH6_iQlv.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/main-z_vDXWF1.css">
+    <script type="module" crossorigin src="./assets/main-ChaFRmgH.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/main-MMdbbrsk.css">
   </head>
   <body>
     <div id="app" class="app-shell">
@@ -19,6 +19,20 @@
         <section id="view-portal" class="view scrollable" aria-label="コンテンツ一覧ページ">
           <h1 class="portal-title">キッズ学習コンテンツ</h1>
           <p class="portal-subtitle">あそびたいコンテンツをえらんでね</p>
+          <div class="portal-theme-switch" aria-label="デザイン切り替え">
+            <button id="btn-theme-warm" class="portal-theme-btn is-active" type="button" aria-pressed="true">
+              暖色系
+            </button>
+            <button id="btn-theme-cool" class="portal-theme-btn" type="button" aria-pressed="false">
+              寒色系
+            </button>
+            <button id="btn-theme-fancy" class="portal-theme-btn" type="button" aria-pressed="false">
+              ファンシー系
+            </button>
+            <button id="btn-theme-cyber" class="portal-theme-btn" type="button" aria-pressed="false">
+              サイバー系
+            </button>
+          </div>
           <div id="content-list" class="content-list"></div>
         </section>
 
