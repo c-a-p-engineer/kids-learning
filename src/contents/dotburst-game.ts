@@ -1,3 +1,5 @@
+import { audioService } from "../app/audio";
+
 type DotBurstLevel = "BEGINNER" | "NORMAL";
 
 interface DotBurstRecord {
@@ -23,7 +25,6 @@ export class DotBurstGame {
   private currentCount = 0;
   private startTime = 0;
   private timerId = 0;
-  private audioContext: AudioContext | null = null;
   private historySort: "datetime" | "score" = "datetime";
 
   constructor(root: HTMLElement) {
@@ -145,15 +146,7 @@ export class DotBurstGame {
   }
 
   private startGame(level: DotBurstLevel): void {
-    if (!this.audioContext) {
-      const AudioContextCtor =
-        window.AudioContext ||
-        (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-      if (AudioContextCtor) {
-        this.audioContext = new AudioContextCtor();
-      }
-    }
-
+    audioService.resume();
     this.currentLevel = level;
     this.resetGameStats();
     this.initButtons();
@@ -267,19 +260,12 @@ export class DotBurstGame {
   }
 
   private beep(freq: number, type: OscillatorType): void {
-    if (!this.audioContext) return;
-    const osc = this.audioContext.createOscillator();
-    const gain = this.audioContext.createGain();
-
-    osc.type = type;
-    osc.frequency.value = freq;
-    gain.gain.setValueAtTime(0.1, this.audioContext.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.2);
-
-    osc.connect(gain);
-    gain.connect(this.audioContext.destination);
-    osc.start();
-    osc.stop(this.audioContext.currentTime + 0.2);
+    audioService.playTone({
+      frequency: freq,
+      type,
+      gain: 0.1,
+      durationMs: 200,
+    });
   }
 
   private endGame(): void {

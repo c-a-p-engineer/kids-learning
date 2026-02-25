@@ -3,6 +3,7 @@ import "./styles/main.scss";
 import { CANVAS_SIZE, DEFAULT_MISSIONS, STORAGE_KEYS, STROKE_COLORS } from "./app/constants";
 import { WritingCanvas } from "./app/canvas";
 import { getDom } from "./app/dom";
+import { audioService } from "./app/audio";
 import { ViewRouter } from "./app/router";
 import { createMission, isValidMissionWord, loadState, saveState } from "./app/store";
 import { LEARNING_CONTENTS } from "./contents";
@@ -849,29 +850,15 @@ function renderRouteView(route: { contentId: string | null; view: ViewId }, sync
 }
 
 function playCelebrateSound(): void {
-  const AudioContextCtor =
-    window.AudioContext ||
-    (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-  if (!AudioContextCtor) return;
-
-  const audioContext = new AudioContextCtor();
   const notes = [523.25, 659.25, 783.99];
-
   notes.forEach((freq, index) => {
-    const osc = audioContext.createOscillator();
-    const gain = audioContext.createGain();
-    osc.type = "triangle";
-    osc.frequency.value = freq;
-    gain.gain.value = 0.0001;
-    osc.connect(gain);
-    gain.connect(audioContext.destination);
-
-    const start = audioContext.currentTime + index * 0.12;
-    const end = start + 0.22;
-    gain.gain.exponentialRampToValueAtTime(0.16, start + 0.03);
-    gain.gain.exponentialRampToValueAtTime(0.0001, end);
-    osc.start(start);
-    osc.stop(end);
+    audioService.playTone({
+      frequency: freq,
+      type: "triangle",
+      gain: 0.16,
+      durationMs: 220,
+      startDelayMs: index * 120,
+    });
   });
 }
 
@@ -885,13 +872,7 @@ function celebrateMissionDone(): void {
 
 function speak(text: string): void {
   if (!text) return;
-  if (!("speechSynthesis" in window) || typeof SpeechSynthesisUtterance === "undefined") return;
-
-  window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = "ja-JP";
-  utterance.rate = 0.8;
-  window.speechSynthesis.speak(utterance);
+  audioService.speak(text, { lang: "ja-JP", rate: 0.8 });
 }
 
 function bindEvents(): void {

@@ -1,3 +1,5 @@
+import { audioService } from "../app/audio";
+
 type LargerLevel = "easy" | "normal" | "hard";
 type ActiveScreen = "start" | "game" | "scores" | "result";
 
@@ -45,7 +47,6 @@ export class LargerNumberGame {
   private rafId: number | null = null;
   private nextProblemTimerId: number | null = null;
   private comboTimerId: number | null = null;
-  private audioContext: AudioContext | null = null;
 
   constructor(root: HTMLElement) {
     this.root = root;
@@ -145,43 +146,27 @@ export class LargerNumberGame {
     return element as T;
   }
 
-  private getAudioContext(): AudioContext | null {
-    if (this.audioContext) return this.audioContext;
-    const AudioContextCtor =
-      window.AudioContext ||
-      (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!AudioContextCtor) return null;
-    this.audioContext = new AudioContextCtor();
-    return this.audioContext;
-  }
-
   private playBeep(type: "correct" | "wrong"): void {
-    const ctx = this.getAudioContext();
-    if (!ctx) return;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
     if (type === "correct") {
-      osc.frequency.setValueAtTime(880, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.1);
-      gain.gain.setValueAtTime(0.1, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+      audioService.playTone({
+        frequency: 880,
+        type: "sine",
+        gain: 0.1,
+        durationMs: 300,
+        sweepToFrequency: 1320,
+      });
     } else {
-      osc.type = "sawtooth";
-      osc.frequency.setValueAtTime(180, ctx.currentTime);
-      gain.gain.setValueAtTime(0.1, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+      audioService.playTone({
+        frequency: 180,
+        type: "sawtooth",
+        gain: 0.1,
+        durationMs: 400,
+      });
     }
-    osc.start();
-    osc.stop(ctx.currentTime + 0.4);
   }
 
   private startGame(level: LargerLevel): void {
-    const ctx = this.getAudioContext();
-    if (ctx?.state === "suspended") {
-      void ctx.resume();
-    }
+    audioService.resume();
 
     this.stopLoop();
     this.clearTimers();

@@ -1,3 +1,5 @@
+import { audioService } from "../app/audio";
+
 type LevelId = 1 | 2 | 3;
 
 interface EmojiEntry {
@@ -75,7 +77,6 @@ export class FlashcardGame {
   private state: FlashcardState;
   private cardTimerId: number | null = null;
   private feedbackTimerId: number | null = null;
-  private audioContext: AudioContext | null = null;
 
   constructor(root: HTMLElement) {
     this.root = root;
@@ -479,47 +480,30 @@ export class FlashcardGame {
   }
 
   private stopSpeech(): void {
-    if (!("speechSynthesis" in window)) return;
-    window.speechSynthesis.cancel();
+    audioService.stopSpeech();
   }
 
   private speakKana(text: string, rate: number): void {
-    if (!text || !("speechSynthesis" in window) || typeof SpeechSynthesisUtterance === "undefined") return;
-    window.speechSynthesis.cancel();
-    const uttr = new SpeechSynthesisUtterance(text);
-    uttr.lang = "ja-JP";
-    uttr.rate = rate;
-    window.speechSynthesis.speak(uttr);
-  }
-
-  private getAudioContext(): AudioContext | null {
-    if (this.audioContext) return this.audioContext;
-    const AudioContextCtor =
-      window.AudioContext ||
-      (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!AudioContextCtor) return null;
-    this.audioContext = new AudioContextCtor();
-    return this.audioContext;
+    audioService.speak(text, { lang: "ja-JP", rate });
   }
 
   private playSE(type: "ok" | "ng"): void {
-    const ctx = this.getAudioContext();
-    if (!ctx) return;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
     if (type === "ok") {
-      osc.frequency.setValueAtTime(523, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.1);
+      audioService.playTone({
+        frequency: 523,
+        type: "sine",
+        gain: 0.1,
+        durationMs: 500,
+        sweepToFrequency: 880,
+      });
     } else {
-      osc.type = "sawtooth";
-      osc.frequency.setValueAtTime(140, ctx.currentTime);
+      audioService.playTone({
+        frequency: 140,
+        type: "sawtooth",
+        gain: 0.1,
+        durationMs: 500,
+      });
     }
-    gain.gain.setValueAtTime(0.1, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.5);
   }
 
   private clearTimers(): void {
