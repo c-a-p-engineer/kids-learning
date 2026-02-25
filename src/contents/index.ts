@@ -1,6 +1,7 @@
 import type { LearningContent } from "../app/types";
 import { DOTBURST_CONTENT } from "./dotburst";
 import { FLASHCARD_CONTENT } from "./flashcard";
+import { FIT_SHAPE_CONTENT } from "./fit-shape";
 import { KAKITORI_CONTENT } from "./kakitori";
 import { LARGER_NUMBER_CONTENT } from "./larger-number";
 
@@ -9,4 +10,5 @@ export const LEARNING_CONTENTS: LearningContent[] = [
   DOTBURST_CONTENT,
   FLASHCARD_CONTENT,
   LARGER_NUMBER_CONTENT,
+  FIT_SHAPE_CONTENT,
 ];

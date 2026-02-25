@@ -28,6 +28,8 @@ export interface AppDom {
   flashcardRoot: HTMLElement;
   largerNumberHome: HTMLElement;
   largerNumberRoot: HTMLElement;
+  fitShapeHome: HTMLElement;
+  fitShapeRoot: HTMLElement;
   playView: HTMLElement;
   parentView: HTMLElement;
   missionList: HTMLElement;
@@ -35,6 +37,7 @@ export interface AppDom {
   dotburstBackPortalButton: HTMLButtonElement;
   flashcardBackPortalButton: HTMLButtonElement;
   largerNumberBackPortalButton: HTMLButtonElement;
+  fitShapeBackPortalButton: HTMLButtonElement;
   backHomeButton: HTMLButtonElement;
   playTitle: HTMLElement;
   playLap: HTMLElement;
@@ -96,6 +99,8 @@ export function getDom(): AppDom {
     flashcardRoot: byId<HTMLElement>("flashcard-root"),
     largerNumberHome: byId<HTMLElement>("larger-number-home"),
     largerNumberRoot: byId<HTMLElement>("larger-number-root"),
+    fitShapeHome: byId<HTMLElement>("fit-shape-home"),
+    fitShapeRoot: byId<HTMLElement>("fit-shape-root"),
     playView: byId<HTMLElement>("view-play"),
     parentView: byId<HTMLElement>("view-parent"),
     missionList: byId<HTMLElement>("mission-list"),
@@ -103,6 +108,7 @@ export function getDom(): AppDom {
     dotburstBackPortalButton: byId<HTMLButtonElement>("btn-dotburst-back-portal"),
     flashcardBackPortalButton: byId<HTMLButtonElement>("btn-flashcard-back-portal"),
     largerNumberBackPortalButton: byId<HTMLButtonElement>("btn-larger-number-back-portal"),
+    fitShapeBackPortalButton: byId<HTMLButtonElement>("btn-fit-shape-back-portal"),
     backHomeButton: byId<HTMLButtonElement>("btn-back-home"),
     playTitle: byId<HTMLElement>("play-title"),
     playLap: byId<HTMLElement>("play-lap"),

@@ -11,12 +11,14 @@ import { DOTBURST_CONTENT } from "./contents/dotburst";
 import { DotBurstGame } from "./contents/dotburst-game";
 import { FLASHCARD_CONTENT } from "./contents/flashcard";
 import { FlashcardGame } from "./contents/flashcard-game";
+import { FIT_SHAPE_CONTENT } from "./contents/fit-shape";
+import { FitShapeGame } from "./contents/fit-shape-game";
 import { LARGER_NUMBER_CONTENT } from "./contents/larger-number";
 import { LargerNumberGame } from "./contents/larger-number-game";
 import type { HistoryEntry, Mission, ViewId } from "./app/types";
 
 type PortalTheme = "warm" | "cool" | "fancy" | "cyber";
-type PortalFilter = "all" | "language" | "math" | "memory";
+type PortalFilter = "all" | "language" | "math" | "memory" | "shape";
 
 function applyGithubPagesRedirectPath(): void {
   const url = new URL(window.location.href);
@@ -49,6 +51,7 @@ let activeContentId: string | null = null;
 const dotBurstGame = new DotBurstGame(dom.dotburstRoot);
 const flashcardGame = new FlashcardGame(dom.flashcardRoot);
 const largerNumberGame = new LargerNumberGame(dom.largerNumberRoot);
+const fitShapeGame = new FitShapeGame(dom.fitShapeRoot);
 const UI_THEME_STORAGE_KEY = "ui_theme_v1";
 let portalTheme: PortalTheme = loadPortalTheme();
 let portalFilter: PortalFilter = "all";
@@ -210,12 +213,14 @@ function renderContentList(): void {
   const getContentCategory = (contentId: string): Exclude<PortalFilter, "all"> => {
     if (contentId === "kakitori") return "language";
     if (contentId === "dotburst" || contentId === "larger-number") return "math";
+    if (contentId === "fit-shape") return "shape";
     return "memory";
   };
   const getContentIcon = (contentId: string): string => {
     if (contentId === "kakitori") return "✏️";
     if (contentId === "dotburst") return "🟡";
     if (contentId === "larger-number") return "⚖️";
+    if (contentId === "fit-shape") return "🧩";
     return "🧠";
   };
 
@@ -285,11 +290,13 @@ function setHomeContentVisibility(contentId: string): void {
   const isDotBurst = contentId === DOTBURST_CONTENT.id;
   const isFlashcard = contentId === FLASHCARD_CONTENT.id;
   const isLargerNumber = contentId === LARGER_NUMBER_CONTENT.id;
-  dom.kakitoriHome.classList.toggle("hidden", isDotBurst || isFlashcard || isLargerNumber);
+  const isFitShape = contentId === FIT_SHAPE_CONTENT.id;
+  dom.kakitoriHome.classList.toggle("hidden", isDotBurst || isFlashcard || isLargerNumber || isFitShape);
   dom.dotburstHome.classList.toggle("hidden", !isDotBurst);
   dom.flashcardHome.classList.toggle("hidden", !isFlashcard);
   dom.largerNumberHome.classList.toggle("hidden", !isLargerNumber);
-  dom.gameTabs.classList.toggle("hidden", isDotBurst || isFlashcard || isLargerNumber);
+  dom.fitShapeHome.classList.toggle("hidden", !isFitShape);
+  dom.gameTabs.classList.toggle("hidden", isDotBurst || isFlashcard || isLargerNumber || isFitShape);
 }
 
 function renderMissions(): void {
@@ -856,6 +863,7 @@ function renderRouteView(route: { contentId: string | null; view: ViewId }, sync
     dotBurstGame.hide();
     flashcardGame.hide();
     largerNumberGame.hide();
+    fitShapeGame.hide();
     closeReplay();
     router.renderView("portal", { syncUrl, contentId: null });
     return;
@@ -869,6 +877,7 @@ function renderRouteView(route: { contentId: string | null; view: ViewId }, sync
     dotBurstGame.hide();
     flashcardGame.hide();
     largerNumberGame.hide();
+    fitShapeGame.hide();
     router.renderView("portal", { syncUrl, contentId: null });
     return;
   }
@@ -878,6 +887,7 @@ function renderRouteView(route: { contentId: string | null; view: ViewId }, sync
   if (validContentId === DOTBURST_CONTENT.id) {
     flashcardGame.hide();
     largerNumberGame.hide();
+    fitShapeGame.hide();
     closeReplay();
     router.renderView("home", { syncUrl, contentId: validContentId });
     setHomeContentVisibility(validContentId);
@@ -888,6 +898,7 @@ function renderRouteView(route: { contentId: string | null; view: ViewId }, sync
   if (validContentId === FLASHCARD_CONTENT.id) {
     dotBurstGame.hide();
     largerNumberGame.hide();
+    fitShapeGame.hide();
     closeReplay();
     router.renderView("home", { syncUrl, contentId: validContentId });
     setHomeContentVisibility(validContentId);
@@ -898,6 +909,7 @@ function renderRouteView(route: { contentId: string | null; view: ViewId }, sync
   if (validContentId === LARGER_NUMBER_CONTENT.id) {
     dotBurstGame.hide();
     flashcardGame.hide();
+    fitShapeGame.hide();
     closeReplay();
     router.renderView("home", { syncUrl, contentId: validContentId });
     setHomeContentVisibility(validContentId);
@@ -905,9 +917,21 @@ function renderRouteView(route: { contentId: string | null; view: ViewId }, sync
     return;
   }
 
+  if (validContentId === FIT_SHAPE_CONTENT.id) {
+    dotBurstGame.hide();
+    flashcardGame.hide();
+    largerNumberGame.hide();
+    closeReplay();
+    router.renderView("home", { syncUrl, contentId: validContentId });
+    setHomeContentVisibility(validContentId);
+    fitShapeGame.show();
+    return;
+  }
+
   dotBurstGame.hide();
   flashcardGame.hide();
   largerNumberGame.hide();
+  fitShapeGame.hide();
 
   if (route.view === "home") {
     renderMissions();
@@ -979,7 +1003,7 @@ function bindEvents(): void {
     if (!(target instanceof HTMLElement)) return;
     const button = target.closest<HTMLButtonElement>("[data-filter]");
     const filter = button?.dataset.filter;
-    if (filter !== "all" && filter !== "language" && filter !== "math" && filter !== "memory") return;
+    if (filter !== "all" && filter !== "language" && filter !== "math" && filter !== "memory" && filter !== "shape") return;
     portalFilter = filter;
     Array.from(dom.portalFilterGroup.querySelectorAll<HTMLButtonElement>("[data-filter]")).forEach((node) => {
       node.classList.toggle("is-active", node.dataset.filter === portalFilter);
@@ -1009,6 +1033,9 @@ function bindEvents(): void {
     renderRouteView({ contentId: null, view: "portal" }, true);
   });
   dom.largerNumberBackPortalButton.addEventListener("click", () => {
+    renderRouteView({ contentId: null, view: "portal" }, true);
+  });
+  dom.fitShapeBackPortalButton.addEventListener("click", () => {
     renderRouteView({ contentId: null, view: "portal" }, true);
   });
 
