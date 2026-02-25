@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ぴったりシェイプ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'M PLUS Rounded 1c', sans-serif;
+            touch-action: none;
+            overflow: hidden;
+            background-color: #f0f9ff;
+        }
+
+        .shape {
+            cursor: grab;
+            transition: transform 0.1s;
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.2));
+            z-index: 10;
+        }
+        .shape:active {
+            cursor: grabbing;
+            transform: scale(1.1);
+            z-index: 50;
+        }
+
+        .drop-zone {
+            transition: all 0.3s;
+        }
+
+        .success-animation {
+            animation: pop 0.4s ease-out;
+        }
+
+        @keyframes pop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.3); }
+            100% { transform: scale(1); }
+        }
+
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            pointer-events: none;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-2 sm:p-4">
+
+    <!-- Start Menu -->
+    <div id="start-menu" class="fixed inset-0 bg-white z-50 flex flex-col items-center justify-start overflow-y-auto space-y-6 p-6 text-center">
+        <div class="mt-8">
+            <h1 class="text-4xl sm:text-5xl font-bold text-blue-600 mb-2">ぴったりシェイプ</h1>
+            <p class="text-lg text-gray-600">おなじ かたちの ところに はめよう！</p>
+        </div>
+        
+        <div class="flex flex-col space-y-3 w-full max-w-xs mx-auto">
+            <button onclick="startGame('easy')" class="bg-green-400 hover:bg-green-500 text-white font-bold py-3 rounded-full shadow-lg transition transform active:scale-95">
+                かんたん (3こ)
+            </button>
+            <button onclick="startGame('medium')" class="bg-yellow-400 hover:bg-yellow-500 text-white font-bold py-3 rounded-full shadow-lg transition transform active:scale-95">
+                ふつう (5こ)
+            </button>
+            <button onclick="startGame('hard')" class="bg-red-400 hover:bg-red-500 text-white font-bold py-3 rounded-full shadow-lg transition transform active:scale-95">
+                むずかしい (8こ)
+            </button>
+        </div>
+
+        <div class="w-full max-w-md mx-auto bg-blue-50 rounded-2xl p-4">
+            <h3 class="font-bold text-blue-800 mb-2">📊 さいきんの きろく</h3>
+            <div id="history-list" class="text-sm text-gray-600 space-y-1 max-h-40 overflow-y-auto">
+                <!-- History items will be injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Game UI -->
+    <div class="w-full max-w-2xl bg-white rounded-3xl shadow-2xl p-4 relative overflow-hidden">
+        <div class="flex justify-between items-center mb-4">
+            <div class="text-xl font-bold text-gray-700">
+                スコア: <span id="score" class="text-blue-600">0</span>
+            </div>
+            <div id="timer-container" class="text-2xl font-mono font-bold text-red-500 bg-red-50 px-3 py-1 rounded-xl">
+                30.000
+            </div>
+        </div>
+
+        <!-- Game Area -->
+        <div id="game-canvas" class="relative w-full h-[450px] border-4 border-dashed border-blue-100 rounded-2xl bg-blue-50/30 overflow-hidden">
+            <!-- Zones and Blocks will be injected here -->
+        </div>
+
+        <div class="mt-4 flex justify-between items-center px-2">
+            <button onclick="location.reload()" class="text-gray-400 text-sm hover:text-gray-600">← メニューへ</button>
+            <div class="text-gray-400 text-xs">シルエットに 重ねてね</div>
+        </div>
+    </div>
+
+    <!-- Result Modal -->
+    <div id="result-modal" class="fixed inset-0 bg-black/70 hidden z-[60] flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl scale-in">
+            <h2 id="result-title" class="text-3xl font-bold mb-2">タイムアップ！</h2>
+            <p class="text-lg text-gray-500 mb-2">今回のスコア</p>
+            <div id="final-score" class="text-7xl font-bold text-blue-600 mb-4">0</div>
+            <div id="new-record-msg" class="hidden text-orange-500 font-bold text-xl mb-6 animate-bounce">✨ しんきろく ✨</div>
+            <button onclick="resetGame()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-full text-xl shadow-lg transition active:scale-95">
+                もういちど あそぶ
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const SHAPES = [
+            { id: 'square', path: 'M10,10 h80 v80 h-80 z', color: '#FF5F5F' },
+            { id: 'circle', path: 'M50,50 m-40,0 a40,40 0 1,0 80,0 a40,40 0 1,0 -80,0', color: '#5FBFFF' },
+            { id: 'triangle', path: 'M50,15 L90,85 L10,85 z', color: '#5FFF5F' },
+            { id: 'star', path: 'M50,10 L61,38 L90,38 L67,56 L76,85 L50,68 L24,85 L33,56 L10,38 L39,38 z', color: '#FFD700' },
+            { id: 'pentagon', path: 'M50,10 L90,40 L75,90 L25,90 L10,40 z', color: '#FF9F5F' },
+            { id: 'diamond', path: 'M50,10 L90,50 L50,90 L10,50 z', color: '#BF5FFF' },
+            { id: 'hexagon', path: 'M50,5 L89,27.5 L89,72.5 L50,95 L11,72.5 L11,27.5 z', color: '#5FFFFF' },
+            { id: 'oval', path: 'M10,50 C10,25 30,10 50,10 C70,10 90,25 90,50 C90,75 70,90 50,90 C30,90 10,75 10,50 z', color: '#FF5FBF' }
+        ];
+
+        let score = 0;
+        let timeLeft = 30000;
+        let timerInterval;
+        let difficulty = 'easy';
+        let gameActive = false;
+        let history = JSON.parse(localStorage.getItem('shapeMatchHistory') || '[]');
+
+        const gameCanvas = document.getElementById('game-canvas');
+        const scoreDisplay = document.getElementById('score');
+        const timerDisplay = document.getElementById('timer-container');
+        const startMenu = document.getElementById('start-menu');
+        const resultModal = document.getElementById('result-modal');
+
+        // --- Audio System ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playTone(freq, type, duration) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        }
+
+        const sounds = {
+            match: () => { playTone(523.25, 'sine', 0.2); setTimeout(() => playTone(659.25, 'sine', 0.2), 50); },
+            clear: () => { [523, 659, 783, 1046].forEach((f, i) => setTimeout(() => playTone(f, 'square', 0.3), i * 100)); },
+            end: () => { [440, 349, 261].forEach((f, i) => setTimeout(() => playTone(f, 'triangle', 0.4), i * 150)); }
+        };
+
+        // --- Utils ---
+        function updateHistory() {
+            const list = document.getElementById('history-list');
+            if (history.length === 0) {
+                list.innerHTML = 'まだ きろくが ありません';
+                return;
+            }
+            list.innerHTML = history.slice(-5).reverse().map(item => `
+                <div class="flex justify-between border-b border-blue-100 pb-1">
+                    <span>${item.date} (${item.diff})</span>
+                    <span class="font-bold text-blue-600">${item.score}点</span>
+                </div>
+            `).join('');
+        }
+        updateHistory();
+
+        function createConfetti() {
+            for (let i = 0; i < 30; i++) {
+                const conf = document.createElement('div');
+                conf.className = 'confetti';
+                conf.style.backgroundColor = `hsl(${Math.random() * 360}, 100%, 50%)`;
+                conf.style.left = Math.random() * 100 + '%';
+                conf.style.top = '-10px';
+                gameCanvas.appendChild(conf);
+                
+                const anim = conf.animate([
+                    { transform: 'translateY(0) rotate(0)', opacity: 1 },
+                    { transform: `translateY(400px) translateX(${(Math.random() - 0.5) * 100}px) rotate(${Math.random() * 360}deg)`, opacity: 0 }
+                ], { duration: 1000 + Math.random() * 1000, easing: 'ease-out' });
+                anim.onfinish = () => conf.remove();
+            }
+        }
+
+        function startGame(diff) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            difficulty = diff;
+            startMenu.classList.add('hidden');
+            resultModal.classList.add('hidden');
+            score = 0;
+            scoreDisplay.textContent = score;
+            timeLeft = 30000;
+            gameActive = true;
+            spawnShapes();
+            startTimer();
+        }
+
+        function resetGame() {
+            resultModal.classList.add('hidden');
+            startMenu.classList.remove('hidden');
+            updateHistory();
+        }
+
+        function startTimer() {
+            let lastTime = performance.now();
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                const now = performance.now();
+                const delta = now - lastTime;
+                lastTime = now;
+                
+                timeLeft -= delta;
+                if (timeLeft <= 0) {
+                    timeLeft = 0;
+                    endGame();
+                }
+                
+                const seconds = (timeLeft / 1000).toFixed(3);
+                timerDisplay.textContent = seconds.padStart(6, '0');
+            }, 10);
+        }
+
+        function spawnShapes() {
+            gameCanvas.innerHTML = '';
+            let count = (difficulty === 'easy') ? 3 : (difficulty === 'medium' ? 4 : 6);
+            
+            const canvasRect = gameCanvas.getBoundingClientRect();
+            const canvasWidth = canvasRect.width || 400;
+
+            // Select random shapes
+            const selected = [...SHAPES].sort(() => 0.5 - Math.random()).slice(0, count);
+            
+            // Responsive Size Calculation
+            const shapeSize = Math.min(70, (canvasWidth / count) - 10);
+            const margin = (canvasWidth - (shapeSize * count)) / (count + 1);
+
+            selected.forEach((shape, index) => {
+                // Create Drop Zone (Silhouette)
+                const zone = document.createElement('div');
+                zone.className = 'drop-zone absolute flex items-center justify-center pointer-events-none';
+                zone.style.left = `${margin + index * (shapeSize + margin)}px`;
+                zone.style.top = `60px`;
+                zone.style.width = `${shapeSize}px`;
+                zone.style.height = `${shapeSize}px`;
+                zone.dataset.id = shape.id;
+                zone.innerHTML = `
+                    <svg viewBox="0 0 100 100" class="w-full h-full opacity-20 fill-gray-800">
+                        <path d="${shape.path}" />
+                    </svg>
+                `;
+                gameCanvas.appendChild(zone);
+
+                // Create Draggable Block
+                const block = document.createElement('div');
+                block.className = 'shape absolute flex items-center justify-center touch-none';
+                block.style.width = `${shapeSize}px`;
+                block.style.height = `${shapeSize}px`;
+                
+                // Spread start positions at the bottom
+                const startX = margin + index * (shapeSize + margin);
+                const startY = 280 + (index % 2 * 30); // staggered height
+                block.style.left = `${startX}px`;
+                block.style.top = `${startY}px`;
+                block.dataset.id = shape.id;
+                
+                block.innerHTML = `
+                    <svg viewBox="0 0 100 100" class="w-full h-full" style="fill: ${shape.color}">
+                        <path d="${shape.path}" />
+                    </svg>
+                `;
+
+                initDrag(block);
+                gameCanvas.appendChild(block);
+            });
+        }
+
+        function initDrag(el) {
+            let isDragging = false;
+            let startX, startY, initialX, initialY;
+
+            const onStart = (e) => {
+                if (!gameActive) return;
+                isDragging = true;
+                const touch = e.touches ? e.touches[0] : e;
+                startX = touch.clientX;
+                startY = touch.clientY;
+                initialX = el.offsetLeft;
+                initialY = el.offsetTop;
+                el.classList.add('scale-110');
+            };
+
+            const onMove = (e) => {
+                if (!isDragging) return;
+                const touch = e.touches ? e.touches[0] : e;
+                const dx = touch.clientX - startX;
+                const dy = touch.clientY - startY;
+                el.style.left = `${initialX + dx}px`;
+                el.style.top = `${initialY + dy}px`;
+            };
+
+            const onEnd = () => {
+                if (!isDragging) return;
+                isDragging = false;
+                el.classList.remove('scale-110');
+                checkMatch(el);
+            };
+
+            el.addEventListener('mousedown', onStart);
+            el.addEventListener('touchstart', (e) => { e.preventDefault(); onStart(e); }, {passive: false});
+            window.addEventListener('mousemove', onMove);
+            window.addEventListener('touchmove', onMove, {passive: false});
+            window.addEventListener('mouseup', onEnd);
+            window.addEventListener('touchend', onEnd);
+        }
+
+        function checkMatch(block) {
+            const zones = document.querySelectorAll('.drop-zone');
+            const blockRect = block.getBoundingClientRect();
+            let matched = false;
+
+            zones.forEach(zone => {
+                if (zone.dataset.id === block.dataset.id) {
+                    const zoneRect = zone.getBoundingClientRect();
+                    const dist = Math.sqrt(
+                        Math.pow(blockRect.left - zoneRect.left, 2) + 
+                        Math.pow(blockRect.top - zoneRect.top, 2)
+                    );
+
+                    if (dist < 40) {
+                        block.style.left = zone.style.left;
+                        block.style.top = zone.style.top;
+                        block.style.pointerEvents = 'none';
+                        block.classList.add('success-animation');
+                        
+                        score++;
+                        scoreDisplay.textContent = score;
+                        matched = true;
+                        
+                        sounds.match();
+                        zone.innerHTML = zone.innerHTML.replace('opacity-20', 'opacity-100');
+                        setTimeout(() => block.remove(), 400);
+
+                        checkClear();
+                    }
+                }
+            });
+        }
+
+        function checkClear() {
+            const remaining = document.querySelectorAll('.shape:not(.success-animation)');
+            if (remaining.length === 0) {
+                sounds.clear();
+                createConfetti();
+                setTimeout(spawnShapes, 600);
+            }
+        }
+
+        function endGame() {
+            gameActive = false;
+            clearInterval(timerInterval);
+            sounds.end();
+            
+            const diffNames = {easy:'かんたん', medium:'ふつう', hard:'むずかしい'};
+            const now = new Date();
+            const dateStr = `${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${now.getMinutes().toString().padStart(2,'0')}`;
+            
+            const newRecord = history.length === 0 || score > Math.max(...history.filter(h => h.diffId === difficulty).map(h => h.score), 0);
+            
+            history.push({
+                date: dateStr,
+                diff: diffNames[difficulty],
+                diffId: difficulty,
+                score: score
+            });
+            localStorage.setItem('shapeMatchHistory', JSON.stringify(history));
+
+            document.getElementById('final-score').textContent = score;
+            document.getElementById('new-record-msg').className = newRecord ? 'block text-orange-500 font-bold text-xl mb-6 animate-bounce' : 'hidden';
+            resultModal.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
