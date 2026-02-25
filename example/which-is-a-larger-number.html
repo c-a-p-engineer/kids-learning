@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>どっちが大きい？知育ゲーム</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Kiwi+Maru:wght@500&display=swap');
+        
+        body {
+            font-family: 'Kiwi Maru', serif;
+            background-color: #fdf2f8;
+            touch-action: manipulation;
+            user-select: none;
+            overflow: hidden;
+        }
+
+        .apple-box {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 2px;
+            padding: 4px;
+            background: rgba(255, 255, 255, 0.5);
+            border: 2px solid #fce7f3;
+            border-radius: 8px;
+            margin-bottom: 4px;
+            width: fit-content;
+        }
+        .apple-emoji {
+            font-size: clamp(0.9rem, 2.5vw, 1.3rem);
+            filter: drop-shadow(0 1px 1px rgba(0,0,0,0.1));
+            animation: pop 0.2s ease-out;
+        }
+
+        @keyframes pop {
+            0% { transform: scale(0); }
+            80% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        .feedback-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10rem;
+            z-index: 50;
+            pointer-events: none;
+            opacity: 0;
+        }
+        .animate-feedback {
+            animation: feedback-pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        @keyframes feedback-pop {
+            0% { opacity: 0; transform: scale(0.3); }
+            40% { opacity: 1; transform: scale(1.1); }
+            100% { opacity: 0; transform: scale(1); }
+        }
+
+        #combo-container {
+            position: fixed;
+            top: 20%;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 60;
+            pointer-events: none;
+        }
+        .combo-anim {
+            animation: combo-up 0.5s ease-out forwards;
+        }
+        @keyframes combo-up {
+            0% { transform: translateY(20px); opacity: 0; }
+            50% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(-20px); opacity: 0; }
+        }
+
+        .shake { animation: shake-anim 0.3s; }
+        @keyframes shake-anim {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-8px); }
+            40% { transform: translateX(8px); }
+            60% { transform: translateX(-8px); }
+            80% { transform: translateX(8px); }
+        }
+
+        .screen { display: none; }
+        .screen.active { display: flex; }
+
+        .choice-card {
+            transition: transform 0.1s, border-color 0.2s;
+            -webkit-tap-highlight-color: transparent;
+            min-height: 150px;
+        }
+        .choice-card:active { transform: scale(0.96); }
+        
+        .timer-warning { animation: timer-blink 0.5s infinite; color: #ef4444; }
+        @keyframes timer-blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* スコア詳細リスト用 */
+        .score-item {
+            background: white;
+            border-radius: 1rem;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            border: 2px solid transparent;
+        }
+        .score-item.easy { border-color: #4ade80; }
+        .score-item.normal { border-color: #60a5fa; }
+        .score-item.hard { border-color: #f87171; }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen">
+
+    <!-- Start Screen -->
+    <div id="start-screen" class="screen active flex-col items-center justify-center w-full max-w-md p-6 text-center">
+        <div class="mb-4 text-7xl">🍎</div>
+        <h1 class="text-5xl font-bold text-pink-600 mb-10">どっちが<br>おおきい？</h1>
+        <div class="space-y-4 w-full">
+            <button onclick="startGame('easy')" class="w-full bg-green-400 text-white py-5 rounded-3xl text-2xl font-bold shadow-[0_8px_0_rgb(22,163,74)] active:shadow-none active:translate-y-2 transition-all">やさしい (10まで)</button>
+            <button onclick="startGame('normal')" class="w-full bg-blue-400 text-white py-5 rounded-3xl text-2xl font-bold shadow-[0_8px_0_rgb(37,99,235)] active:shadow-none active:translate-y-2 transition-all">ふつう (20まで)</button>
+            <button onclick="startGame('hard')" class="w-full bg-red-400 text-white py-5 rounded-3xl text-2xl font-bold shadow-[0_8px_0_rgb(220,38,38)] active:shadow-none active:translate-y-2 transition-all">むずかしい (100まで/3たく)</button>
+            
+            <button onclick="showScreen('scores')" class="w-full bg-pink-100 text-pink-600 py-3 rounded-2xl text-xl font-bold mt-4 border-2 border-pink-200 active:bg-pink-200 transition-all">
+                📊 きろくをみる
+            </button>
+        </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="game-screen" class="screen flex-col w-full h-screen p-4 overflow-hidden relative">
+        <div id="combo-container"></div>
+        <div class="flex justify-between items-center mb-4 bg-white/90 p-4 rounded-3xl shadow-sm z-10 border-2 border-pink-100">
+            <div class="text-xl font-bold text-pink-600">スコア: <span id="current-score" class="text-2xl">0</span></div>
+            <div class="flex-1 mx-4 bg-gray-200 h-3 rounded-full overflow-hidden">
+                <div id="timer-bar" class="bg-gradient-to-r from-orange-400 to-red-500 h-full w-full"></div>
+            </div>
+            <div id="timer-text" class="text-2xl font-bold text-gray-700 min-w-[100px] text-right font-mono">30.00</div>
+        </div>
+        <div id="cards-container" class="flex-1 flex flex-col md:flex-row gap-3 items-center justify-center h-full pb-6"></div>
+        <div id="feedback-correct" class="feedback-overlay text-red-500">💮</div>
+        <div id="feedback-wrong" class="feedback-overlay text-blue-500">✖</div>
+    </div>
+
+    <!-- Scores Screen -->
+    <div id="scores-screen" class="screen flex-col items-center w-full h-screen max-w-md p-6 relative">
+        <h2 class="text-3xl font-bold text-pink-600 mb-6">🏆 こんまでの きろく</h2>
+        <div id="score-list-container" class="flex-1 w-full overflow-y-auto mb-6 px-2">
+            <!-- Score items will be injected here -->
+        </div>
+        <div class="w-full flex gap-3">
+            <button onclick="backToTitle()" class="flex-1 bg-gray-400 text-white py-4 rounded-2xl font-bold text-xl">もどる</button>
+            <button onclick="clearScores()" class="flex-1 bg-red-100 text-red-500 py-4 rounded-2xl font-bold text-xl border-2 border-red-200">けす</button>
+        </div>
+    </div>
+
+    <!-- Result Screen -->
+    <div id="result-screen" class="screen flex-col items-center justify-center w-full max-w-md p-6 text-center">
+        <div class="text-8xl mb-6">🏁</div>
+        <h2 class="text-3xl font-bold text-gray-800 mb-8">タイムアップ！</h2>
+        <div class="bg-white w-full rounded-[2rem] p-10 shadow-2xl mb-8 border-4 border-pink-200">
+            <div class="text-6xl font-black text-pink-500 mb-2" id="final-score">0</div>
+            <div class="text-gray-400 font-bold mb-4">てん</div>
+            <div id="final-stats" class="text-gray-600 font-bold bg-pink-50 rounded-xl py-2 px-4"></div>
+        </div>
+        <button onclick="backToTitle()" class="w-full bg-pink-500 text-white py-6 rounded-3xl text-2xl font-bold shadow-[0_8px_0_rgb(190,24,93)] active:shadow-none active:translate-y-2">タイトルへ</button>
+    </div>
+
+    <script>
+        let score = 0;
+        let corrects = 0;
+        let totalAnswered = 0;
+        let combo = 0;
+        let timeLeft = 30000;
+        let lastTimestamp = 0;
+        let currentLevel = 'easy';
+        let options = [];
+        let isLocked = false;
+        let screens = {};
+
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playBeep(type) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            if (type === 'correct') {
+                osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(1320, audioCtx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+            } else {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(180, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+            }
+            osc.start(); osc.stop(audioCtx.currentTime + 0.4);
+        }
+
+        function startGame(level) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            currentLevel = level;
+            score = 0; corrects = 0; totalAnswered = 0; combo = 0; timeLeft = 30000; isLocked = false;
+            document.getElementById('current-score').innerText = score;
+            document.getElementById('timer-text').classList.remove('timer-warning');
+            showScreen('game');
+            nextProblem();
+            lastTimestamp = performance.now();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function gameLoop(now) {
+            if (timeLeft <= 0) return;
+            const delta = now - lastTimestamp;
+            lastTimestamp = now;
+            timeLeft -= delta;
+            if (timeLeft <= 0) { timeLeft = 0; endGame(); return; }
+
+            const timerEl = document.getElementById('timer-text');
+            timerEl.innerText = (timeLeft / 1000).toFixed(2);
+            document.getElementById('timer-bar').style.width = (timeLeft / 30000 * 100) + '%';
+            
+            if (timeLeft < 5000) timerEl.classList.add('timer-warning');
+            requestAnimationFrame(gameLoop);
+        }
+
+        function nextProblem() {
+            const range = currentLevel === 'easy' ? 10 : (currentLevel === 'normal' ? 20 : 100);
+            const count = currentLevel === 'hard' ? 3 : 2;
+            options = [];
+            while(options.length < count) {
+                let val = Math.floor(Math.random() * range) + 1;
+                if(!options.includes(val)) options.push(val);
+            }
+            renderCards();
+            isLocked = false;
+        }
+
+        function renderCards() {
+            const container = document.getElementById('cards-container');
+            container.innerHTML = '';
+            const isHard = currentLevel === 'hard';
+
+            options.forEach((val, idx) => {
+                const card = document.createElement('div');
+                card.onclick = () => handleChoice(idx);
+                card.className = `choice-card w-full h-full flex-1 bg-white rounded-[2.5rem] p-4 flex flex-col items-center shadow-xl border-4 border-gray-50 transition-all ${isHard ? 'justify-center' : 'justify-start'}`;
+                const numColor = idx === 0 ? 'text-blue-500' : (idx === 1 ? 'text-red-500' : 'text-green-600');
+                const numSize = isHard ? 'text-6xl md:text-8xl' : 'text-4xl md:text-6xl';
+                
+                card.innerHTML = `
+                    <div class="${numSize} font-black ${numColor} ${isHard ? '' : 'mb-4'}">${val}</div>
+                    ${!isHard ? `<div id="apples-${idx}" class="w-full flex flex-wrap justify-center gap-1 overflow-y-auto max-h-[65%]"></div>` : ''}
+                `;
+                container.appendChild(card);
+                if (!isHard) renderApples(idx, val);
+            });
+        }
+
+        function renderApples(idx, count) {
+            const container = document.getElementById(`apples-${idx}`);
+            if (!container) return;
+            const boxesNeeded = Math.ceil(count / 10);
+            for (let b = 0; b < boxesNeeded; b++) {
+                const box = document.createElement('div');
+                box.className = 'apple-box';
+                const applesInThisBox = Math.min(10, count - (b * 10));
+                for (let i = 0; i < applesInThisBox; i++) {
+                    const s = document.createElement('span');
+                    s.className = 'apple-emoji';
+                    s.innerText = '🍎';
+                    box.appendChild(s);
+                }
+                container.appendChild(box);
+            }
+        }
+
+        function handleChoice(idx) {
+            if (isLocked || timeLeft <= 0) return;
+            isLocked = true;
+            totalAnswered++;
+            const maxVal = Math.max(...options);
+            if (options[idx] === maxVal) {
+                playBeep('correct');
+                combo++;
+                let bonus = (currentLevel === 'easy' ? 10 : (currentLevel === 'normal' ? 20 : 50));
+                if (combo >= 2) {
+                    bonus += combo * 5;
+                    showCombo(combo);
+                }
+                score += bonus; corrects++;
+                document.getElementById('current-score').innerText = score;
+                showFeedback('correct');
+                setTimeout(nextProblem, 300);
+            } else {
+                playBeep('wrong');
+                combo = 0;
+                document.getElementById('game-screen').classList.add('shake');
+                showFeedback('wrong');
+                setTimeout(() => {
+                    document.getElementById('game-screen').classList.remove('shake');
+                    nextProblem();
+                }, 400);
+            }
+        }
+
+        function showCombo(n) {
+            const container = document.getElementById('combo-container');
+            const el = document.createElement('div');
+            el.className = 'combo-anim text-3xl font-black text-orange-500 italic';
+            el.innerText = `${n}コンボ！`;
+            container.appendChild(el);
+            setTimeout(() => el.remove(), 600);
+        }
+
+        function showFeedback(type) {
+            const el = document.getElementById(`feedback-${type}`);
+            el.classList.remove('animate-feedback');
+            void el.offsetWidth;
+            el.classList.add('animate-feedback');
+        }
+
+        function endGame() {
+            document.getElementById('final-score').innerText = score;
+            document.getElementById('final-stats').innerText = `${getLevelName(currentLevel)} ・ せいかい ${corrects}回`;
+            saveScore();
+            showScreen('result');
+        }
+
+        function getLevelName(lv) {
+            if (lv === 'easy') return 'やさしい';
+            if (lv === 'normal') return 'ふつう';
+            return 'むずかしい';
+        }
+
+        function saveScore() {
+            const history = JSON.parse(localStorage.getItem('math_game_v8_history') || '[]');
+            const now = new Date();
+            const record = {
+                id: Date.now(),
+                date: `${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`,
+                level: currentLevel,
+                levelLabel: getLevelName(currentLevel),
+                score: score,
+                corrects: corrects,
+                total: totalAnswered
+            };
+            history.unshift(record);
+            localStorage.setItem('math_game_v8_history', JSON.stringify(history.slice(0, 50))); // 最大50件保存
+        }
+
+        function renderScoreList() {
+            const history = JSON.parse(localStorage.getItem('math_game_v8_history') || '[]');
+            const container = document.getElementById('score-list-container');
+            if (history.length === 0) {
+                container.innerHTML = `<div class="text-gray-400 mt-10 text-center">まだ きろくが ないよ</div>`;
+                return;
+            }
+
+            container.innerHTML = history.map(h => `
+                <div class="score-item ${h.level}">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-xs text-gray-400 font-bold">${h.date}</span>
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${h.level === 'easy' ? 'bg-green-100 text-green-600' : h.level === 'normal' ? 'bg-blue-100 text-blue-600' : 'bg-red-100 text-red-600'}">
+                            ${h.levelLabel}
+                        </span>
+                    </div>
+                    <div class="flex justify-between items-end">
+                        <div class="text-gray-500 text-sm">
+                            <span class="text-pink-500 font-bold text-lg">${h.corrects}</span> / ${h.total} せいかい
+                        </div>
+                        <div class="text-2xl font-black text-gray-700">${h.score}<span class="text-xs ml-1">てん</span></div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function clearScores() {
+            if(confirm('ぜんぶの きろくを けしても いい？')) {
+                localStorage.removeItem('math_game_v8_history');
+                renderScoreList();
+            }
+        }
+
+        function showScreen(screenId) {
+            Object.values(screens).forEach(s => s && s.classList.remove('active'));
+            if(screens[screenId]) screens[screenId].classList.add('active');
+            if(screenId === 'scores') renderScoreList();
+        }
+
+        function backToTitle() { showScreen('start'); }
+        
+        window.onload = function() {
+            screens = {
+                start: document.getElementById('start-screen'),
+                game: document.getElementById('game-screen'),
+                result: document.getElementById('result-screen'),
+                scores: document.getElementById('scores-screen')
+            };
+        };
+    </script>
+</body>
+</html>

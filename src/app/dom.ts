@@ -20,11 +20,17 @@ export interface AppDom {
   kakitoriHome: HTMLElement;
   dotburstHome: HTMLElement;
   dotburstRoot: HTMLElement;
+  flashcardHome: HTMLElement;
+  flashcardRoot: HTMLElement;
+  largerNumberHome: HTMLElement;
+  largerNumberRoot: HTMLElement;
   playView: HTMLElement;
   parentView: HTMLElement;
   missionList: HTMLElement;
   backPortalButton: HTMLButtonElement;
   dotburstBackPortalButton: HTMLButtonElement;
+  flashcardBackPortalButton: HTMLButtonElement;
+  largerNumberBackPortalButton: HTMLButtonElement;
   backHomeButton: HTMLButtonElement;
   playTitle: HTMLElement;
   playLap: HTMLElement;
@@ -77,11 +83,17 @@ export function getDom(): AppDom {
     kakitoriHome: byId<HTMLElement>("kakitori-home"),
     dotburstHome: byId<HTMLElement>("dotburst-home"),
     dotburstRoot: byId<HTMLElement>("dotburst-root"),
+    flashcardHome: byId<HTMLElement>("flashcard-home"),
+    flashcardRoot: byId<HTMLElement>("flashcard-root"),
+    largerNumberHome: byId<HTMLElement>("larger-number-home"),
+    largerNumberRoot: byId<HTMLElement>("larger-number-root"),
     playView: byId<HTMLElement>("view-play"),
     parentView: byId<HTMLElement>("view-parent"),
     missionList: byId<HTMLElement>("mission-list"),
     backPortalButton: byId<HTMLButtonElement>("btn-back-portal"),
     dotburstBackPortalButton: byId<HTMLButtonElement>("btn-dotburst-back-portal"),
+    flashcardBackPortalButton: byId<HTMLButtonElement>("btn-flashcard-back-portal"),
+    largerNumberBackPortalButton: byId<HTMLButtonElement>("btn-larger-number-back-portal"),
     backHomeButton: byId<HTMLButtonElement>("btn-back-home"),
     playTitle: byId<HTMLElement>("play-title"),
     playLap: byId<HTMLElement>("play-lap"),
