@@ -16,6 +16,7 @@ import { LargerNumberGame } from "./contents/larger-number-game";
 import type { HistoryEntry, Mission, ViewId } from "./app/types";
 
 type PortalTheme = "warm" | "cool" | "fancy" | "cyber";
+type PortalFilter = "all" | "language" | "math" | "memory";
 
 function applyGithubPagesRedirectPath(): void {
   const url = new URL(window.location.href);
@@ -50,6 +51,8 @@ const flashcardGame = new FlashcardGame(dom.flashcardRoot);
 const largerNumberGame = new LargerNumberGame(dom.largerNumberRoot);
 const UI_THEME_STORAGE_KEY = "ui_theme_v1";
 let portalTheme: PortalTheme = loadPortalTheme();
+let portalFilter: PortalFilter = "all";
+let portalSearchKeyword = "";
 const themeButtons: Record<PortalTheme, HTMLButtonElement> = {
   warm: dom.themeWarmButton,
   cool: dom.themeCoolButton,
@@ -204,15 +207,56 @@ function buildDailyPracticeMap(): Map<string, HistoryEntry[]> {
 }
 
 function renderContentList(): void {
+  const getContentCategory = (contentId: string): Exclude<PortalFilter, "all"> => {
+    if (contentId === "kakitori") return "language";
+    if (contentId === "dotburst" || contentId === "larger-number") return "math";
+    return "memory";
+  };
+  const getContentIcon = (contentId: string): string => {
+    if (contentId === "kakitori") return "✏️";
+    if (contentId === "dotburst") return "🟡";
+    if (contentId === "larger-number") return "⚖️";
+    return "🧠";
+  };
+
   dom.contentList.innerHTML = LEARNING_CONTENTS.map(
     (content) => `
-      <button type="button" class="content-card" data-content-id="${content.id}">
-        <h2 class="content-title">${content.title}</h2>
+      <button
+        type="button"
+        class="content-card"
+        data-content-id="${content.id}"
+        data-category="${getContentCategory(content.id)}"
+        data-search-text="${(content.title + " " + content.description + " " + content.tags.join(" ")).toLowerCase()}"
+      >
+        <div class="content-card-top">
+          <span class="content-icon">${getContentIcon(content.id)}</span>
+          <h2 class="content-title">${content.title}</h2>
+        </div>
         <p class="content-description">${content.description}</p>
         <p class="content-tags">${content.tags.join(" / ")}</p>
       </button>
     `,
   ).join("");
+  updatePortalContentVisibility();
+}
+
+function updatePortalContentVisibility(): void {
+  const cards = Array.from(dom.contentList.querySelectorAll<HTMLElement>("[data-content-id]"));
+  let visibleCount = 0;
+
+  cards.forEach((card) => {
+    const category = card.dataset.category ?? "memory";
+    const searchText = card.dataset.searchText ?? "";
+    const matchesFilter = portalFilter === "all" || category === portalFilter;
+    const matchesSearch = portalSearchKeyword.length === 0 || searchText.includes(portalSearchKeyword);
+    const visible = matchesFilter && matchesSearch;
+    card.classList.toggle("hidden", !visible);
+    if (visible) visibleCount += 1;
+  });
+
+  const showEmpty = visibleCount === 0;
+  dom.portalEmptyState.classList.toggle("hidden", !showEmpty);
+  dom.portalEmptyKeyword.textContent = portalSearchKeyword || portalFilter;
 }
 
 function loadPortalTheme(): PortalTheme {
@@ -258,16 +302,49 @@ function renderMissions(): void {
       const cardClass = isPracticed ? "mission-card mission-card--practiced" : "mission-card mission-card--new";
 
       return `
-        <button type="button" class="${cardClass}" data-mission-id="${mission.id}">
-          <span class="mission-main">
-            <span class="mission-title">${mission.title}</span>
-            <span class="mission-date">最終練習日: ${dateLabel}</span>
-          </span>
-          <span class="mission-status">${statusLabel}</span>
-        </button>
+        <article class="${cardClass}">
+          <button type="button" class="mission-start-btn" data-action="start-mission" data-mission-id="${mission.id}">
+            <span class="mission-main">
+              <span class="mission-title">${mission.title}</span>
+              <span class="mission-date">最終練習日: ${dateLabel}</span>
+            </span>
+            <span class="mission-status">${statusLabel}</span>
+          </button>
+          <button type="button" class="mission-delete-btn" data-action="delete-mission" data-mission-id="${mission.id}">
+            削除
+          </button>
+        </article>
       `;
     })
     .join("");
+}
+
+function deleteMission(missionId: string): void {
+  const mission = getMissionById(missionId);
+  if (!mission) return;
+
+  const ok = window.confirm(`「${mission.title}」を削除します。関連する練習記録も削除されます。よろしいですか？`);
+  if (!ok) return;
+
+  const activeMissionId = getActiveMission()?.id ?? null;
+  state.missions = state.missions.filter((item) => item.id !== missionId);
+  state.history = state.history.filter((item) => item.missionId !== missionId);
+
+  if (activeMissionId === missionId) {
+    state.active.missionIdx = -1;
+    state.active.charIdx = 0;
+    state.active.lap = 1;
+    state.active.strokes = [];
+    state.active.currentPoints = [];
+  } else if (activeMissionId) {
+    state.active.missionIdx = state.missions.findIndex((item) => item.id === activeMissionId);
+  }
+
+  saveState(state);
+  closeReplay();
+  renderMissions();
+  renderHistory();
+  renderCalendar();
 }
 
 function renderHistory(): void {
@@ -386,19 +463,26 @@ function updateStrokeBadge(): void {
 function updatePlayProgress(): void {
   const mission = getActiveMission();
   if (!mission) {
+    dom.playProgressText.textContent = "0/0 0%";
     dom.playProgressFill.style.width = "0%";
     dom.playProgressPips.innerHTML = "";
     return;
   }
 
-  const total = Math.max(1, mission.word.length);
-  const currentIndex = Math.max(0, Math.min(state.active.charIdx, total - 1));
-  const ratio = (currentIndex + 1) / total;
+  const charsPerLap = Math.max(1, mission.word.length);
+  const totalChars = Math.max(1, charsPerLap * Math.max(1, mission.count));
+  const lapIndex = Math.max(0, Math.min(state.active.lap - 1, mission.count - 1));
+  const currentCharIndex = Math.max(0, Math.min(state.active.charIdx, charsPerLap - 1));
+  const completedChars = lapIndex * charsPerLap + currentCharIndex;
+  const currentCharNo = Math.min(totalChars, completedChars + 1);
+  const ratio = currentCharNo / totalChars;
+  const percent = Math.round(ratio * 100);
 
-  dom.playProgressFill.style.width = `${Math.round(ratio * 100)}%`;
-  dom.playProgressPips.innerHTML = Array.from({ length: total }, (_, i) => {
+  dom.playProgressText.textContent = `${currentCharNo}/${totalChars} ${percent}%`;
+  dom.playProgressFill.style.width = `${percent}%`;
+  dom.playProgressPips.innerHTML = Array.from({ length: charsPerLap }, (_, i) => {
     const cls =
-      i < currentIndex ? "play-progress-pip play-progress-pip--done" : i === currentIndex
+      i < currentCharIndex ? "play-progress-pip play-progress-pip--done" : i === currentCharIndex
         ? "play-progress-pip play-progress-pip--current"
         : "play-progress-pip";
     return `<span class="${cls}" aria-hidden="true"></span>`;
@@ -886,6 +970,22 @@ function bindEvents(): void {
 
     launchContent(contentId);
   });
+  dom.portalSearchInput.addEventListener("input", () => {
+    portalSearchKeyword = dom.portalSearchInput.value.trim().toLowerCase();
+    updatePortalContentVisibility();
+  });
+  dom.portalFilterGroup.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const button = target.closest<HTMLButtonElement>("[data-filter]");
+    const filter = button?.dataset.filter;
+    if (filter !== "all" && filter !== "language" && filter !== "math" && filter !== "memory") return;
+    portalFilter = filter;
+    Array.from(dom.portalFilterGroup.querySelectorAll<HTMLButtonElement>("[data-filter]")).forEach((node) => {
+      node.classList.toggle("is-active", node.dataset.filter === portalFilter);
+    });
+    updatePortalContentVisibility();
+  });
 
   dom.homeTab.addEventListener("click", () => {
     renderRouteView({ contentId: activeContentId, view: "home" }, true);
@@ -973,11 +1073,18 @@ function bindEvents(): void {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
 
-    const card = target.closest<HTMLElement>("[data-mission-id]");
-    const missionId = card?.dataset.missionId;
+    const actionNode = target.closest<HTMLElement>("[data-action][data-mission-id]");
+    const missionId = actionNode?.dataset.missionId;
+    const action = actionNode?.dataset.action;
     if (!missionId) return;
 
-    startMission(missionId);
+    if (action === "delete-mission") {
+      deleteMission(missionId);
+      return;
+    }
+    if (action === "start-mission") {
+      startMission(missionId);
+    }
   });
 
   dom.historyGrid.addEventListener("click", (event) => {

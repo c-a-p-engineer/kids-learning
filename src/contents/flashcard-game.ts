@@ -1,6 +1,6 @@
 import { audioService } from "../app/audio";
 
-type LevelId = 1 | 2 | 3;
+type LevelId = 1 | 2 | 3 | 4 | 5;
 
 interface EmojiEntry {
   char: string;
@@ -68,8 +68,10 @@ const EMOJIS: EmojiEntry[] = [
 
 const LEVELS: Record<LevelId, LevelConfig> = {
   1: { name: "やさしい", count: 5, speed: 1100, quizCount: 2, ttsRate: 1.2 },
-  2: { name: "ふつう", count: 10, speed: 750, quizCount: 3, ttsRate: 1.5 },
-  3: { name: "むずかしい", count: 15, speed: 450, quizCount: 4, ttsRate: 2.2 },
+  2: { name: "ふつう", count: 8, speed: 900, quizCount: 3, ttsRate: 1.4 },
+  3: { name: "ちょいむず", count: 12, speed: 680, quizCount: 4, ttsRate: 1.8 },
+  4: { name: "むずかしい", count: 16, speed: 520, quizCount: 5, ttsRate: 2.1 },
+  5: { name: "げきむず", count: 20, speed: 380, quizCount: 6, ttsRate: 2.4 },
 };
 
 export class FlashcardGame {
@@ -130,11 +132,19 @@ export class FlashcardGame {
               </button>
               <button type="button" class="flashcard-level-btn flashcard-level-btn--normal" data-role="start-2">
                 <span class="flashcard-level-label">🟠 ふつう</span>
-                <span class="flashcard-level-meta">10枚 / クイズ3問</span>
+                <span class="flashcard-level-meta">8枚 / クイズ3問</span>
               </button>
               <button type="button" class="flashcard-level-btn flashcard-level-btn--hard" data-role="start-3">
+                <span class="flashcard-level-label">🟡 ちょいむず</span>
+                <span class="flashcard-level-meta">12枚 / クイズ4問</span>
+              </button>
+              <button type="button" class="flashcard-level-btn flashcard-level-btn--expert" data-role="start-4">
                 <span class="flashcard-level-label">🔴 むずかしい</span>
-                <span class="flashcard-level-meta">15枚 / クイズ4問</span>
+                <span class="flashcard-level-meta">16枚 / クイズ5問</span>
+              </button>
+              <button type="button" class="flashcard-level-btn flashcard-level-btn--master" data-role="start-5">
+                <span class="flashcard-level-label">🟣 げきむず</span>
+                <span class="flashcard-level-meta">20枚 / クイズ6問</span>
               </button>
             </div>
           </section>
@@ -197,6 +207,8 @@ export class FlashcardGame {
     this.getNode<HTMLButtonElement>("start-1").addEventListener("click", () => this.startGame(1));
     this.getNode<HTMLButtonElement>("start-2").addEventListener("click", () => this.startGame(2));
     this.getNode<HTMLButtonElement>("start-3").addEventListener("click", () => this.startGame(3));
+    this.getNode<HTMLButtonElement>("start-4").addEventListener("click", () => this.startGame(4));
+    this.getNode<HTMLButtonElement>("start-5").addEventListener("click", () => this.startGame(5));
     this.getNode<HTMLButtonElement>("btn-back-title").addEventListener("click", () => this.backToTitle());
     this.getNode<HTMLButtonElement>("btn-history").addEventListener("click", () => {
       this.renderHistory();

@@ -16,6 +16,10 @@ export interface AppDom {
   homeTab: HTMLButtonElement;
   parentTab: HTMLButtonElement;
   portalView: HTMLElement;
+  portalSearchInput: HTMLInputElement;
+  portalFilterGroup: HTMLElement;
+  portalEmptyState: HTMLElement;
+  portalEmptyKeyword: HTMLElement;
   homeView: HTMLElement;
   kakitoriHome: HTMLElement;
   dotburstHome: HTMLElement;
@@ -34,6 +38,7 @@ export interface AppDom {
   backHomeButton: HTMLButtonElement;
   playTitle: HTMLElement;
   playLap: HTMLElement;
+  playProgressText: HTMLElement;
   playProgressFill: HTMLElement;
   playProgressPips: HTMLElement;
   targetChar: HTMLElement;
@@ -79,6 +84,10 @@ export function getDom(): AppDom {
     homeTab: byId<HTMLButtonElement>("tab-home"),
     parentTab: byId<HTMLButtonElement>("tab-parent"),
     portalView: byId<HTMLElement>("view-portal"),
+    portalSearchInput: byId<HTMLInputElement>("portal-search-input"),
+    portalFilterGroup: byId<HTMLElement>("portal-filter-group"),
+    portalEmptyState: byId<HTMLElement>("portal-empty-state"),
+    portalEmptyKeyword: byId<HTMLElement>("portal-empty-keyword"),
     homeView: byId<HTMLElement>("view-home"),
     kakitoriHome: byId<HTMLElement>("kakitori-home"),
     dotburstHome: byId<HTMLElement>("dotburst-home"),
@@ -97,6 +106,7 @@ export function getDom(): AppDom {
     backHomeButton: byId<HTMLButtonElement>("btn-back-home"),
     playTitle: byId<HTMLElement>("play-title"),
     playLap: byId<HTMLElement>("play-lap"),
+    playProgressText: byId<HTMLElement>("play-progress-text"),
     playProgressFill: byId<HTMLElement>("play-progress-fill"),
     playProgressPips: byId<HTMLElement>("play-progress-pips"),
     targetChar: byId<HTMLElement>("target-char"),

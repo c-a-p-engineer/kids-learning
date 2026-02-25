@@ -13,6 +13,11 @@ interface DotBurstRecord {
 
 const STORAGE_KEY = "dot_burst_v8";
 const GAME_DURATION_MS = 30_000;
+const MIN_GAME_HEIGHT_PX = 420;
+const MAX_GAME_HEIGHT_PX = 860;
+const BOTTOM_SAFE_MARGIN_PX = 8;
+const MIN_DOT_SIZE_PX = 30;
+const MAX_DOT_SIZE_PX = 56;
 
 export class DotBurstGame {
   private readonly root: HTMLElement;
@@ -26,6 +31,12 @@ export class DotBurstGame {
   private startTime = 0;
   private timerId = 0;
   private historySort: "datetime" | "score" = "datetime";
+  private currentDotSize = 50;
+  private readonly handleResize = (): void => {
+    if (!this.root.classList.contains("hidden")) {
+      this.applyResponsiveLayout();
+    }
+  };
 
   constructor(root: HTMLElement) {
     this.root = root;
@@ -36,6 +47,9 @@ export class DotBurstGame {
 
   show(): void {
     this.root.classList.remove("hidden");
+    this.applyResponsiveLayout();
+    window.removeEventListener("resize", this.handleResize);
+    window.addEventListener("resize", this.handleResize);
     this.toggleModal("start-modal", true);
     this.toggleModal("result-modal", false);
     this.toggleModal("history-modal", false);
@@ -47,6 +61,7 @@ export class DotBurstGame {
       window.cancelAnimationFrame(this.timerId);
       this.timerId = 0;
     }
+    window.removeEventListener("resize", this.handleResize);
     this.root.classList.add("hidden");
   }
 
@@ -196,6 +211,12 @@ export class DotBurstGame {
     this.currentCount = Math.floor(Math.random() * max) + 1;
 
     const rect = displayArea.getBoundingClientRect();
+    this.currentDotSize = Math.min(
+      MAX_DOT_SIZE_PX,
+      Math.max(MIN_DOT_SIZE_PX, Math.floor(Math.min(rect.width, rect.height) * 0.16)),
+    );
+    const dotGap = this.currentDotSize * 1.1;
+    const padding = Math.max(5, this.currentDotSize * 0.16);
     const dots: Array<{ x: number; y: number }> = [];
 
     for (let i = 0; i < this.currentCount; i += 1) {
@@ -204,9 +225,11 @@ export class DotBurstGame {
       let attempts = 0;
 
       while (attempts < 50) {
-        x = Math.random() * (rect.width - 65) + 5;
-        y = Math.random() * (rect.height - 65) + 5;
-        if (!dots.some((dot) => Math.hypot(dot.x - x, dot.y - y) < 60)) break;
+        const maxX = Math.max(padding, rect.width - this.currentDotSize - padding);
+        const maxY = Math.max(padding, rect.height - this.currentDotSize - padding);
+        x = Math.random() * (maxX - padding) + padding;
+        y = Math.random() * (maxY - padding) + padding;
+        if (!dots.some((dot) => Math.hypot(dot.x - x, dot.y - y) < dotGap)) break;
         attempts += 1;
       }
 
@@ -215,6 +238,8 @@ export class DotBurstGame {
       dot.className = "dotburst-dot";
       dot.style.left = `${x}px`;
       dot.style.top = `${y}px`;
+      dot.style.width = `${this.currentDotSize}px`;
+      dot.style.height = `${this.currentDotSize}px`;
       container.appendChild(dot);
 
       window.setTimeout(() => {
@@ -425,6 +450,14 @@ export class DotBurstGame {
     this.combo = 0;
     this.getNode<HTMLElement>("time-val").textContent = "30.0";
     this.updateUI();
+  }
+
+  private applyResponsiveLayout(): void {
+    const viewportHeight = Math.floor(window.visualViewport?.height ?? window.innerHeight);
+    const top = Math.floor(this.root.getBoundingClientRect().top);
+    const available = viewportHeight - top - BOTTOM_SAFE_MARGIN_PX;
+    const targetHeight = Math.min(MAX_GAME_HEIGHT_PX, Math.max(MIN_GAME_HEIGHT_PX, available));
+    this.root.style.height = `${targetHeight}px`;
   }
 
   private goHome(): void {

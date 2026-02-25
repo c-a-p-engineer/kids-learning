@@ -15,23 +15,42 @@
 
       <main class="view-root">
         <section id="view-portal" class="view scrollable" aria-label="コンテンツ一覧ページ">
-          <h1 class="portal-title">キッズ学習コンテンツ</h1>
-          <p class="portal-subtitle">あそびたいコンテンツをえらんでね</p>
-          <div class="portal-theme-switch" aria-label="デザイン切り替え">
-            <button id="btn-theme-warm" class="portal-theme-btn is-active" type="button" aria-pressed="true">
-              暖色系
-            </button>
-            <button id="btn-theme-cool" class="portal-theme-btn" type="button" aria-pressed="false">
-              寒色系
-            </button>
-            <button id="btn-theme-fancy" class="portal-theme-btn" type="button" aria-pressed="false">
-              ファンシー系
-            </button>
-            <button id="btn-theme-cyber" class="portal-theme-btn" type="button" aria-pressed="false">
-              サイバー系
-            </button>
+          <div class="portal-sticky-header">
+            <h1 class="portal-title">まなびのライブラリ</h1>
+            <p class="portal-subtitle">あそびたいコンテンツをえらんでね</p>
+
+            <div class="portal-theme-switch" aria-label="デザイン切り替え">
+              <button id="btn-theme-warm" class="portal-theme-btn is-active" type="button" aria-pressed="true">
+                暖色
+              </button>
+              <button id="btn-theme-cool" class="portal-theme-btn" type="button" aria-pressed="false">寒色</button>
+              <button id="btn-theme-fancy" class="portal-theme-btn" type="button" aria-pressed="false">
+                ファンシー
+              </button>
+              <button id="btn-theme-cyber" class="portal-theme-btn" type="button" aria-pressed="false">
+                サイバー
+              </button>
+            </div>
+
+            <div class="portal-search-box">
+              <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zM9.5 14C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"></path>
+              </svg>
+              <input id="portal-search-input" type="text" placeholder="なにであそぶ？" />
+            </div>
+
+            <div id="portal-filter-group" class="portal-filter-group">
+              <button type="button" class="portal-filter-btn is-active" data-filter="all">ぜんぶ</button>
+              <button type="button" class="portal-filter-btn" data-filter="language">こくご</button>
+              <button type="button" class="portal-filter-btn" data-filter="math">さんすう</button>
+              <button type="button" class="portal-filter-btn" data-filter="memory">きおく</button>
+            </div>
           </div>
+
           <div id="content-list" class="content-list"></div>
+          <div id="portal-empty-state" class="portal-empty-state hidden">
+            <p>「<span id="portal-empty-keyword"></span>」は見つかりませんでした。</p>
+          </div>
         </section>
 
         <section id="view-home" class="view scrollable hidden" aria-label="ミッション一覧">
@@ -72,6 +91,7 @@
 
           <p id="play-lap" class="play-lap"></p>
           <div class="play-progress" aria-label="進み具合">
+            <p id="play-progress-text" class="play-progress-text">1/1 100%</p>
             <div class="play-progress-track">
               <div id="play-progress-fill" class="play-progress-fill"></div>
             </div>
@@ -85,7 +105,10 @@
           </div>
 
           <div class="stroke-info">
-            <p id="stroke-badge" class="stroke-badge">1画目</p>
+            <div class="stroke-info-head">
+              <p id="stroke-badge" class="stroke-badge">1画目</p>
+              <button id="btn-clear" class="stroke-clear-btn" type="button">やりなおす</button>
+            </div>
             <p class="stroke-note">さいごまで ていねいに かいてみよう！</p>
           </div>
 
@@ -100,7 +123,6 @@
           <div class="play-actions">
             <button id="btn-done" class="action-primary" type="button">できた！</button>
             <button id="btn-read-char" class="action-secondary action-compact" type="button">読む</button>
-            <button id="btn-clear" class="link-btn" type="button">もういちど</button>
             <button id="btn-back-home" class="action-quit" type="button">× やめる</button>
           </div>
         </section>
