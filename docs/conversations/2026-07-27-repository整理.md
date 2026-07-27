@@ -58,6 +58,7 @@
 ## 関連
 
 - Branch: `agent/reorganize-kids-learning`
+- PR: [#1 子ども向けUIとドキュメント構成を整理](https://github.com/c-a-p-engineer/kids-learning/pull/1)
 - Files:
   - `README.md`
   - `AGENTS.md`
