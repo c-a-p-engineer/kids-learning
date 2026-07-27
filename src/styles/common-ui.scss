@@ -1,0 +1,287 @@
+/*
+ * 全コンテンツ共通の子ども向けナビゲーション。
+ * 絵文字は視覚的な手掛かり、文字は読み上げ・保護者確認用として併記する。
+ */
+
+.child-action-with-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.48rem;
+  min-height: 48px;
+  line-height: 1.15;
+  text-align: center;
+}
+
+.child-button-icon {
+  flex: 0 0 auto;
+  font-size: 1.35em;
+  line-height: 1;
+}
+
+.child-button-label {
+  min-width: 0;
+  font-weight: 900;
+}
+
+.child-action-with-icon--portal,
+.child-action-with-icon--back,
+.child-action-with-icon--menu,
+.child-action-with-icon--close {
+  min-height: 52px;
+  border: 2px solid var(--app-border);
+  border-radius: 999px;
+  padding: 0.58rem 0.9rem;
+  font-size: 0.95rem;
+  font-weight: 900;
+  box-shadow: 0 4px 0 color-mix(in srgb, var(--app-border) 78%, transparent);
+  transition: transform 120ms ease, box-shadow 120ms ease, filter 120ms ease;
+}
+
+.child-action-with-icon--portal {
+  border-color: var(--app-primary-strong);
+  background: var(--app-primary);
+  color: #ffffff;
+}
+
+.child-action-with-icon--back {
+  background: var(--app-surface);
+  color: var(--app-primary-strong);
+}
+
+.child-action-with-icon--menu {
+  border-color: color-mix(in srgb, var(--app-secondary) 70%, var(--app-border));
+  background: var(--app-secondary);
+  color: #ffffff;
+}
+
+.child-action-with-icon--close {
+  border-color: #fca5a5;
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.child-action-with-icon--portal:active,
+.child-action-with-icon--back:active,
+.child-action-with-icon--menu:active,
+.child-action-with-icon--close:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--app-border) 78%, transparent);
+}
+
+.home-header-row {
+  position: sticky;
+  top: 0;
+  z-index: 35;
+  align-items: center;
+  margin: 0 0 1rem;
+  padding: 0.72rem;
+  border: 2px solid var(--app-border);
+  border-radius: 1.15rem;
+  background: color-mix(in srgb, var(--app-surface) 94%, transparent);
+  box-shadow: 0 7px 16px rgba(15, 23, 42, 0.1);
+  backdrop-filter: blur(12px);
+}
+
+.child-page-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  color: var(--app-heading);
+  font-size: clamp(1.15rem, 4vw, 1.55rem);
+  line-height: 1.2;
+}
+
+.child-page-title-icon {
+  font-size: 1.35em;
+  line-height: 1;
+}
+
+.child-play-header {
+  position: sticky;
+  top: 0;
+  z-index: 35;
+  width: min(100%, 360px);
+  max-width: 360px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.65rem;
+  margin: 0 0 0.5rem;
+  padding: 0.55rem;
+  border: 2px solid var(--app-border);
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--app-surface) 95%, transparent);
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.1);
+  backdrop-filter: blur(12px);
+}
+
+.child-play-header .play-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.child-play-header #btn-back-home {
+  min-width: 7rem;
+}
+
+.tab-bar {
+  padding-top: env(safe-area-inset-top);
+}
+
+.tab.child-action-with-icon {
+  min-height: 56px;
+  gap: 0.4rem;
+  padding: 0.7rem 0.45rem;
+  font-size: 0.95rem;
+}
+
+.tab.child-action-with-icon .child-button-icon {
+  font-size: 1.45rem;
+}
+
+.portal-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.portal-title-icon {
+  color: initial;
+  -webkit-text-fill-color: initial;
+  font-size: 1.1em;
+}
+
+.portal-content-count {
+  flex-direction: column;
+  gap: 0.05rem;
+  line-height: 1;
+}
+
+.portal-content-count > span:first-child {
+  font-size: 1.3rem;
+}
+
+.portal-filter-btn.child-filter-button,
+.portal-theme-btn.child-theme-button {
+  gap: 0.32rem;
+}
+
+.portal-filter-btn.child-filter-button .child-button-icon {
+  font-size: 1.15rem;
+}
+
+.portal-theme-btn.child-theme-button .child-button-icon {
+  font-size: 1.05rem;
+}
+
+.content-card::after {
+  content: "▶ あそぶ";
+}
+
+.action-primary.child-action-with-icon,
+.action-secondary.child-action-with-icon,
+.action-neutral.child-action-with-icon,
+.action-warning.child-action-with-icon,
+.action-danger.child-action-with-icon,
+.stroke-clear-btn.child-action-with-icon,
+.stroke-model-replay.child-action-with-icon,
+.dotburst-menu-btn.child-action-with-icon,
+.dotburst-link-btn.child-action-with-icon,
+.flashcard-history-btn.child-action-with-icon,
+.flashcard-primary-btn.child-action-with-icon,
+.flashcard-history-close.child-action-with-icon,
+.flashcard-clear-btn.child-action-with-icon,
+.larger-sub-btn.child-action-with-icon,
+.larger-gray-btn.child-action-with-icon,
+.larger-danger-btn.child-action-with-icon,
+.larger-primary-btn.child-action-with-icon,
+.fit-shape-link-btn.child-action-with-icon,
+.fit-shape-retry-btn.child-action-with-icon,
+.larger-level-btn.child-action-with-icon,
+.fit-shape-level-btn.child-action-with-icon {
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.flashcard-history-close.child-action-with-icon--close {
+  width: auto;
+  min-width: 7rem;
+  height: auto;
+  padding: 0.5rem 0.75rem;
+}
+
+.fit-shape-link-btn.child-action-with-icon--menu {
+  border: 2px solid color-mix(in srgb, var(--app-secondary) 70%, var(--app-border));
+  background: var(--app-secondary);
+  color: #ffffff;
+}
+
+.child-level-button .child-button-icon {
+  font-size: 1.35rem;
+}
+
+body[data-theme="cyber"] .home-header-row,
+body[data-theme="cyber"] .child-play-header {
+  background: color-mix(in srgb, #0f1830 96%, transparent);
+  border-color: #315a82;
+}
+
+body[data-theme="cyber"] .child-action-with-icon--back {
+  background: #12213f;
+  border-color: #3a628b;
+  color: #e6f9ff;
+}
+
+body[data-theme="cyber"] .child-action-with-icon--portal,
+body[data-theme="cyber"] .child-action-with-icon--menu {
+  color: #041322;
+}
+
+@media (max-width: 25rem) {
+  .home-header-row {
+    gap: 0.45rem;
+    padding: 0.55rem;
+  }
+
+  .child-action-with-icon--portal,
+  .child-action-with-icon--back,
+  .child-action-with-icon--menu,
+  .child-action-with-icon--close {
+    padding-right: 0.68rem;
+    padding-left: 0.68rem;
+    font-size: 0.84rem;
+  }
+
+  .child-page-title {
+    font-size: 1.05rem;
+  }
+
+  .child-play-header #btn-back-home {
+    min-width: 6.2rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .child-action-with-icon--portal,
+  .child-action-with-icon--back,
+  .child-action-with-icon--menu,
+  .child-action-with-icon--close {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .home-header-row,
+  .child-play-header,
+  .child-action-with-icon--portal,
+  .child-action-with-icon--back,
+  .child-action-with-icon--menu,
+  .child-action-with-icon--close {
+    border: 2px solid ButtonText;
+  }
+}
