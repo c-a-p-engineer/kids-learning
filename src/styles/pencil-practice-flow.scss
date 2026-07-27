@@ -1,0 +1,147 @@
+.pencil-practice-skip {
+  border-color: color-mix(in srgb, var(--app-subtext) 55%, transparent);
+  background: var(--app-surface);
+  color: var(--app-text);
+}
+
+.pencil-practice-skip:hover {
+  background: color-mix(in srgb, var(--app-surface) 82%, var(--app-secondary));
+}
+
+.pencil-flow-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  overflow-y: auto;
+  padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
+    max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+  background: rgb(15 23 42 / 72%);
+}
+
+.pencil-flow-panel {
+  width: min(100%, 720px);
+  padding: clamp(0.8rem, 2.5vw, 1.35rem);
+  border: 2px solid var(--app-border);
+  border-radius: 1.5rem;
+  background: var(--app-surface);
+  box-shadow: 0 24px 60px rgb(15 23 42 / 34%);
+}
+
+.pencil-flow-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.pencil-flow-heading p,
+.pencil-flow-heading h3,
+.pencil-flow-guide-note,
+.pencil-flow-status {
+  margin: 0;
+}
+
+.pencil-flow-heading p {
+  color: var(--app-subtext);
+  font-weight: 800;
+}
+
+.pencil-flow-heading h3 {
+  margin-top: 0.15rem;
+  color: var(--app-heading);
+  font-size: clamp(1.2rem, 4vw, 1.75rem);
+}
+
+.pencil-flow-heading button,
+.pencil-flow-actions button {
+  min-height: 48px;
+  padding: 0.65rem 0.9rem;
+  border: 2px solid var(--app-border);
+  border-radius: 1rem;
+  background: var(--app-surface);
+  color: var(--app-text);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.pencil-flow-guide-note {
+  margin-top: 0.75rem;
+  padding: 0.65rem 0.8rem;
+  border-radius: 0.8rem;
+  background: color-mix(in srgb, var(--app-surface) 78%, #cbd5e1);
+  color: var(--app-text);
+  font-weight: 700;
+}
+
+.pencil-flow-canvas-wrap {
+  width: min(100%, 590px);
+  margin: 0.8rem auto 0;
+  overflow: hidden;
+  border: 3px solid var(--app-border);
+  border-radius: 1.25rem;
+  background: var(--app-surface);
+}
+
+.pencil-flow-canvas-wrap canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+}
+
+.pencil-flow-status {
+  min-height: 1.6em;
+  margin-top: 0.65rem;
+  text-align: center;
+  color: var(--app-subtext);
+  font-weight: 800;
+}
+
+.pencil-flow-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+  margin-top: 0.8rem;
+}
+
+.pencil-flow-actions button:last-child {
+  border-color: var(--app-primary);
+  background: var(--app-primary);
+  color: #fff;
+}
+
+@media (max-width: 520px) {
+  .pencil-flow-heading {
+    align-items: center;
+  }
+
+  .pencil-flow-heading button {
+    min-width: 92px;
+    padding-inline: 0.65rem;
+  }
+
+  .pencil-flow-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pencil-flow-overlay,
+  .pencil-flow-panel,
+  .pencil-flow-actions button {
+    transition: none !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .pencil-flow-panel,
+  .pencil-flow-canvas-wrap,
+  .pencil-flow-heading button,
+  .pencil-flow-actions button,
+  .pencil-practice-skip {
+    border: 2px solid CanvasText;
+  }
+}
