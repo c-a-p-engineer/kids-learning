@@ -2,6 +2,7 @@ import "./styles/common-ui.scss";
 import "./number-sequence";
 import "./clock-reading";
 import "./pencil-practice";
+import "./pencil-practice-video";
 
 type ButtonVariant = "portal" | "back" | "menu" | "close" | "action";
 
