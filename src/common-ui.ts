@@ -1,6 +1,7 @@
 import "./styles/common-ui.scss";
 import "./number-sequence";
 import "./clock-reading";
+import "./pencil-practice";
 
 type ButtonVariant = "portal" | "back" | "menu" | "close" | "action";
 
@@ -170,8 +171,8 @@ function decoratePortal(): void {
   const contentCount = document.querySelector<HTMLElement>(".portal-content-count");
   if (contentCount && contentCount.dataset.commonUi !== "true") {
     contentCount.dataset.commonUi = "true";
-    contentCount.innerHTML = '<span aria-hidden="true">🎮</span><span>7つ</span>';
-    contentCount.setAttribute("aria-label", "7つの学習コンテンツ");
+    contentCount.innerHTML = '<span aria-hidden="true">🎮</span><span>8つ</span>';
+    contentCount.setAttribute("aria-label", "8つの学習コンテンツ");
   }
 
   const search = document.getElementById("portal-search-input");
