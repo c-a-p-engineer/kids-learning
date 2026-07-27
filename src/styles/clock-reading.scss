@@ -1,0 +1,412 @@
+.clock-reading-experience {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  overflow-y: auto;
+  background: var(--app-bg);
+  color: var(--app-text);
+  padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
+    max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+  -webkit-overflow-scrolling: touch;
+}
+
+.clock-reading-shell {
+  width: min(100%, 720px);
+  margin: 0 auto;
+}
+
+.clock-reading-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.clock-reading-header h2 {
+  margin: 0.15rem 0 0;
+  color: var(--app-heading);
+  font-size: clamp(1.25rem, 5vw, 1.75rem);
+}
+
+.clock-reading-step {
+  margin: 0;
+  color: var(--app-primary-strong);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.clock-reading-back,
+.clock-reading-levels button,
+.clock-reading-sub,
+.clock-reading-choice,
+.clock-reading-actions button,
+.clock-reading-primary {
+  min-height: 48px;
+  border: 1px solid var(--app-border);
+  border-radius: 1rem;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.clock-reading-back {
+  flex: 0 0 auto;
+  background: var(--app-surface);
+  color: var(--app-text);
+  padding: 0.65rem 0.9rem;
+}
+
+.clock-reading-screen {
+  display: none;
+}
+
+.clock-reading-screen.is-active {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.clock-reading-screen h3 {
+  margin: 0.4rem 0 0.7rem;
+  color: var(--app-heading);
+  text-align: center;
+  font-size: clamp(1.15rem, 4.5vw, 1.55rem);
+}
+
+.clock-reading-hero {
+  font-size: clamp(4rem, 22vw, 7rem);
+  line-height: 1;
+}
+
+.clock-reading-limit {
+  margin: 0 0 1rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--app-primary-soft) 18%, var(--app-surface));
+  color: var(--app-heading);
+  padding: 0.5rem 0.85rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.clock-reading-levels {
+  width: min(100%, 520px);
+  display: grid;
+  gap: 0.7rem;
+}
+
+.clock-reading-levels button {
+  width: 100%;
+  background: var(--app-surface);
+  color: var(--app-heading);
+  padding: 0.8rem 1rem;
+  font-size: 1.05rem;
+  box-shadow: 0 4px 0 color-mix(in srgb, var(--app-border) 80%, transparent);
+}
+
+.clock-reading-levels button:nth-child(1) {
+  border-color: color-mix(in srgb, #22c55e 55%, var(--app-border));
+}
+
+.clock-reading-levels button:nth-child(2) {
+  border-color: color-mix(in srgb, #f59e0b 55%, var(--app-border));
+}
+
+.clock-reading-levels button:nth-child(3) {
+  border-color: color-mix(in srgb, #8b5cf6 55%, var(--app-border));
+}
+
+.clock-reading-levels small {
+  display: inline-block;
+  margin-top: 0.2rem;
+  color: var(--app-subtext);
+  font-size: 0.8rem;
+}
+
+.clock-reading-sub {
+  margin-top: 1rem;
+  background: var(--app-surface-soft);
+  color: var(--app-text);
+  padding: 0.65rem 1rem;
+}
+
+.clock-reading-status {
+  width: min(100%, 560px);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+  text-align: center;
+}
+
+.clock-reading-status span {
+  border: 1px solid var(--app-border);
+  border-radius: 0.8rem;
+  background: var(--app-surface);
+  padding: 0.5rem 0.3rem;
+  font-size: 0.82rem;
+}
+
+.clock-reading-timer-track {
+  width: min(100%, 560px);
+  height: 0.7rem;
+  margin-top: 0.55rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--app-border) 80%, transparent);
+}
+
+.clock-reading-timer-fill {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #22c55e, #f59e0b, #ef4444);
+}
+
+.clock-reading-instruction {
+  margin: 0.8rem 0 0.4rem;
+  color: var(--app-heading);
+  font-weight: 900;
+}
+
+.clock-face-wrap {
+  width: min(60vw, 280px);
+  min-width: 210px;
+  aspect-ratio: 1;
+}
+
+.clock-face {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.clock-face-ring {
+  fill: var(--app-surface);
+  stroke: var(--app-primary);
+  stroke-width: 7;
+}
+
+.clock-face-ticks line {
+  stroke: var(--app-text);
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+
+.clock-face text {
+  fill: var(--app-heading);
+  font-size: 18px;
+  font-weight: 900;
+  dominant-baseline: middle;
+}
+
+.clock-hand {
+  stroke-linecap: round;
+}
+
+.clock-hand--hour {
+  stroke: var(--app-heading);
+  stroke-width: 10;
+}
+
+.clock-hand--minute {
+  stroke: var(--app-secondary);
+  stroke-width: 6;
+}
+
+.clock-center {
+  fill: var(--app-primary-strong);
+}
+
+.clock-reading-choices {
+  width: min(100%, 560px);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin-top: 0.6rem;
+}
+
+.clock-reading-choice {
+  background: var(--app-surface);
+  color: var(--app-heading);
+  padding: 0.8rem 0.35rem;
+  font-size: clamp(0.9rem, 3.5vw, 1.15rem);
+  box-shadow: 0 4px 0 color-mix(in srgb, var(--app-primary) 35%, var(--app-border));
+}
+
+.clock-reading-back:active,
+.clock-reading-levels button:active,
+.clock-reading-sub:active,
+.clock-reading-choice:active,
+.clock-reading-actions button:active,
+.clock-reading-primary:active {
+  transform: translateY(2px);
+  box-shadow: none;
+}
+
+.clock-reading-feedback {
+  min-height: 2.2rem;
+  margin-top: 0.6rem;
+  border-radius: 999px;
+  padding: 0.45rem 0.85rem;
+  font-weight: 900;
+}
+
+.clock-reading-feedback.is-correct {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.clock-reading-feedback.is-wrong {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.clock-reading-history {
+  width: min(100%, 560px);
+  display: grid;
+  gap: 0.55rem;
+}
+
+.clock-reading-history-item {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 0.75rem;
+  border: 1px solid var(--app-border);
+  border-radius: 0.9rem;
+  background: var(--app-surface);
+  padding: 0.75rem;
+}
+
+.clock-reading-history-item div {
+  display: flex;
+  flex-direction: column;
+}
+
+.clock-reading-history-item span,
+.clock-reading-history-item p {
+  margin: 0;
+  color: var(--app-subtext);
+  font-size: 0.78rem;
+}
+
+.clock-reading-history-item b {
+  color: var(--app-primary-strong);
+}
+
+.clock-reading-empty {
+  color: var(--app-muted);
+  text-align: center;
+}
+
+.clock-reading-actions {
+  display: flex;
+  gap: 0.7rem;
+  margin-top: 1rem;
+}
+
+.clock-reading-actions button,
+.clock-reading-primary {
+  background: var(--app-surface);
+  color: var(--app-text);
+  padding: 0.65rem 1rem;
+}
+
+.clock-reading-actions .clock-reading-danger {
+  border-color: #fca5a5;
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.clock-reading-finish {
+  font-size: 4.5rem;
+}
+
+.clock-reading-result-card {
+  width: min(100%, 340px);
+  border: 2px solid color-mix(in srgb, var(--app-primary) 55%, var(--app-border));
+  border-radius: 1.2rem;
+  background: var(--app-surface);
+  padding: 1rem;
+  text-align: center;
+}
+
+.clock-reading-result-card strong {
+  color: var(--app-primary-strong);
+  font-size: 3rem;
+}
+
+.clock-reading-result-card span {
+  margin-left: 0.3rem;
+  font-weight: 800;
+}
+
+.clock-reading-result-card p {
+  margin: 0.5rem 0 0;
+  color: var(--app-subtext);
+  font-weight: 700;
+}
+
+.clock-reading-primary {
+  margin-top: 1rem;
+  border-color: var(--app-primary);
+  background: var(--app-primary);
+  color: #ffffff;
+}
+
+body[data-theme="cyber"] .clock-reading-feedback.is-correct {
+  background: #133127;
+  color: #bbf7d0;
+}
+
+body[data-theme="cyber"] .clock-reading-feedback.is-wrong,
+body[data-theme="cyber"] .clock-reading-actions .clock-reading-danger {
+  background: #3a1620;
+  color: #fecdd3;
+}
+
+@media (min-width: 640px) {
+  .clock-reading-levels {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 420px) {
+  .clock-reading-header {
+    align-items: flex-start;
+  }
+
+  .clock-reading-back {
+    padding-inline: 0.7rem;
+  }
+
+  .clock-reading-status span {
+    font-size: 0.72rem;
+  }
+
+  .clock-reading-choices {
+    grid-template-columns: 1fr;
+  }
+
+  .clock-reading-choice {
+    min-height: 52px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .clock-reading-timer-fill,
+  .clock-reading-choice,
+  .clock-reading-levels button {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .clock-face-ring,
+  .clock-face-ticks line,
+  .clock-hand,
+  .clock-center {
+    forced-color-adjust: auto;
+  }
+}
