@@ -1,0 +1,392 @@
+.pencil-practice-experience {
+  position: absolute;
+  inset: 0;
+  z-index: 9;
+  overflow-y: auto;
+  background: var(--app-bg);
+  color: var(--app-text);
+  padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
+    max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+  -webkit-overflow-scrolling: touch;
+}
+
+.pencil-practice-shell {
+  width: min(100%, 720px);
+  margin: 0 auto;
+}
+
+.pencil-practice-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.pencil-practice-header h2 {
+  margin: 0.15rem 0 0;
+  color: var(--app-heading);
+  font-size: clamp(1.25rem, 5vw, 1.75rem);
+}
+
+.pencil-practice-step {
+  margin: 0;
+  color: var(--app-primary-strong);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.pencil-practice-back,
+.pencil-practice-levels button,
+.pencil-practice-sub,
+.pencil-practice-game-actions button,
+.pencil-practice-actions button,
+.pencil-practice-menu {
+  min-height: 48px;
+  border: 1px solid var(--app-border);
+  border-radius: 1rem;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.pencil-practice-back {
+  flex: 0 0 auto;
+  background: var(--app-surface);
+  color: var(--app-text);
+  padding: 0.65rem 0.9rem;
+}
+
+.pencil-practice-screen {
+  display: none;
+}
+
+.pencil-practice-screen.is-active {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.pencil-practice-screen h3 {
+  margin: 0.45rem 0 0.55rem;
+  color: var(--app-heading);
+  text-align: center;
+  font-size: clamp(1.15rem, 4.5vw, 1.55rem);
+}
+
+.pencil-practice-hero {
+  font-size: clamp(3.4rem, 18vw, 6rem);
+  line-height: 1;
+}
+
+.pencil-practice-limit {
+  margin: 0 0 1rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--app-primary-soft) 18%, var(--app-surface));
+  color: var(--app-heading);
+  padding: 0.5rem 0.85rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.pencil-practice-levels {
+  width: min(100%, 560px);
+  display: grid;
+  gap: 0.7rem;
+}
+
+.pencil-practice-levels button {
+  width: 100%;
+  background: var(--app-surface);
+  color: var(--app-heading);
+  padding: 0.85rem 1rem;
+  font-size: 1.02rem;
+  box-shadow: 0 4px 0 color-mix(in srgb, var(--app-border) 80%, transparent);
+}
+
+.pencil-practice-levels button:nth-child(1) {
+  border-color: color-mix(in srgb, #22c55e 55%, var(--app-border));
+}
+
+.pencil-practice-levels button:nth-child(2) {
+  border-color: color-mix(in srgb, #f59e0b 55%, var(--app-border));
+}
+
+.pencil-practice-levels button:nth-child(3) {
+  border-color: color-mix(in srgb, #8b5cf6 55%, var(--app-border));
+}
+
+.pencil-practice-levels small {
+  display: inline-block;
+  margin-top: 0.2rem;
+  color: var(--app-subtext);
+  font-size: 0.78rem;
+}
+
+.pencil-practice-sub {
+  margin-top: 1rem;
+  background: var(--app-surface-soft);
+  color: var(--app-text);
+  padding: 0.65rem 1rem;
+}
+
+.pencil-practice-progress {
+  width: min(100%, 560px);
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.pencil-practice-progress strong {
+  min-width: 3.8rem;
+  color: var(--app-heading);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.pencil-practice-progress-track {
+  height: 0.72rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--app-border) 80%, transparent);
+}
+
+.pencil-practice-progress-fill {
+  width: 20%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #22c55e, #f59e0b);
+  transition: width 220ms ease;
+}
+
+.pencil-practice-hint {
+  min-height: 1.5rem;
+  margin: 0 0 0.55rem;
+  color: var(--app-subtext);
+  font-weight: 700;
+  text-align: center;
+}
+
+.pencil-practice-canvas-wrap {
+  width: min(82vw, 390px);
+  min-width: 250px;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border: 6px solid color-mix(in srgb, var(--app-primary) 65%, var(--app-border));
+  border-radius: 1.25rem;
+  background: var(--app-surface);
+  box-shadow: 0 6px 0 color-mix(in srgb, var(--app-primary) 30%, var(--app-border));
+}
+
+.pencil-practice-canvas-wrap canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.pencil-practice-feedback {
+  min-height: 2.2rem;
+  margin-top: 0.65rem;
+  border-radius: 999px;
+  padding: 0.45rem 0.85rem;
+  font-weight: 900;
+  text-align: center;
+}
+
+.pencil-practice-feedback.is-positive {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.pencil-practice-feedback.is-notice {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.pencil-practice-game-actions {
+  width: min(100%, 560px);
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 0.7rem;
+  margin-top: 0.7rem;
+}
+
+.pencil-practice-game-actions button,
+.pencil-practice-actions button,
+.pencil-practice-menu {
+  background: var(--app-surface);
+  color: var(--app-text);
+  padding: 0.7rem 1rem;
+}
+
+.pencil-practice-game-actions .pencil-practice-primary,
+.pencil-practice-menu {
+  border-color: var(--app-primary);
+  background: var(--app-primary);
+  color: #ffffff;
+}
+
+.pencil-practice-back:active,
+.pencil-practice-levels button:active,
+.pencil-practice-sub:active,
+.pencil-practice-game-actions button:active,
+.pencil-practice-actions button:active,
+.pencil-practice-menu:active {
+  transform: translateY(2px);
+  box-shadow: none;
+}
+
+.pencil-practice-history {
+  width: min(100%, 560px);
+  display: grid;
+  gap: 0.55rem;
+}
+
+.pencil-practice-history-item {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 0.75rem;
+  border: 1px solid var(--app-border);
+  border-radius: 0.9rem;
+  background: var(--app-surface);
+  padding: 0.75rem;
+}
+
+.pencil-practice-history-item div {
+  display: flex;
+  flex-direction: column;
+}
+
+.pencil-practice-history-item span,
+.pencil-practice-history-item p {
+  margin: 0;
+  color: var(--app-subtext);
+  font-size: 0.78rem;
+}
+
+.pencil-practice-history-item b {
+  color: var(--app-primary-strong);
+}
+
+.pencil-practice-empty {
+  color: var(--app-muted);
+  text-align: center;
+}
+
+.pencil-practice-actions {
+  display: flex;
+  gap: 0.7rem;
+  margin-top: 1rem;
+}
+
+.pencil-practice-actions .pencil-practice-danger {
+  border-color: #fca5a5;
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.pencil-practice-finish {
+  font-size: 4.5rem;
+}
+
+.pencil-practice-result-card {
+  width: min(100%, 350px);
+  border: 2px solid color-mix(in srgb, var(--app-primary) 55%, var(--app-border));
+  border-radius: 1.2rem;
+  background: var(--app-surface);
+  padding: 1rem;
+  text-align: center;
+}
+
+.pencil-practice-stars {
+  min-height: 2rem;
+  margin-bottom: 0.2rem;
+  font-size: 1.75rem;
+  letter-spacing: 0.08em;
+}
+
+.pencil-practice-result-card strong {
+  color: var(--app-primary-strong);
+  font-size: 3rem;
+}
+
+.pencil-practice-result-card span {
+  margin-left: 0.3rem;
+  font-weight: 800;
+}
+
+.pencil-practice-result-card p {
+  margin: 0.5rem 0 0;
+  color: var(--app-subtext);
+  font-weight: 700;
+}
+
+.pencil-practice-menu {
+  margin-top: 1rem;
+}
+
+body[data-theme="cyber"] .pencil-practice-feedback.is-positive {
+  background: #133127;
+  color: #bbf7d0;
+}
+
+body[data-theme="cyber"] .pencil-practice-feedback.is-notice {
+  background: #3d2e0f;
+  color: #fde68a;
+}
+
+body[data-theme="cyber"] .pencil-practice-actions .pencil-practice-danger {
+  background: #3a1620;
+  color: #fecdd3;
+}
+
+@media (min-width: 640px) {
+  .pencil-practice-levels {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 420px) {
+  .pencil-practice-header {
+    align-items: flex-start;
+  }
+
+  .pencil-practice-back {
+    padding-inline: 0.7rem;
+  }
+
+  .pencil-practice-canvas-wrap {
+    width: min(88vw, 360px);
+    min-width: 230px;
+  }
+
+  .pencil-practice-game-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .pencil-practice-game-actions button {
+    min-height: 52px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pencil-practice-progress-fill,
+  .pencil-practice-levels button,
+  .pencil-practice-game-actions button {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .pencil-practice-canvas-wrap,
+  .pencil-practice-feedback,
+  .pencil-practice-result-card {
+    forced-color-adjust: auto;
+  }
+}

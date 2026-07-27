@@ -1,6 +1,7 @@
 import "./styles/common-ui.scss";
 import "./number-sequence";
 import "./clock-reading";
+import "./pencil-practice";
 
 type ButtonVariant = "portal" | "back" | "menu" | "close" | "action";
 
@@ -81,6 +82,8 @@ const THEME_ICONS: Record<string, string> = {
   "btn-theme-fancy": "🌸",
   "btn-theme-cyber": "🤖",
 };
+
+const INDEPENDENT_VIEW_IDS = ["number-sequence-experience", "clock-reading-experience", "pencil-practice-experience"];
 
 function iconMarkup(icon: string, label: string): string {
   return `<span class="child-button-icon" aria-hidden="true">${icon}</span><span class="child-button-label">${label}</span>`;
@@ -170,14 +173,33 @@ function decoratePortal(): void {
   const contentCount = document.querySelector<HTMLElement>(".portal-content-count");
   if (contentCount && contentCount.dataset.commonUi !== "true") {
     contentCount.dataset.commonUi = "true";
-    contentCount.innerHTML = '<span aria-hidden="true">🎮</span><span>7つ</span>';
-    contentCount.setAttribute("aria-label", "7つの学習コンテンツ");
+    contentCount.innerHTML = '<span aria-hidden="true">🎮</span><span>8つ</span>';
+    contentCount.setAttribute("aria-label", "8つの学習コンテンツ");
   }
 
   const search = document.getElementById("portal-search-input");
   if (search instanceof HTMLInputElement) {
     search.placeholder = "🔎 なまえで さがす";
   }
+}
+
+function bindIndependentViewTabs(): void {
+  const main = document.getElementById("main-content");
+  const tabs = document.getElementById("game-tabs");
+  if (!main || !tabs || main.dataset.independentTabsBound === "true") return;
+  main.dataset.independentTabsBound = "true";
+
+  const sync = (): void => {
+    const independentViewActive = INDEPENDENT_VIEW_IDS.some((id) => {
+      const view = document.getElementById(id);
+      return view instanceof HTMLElement && !view.classList.contains("hidden");
+    });
+    if (independentViewActive) tabs.classList.add("hidden");
+  };
+
+  const observer = new MutationObserver(sync);
+  observer.observe(main, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
+  sync();
 }
 
 function decorateLevelButtons(): void {
@@ -207,6 +229,7 @@ function applyCommonUi(): void {
   decorateFilters();
   decorateThemes();
   decoratePortal();
+  bindIndependentViewTabs();
   decorateLevelButtons();
 }
 
