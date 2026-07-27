@@ -3,6 +3,7 @@ import "./number-sequence";
 import "./clock-reading";
 import "./pencil-practice";
 import "./pencil-practice-video";
+import "./pencil-practice-video-sync";
 
 type ButtonVariant = "portal" | "back" | "menu" | "close" | "action";
 
