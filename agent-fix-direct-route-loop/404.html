@@ -6,26 +6,16 @@
     <title>Redirecting...</title>
     <script>
       (function () {
-        var path = window.location.pathname + window.location.search + window.location.hash;
-        var segments = window.location.pathname.split("/").filter(Boolean);
-        var base = "/";
+        var repositoryBase = "/kids-learning/";
+        var requestedPath = window.location.pathname + window.location.search + window.location.hash;
+        var target = new URL(repositoryBase, window.location.origin);
 
-        if (segments[0] === "kids-learning") {
-          var second = segments[1];
-          var known = { kakitori: true, home: true, play: true, parent: true, portal: true };
-          if (second && !known[second]) {
-            base = "/kids-learning/" + second + "/";
-          } else {
-            base = "/kids-learning/";
-          }
-        }
-
-        var target = new URL(base, window.location.origin);
-        target.searchParams.set("redirect", path);
+        // GitHub Pagesの404は、必ずSPAの入口へ戻す。
+        // 未知の第2パスをディレクトリとして扱うと、そのURLも404になり再転送が無限に続く。
+        target.searchParams.set("redirect", requestedPath);
         window.location.replace(target.toString());
       })();
     </script>
   </head>
   <body></body>
 </html>
-
