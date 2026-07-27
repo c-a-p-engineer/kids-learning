@@ -96,6 +96,10 @@ class PencilPracticeStrictFlow {
       this.resetExerciseState();
       return;
     }
+    if (target.closest('[data-role="clear"]')) {
+      this.resetExerciseState();
+      return;
+    }
     if (!target.closest('[data-role="done"]') || this.allowCoreDone) return;
     event.preventDefault();
     event.stopImmediatePropagation();
@@ -108,19 +112,23 @@ class PencilPracticeStrictFlow {
     const guide = this.currentGuide;
     if (!guide) return;
     const point = this.eventPoint(event);
-    const start = guide.points[0];
-    if (!start || distance(point, start) > guide.corridor * 1.15) {
+    const existingPoints = this.strokes.flat();
+    const firstStroke = existingPoints.length === 0;
+    const expectedStart = firstStroke ? guide.points[0] : existingPoints[existingPoints.length - 1];
+    const startTolerance = guide.corridor * (firstStroke ? 1.15 : 1.5);
+    if (!expectedStart || distance(point, expectedStart) > startTolerance) {
       event.preventDefault();
       event.stopImmediatePropagation();
-      this.showFeedback("①から はじめてね");
+      this.showFeedback(firstStroke ? "①から はじめてね" : "さっきの つづきから かいてね");
       return;
     }
     this.currentStroke = [point];
-    this.strokes = [];
     this.drawing = true;
-    this.validStart = true;
-    this.leftStart = false;
-    this.pathLength = 0;
+    if (firstStroke) {
+      this.validStart = true;
+      this.leftStart = false;
+      this.pathLength = 0;
+    }
     this.completionScheduled = false;
     this.hideFeedback();
   }
@@ -140,7 +148,7 @@ class PencilPracticeStrictFlow {
     if (
       this.validStart &&
       this.leftStart &&
-      this.currentStroke.length >= 5 &&
+      this.strokes.reduce((count, stroke) => count + stroke.length, 0) + this.currentStroke.length >= 5 &&
       this.pathLength >= polylineLength(guide.points) * 0.2 &&
       distance(point, goal) <= guide.corridor * 1.15
     ) {
