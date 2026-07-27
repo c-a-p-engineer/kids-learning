@@ -6,6 +6,7 @@ import { FIT_SHAPE_CONTENT } from "./fit-shape";
 import { KAKITORI_CONTENT } from "./kakitori";
 import { LARGER_NUMBER_CONTENT } from "./larger-number";
 import { NUMBER_SEQUENCE_CONTENT } from "./number-sequence";
+import { PENCIL_PRACTICE_CONTENT } from "./pencil-practice";
 
 export const LEARNING_CONTENTS: LearningContent[] = [
   FIT_SHAPE_CONTENT,
@@ -14,5 +15,6 @@ export const LEARNING_CONTENTS: LearningContent[] = [
   NUMBER_SEQUENCE_CONTENT,
   LARGER_NUMBER_CONTENT,
   CLOCK_READING_CONTENT,
+  PENCIL_PRACTICE_CONTENT,
   KAKITORI_CONTENT,
 ];
