@@ -1,4 +1,5 @@
 import type { LearningContent } from "../app/types";
+import { CLOCK_READING_CONTENT } from "./clock-reading";
 import { DOTBURST_CONTENT } from "./dotburst";
 import { FLASHCARD_CONTENT } from "./flashcard";
 import { FIT_SHAPE_CONTENT } from "./fit-shape";
@@ -12,5 +13,6 @@ export const LEARNING_CONTENTS: LearningContent[] = [
   DOTBURST_CONTENT,
   NUMBER_SEQUENCE_CONTENT,
   LARGER_NUMBER_CONTENT,
+  CLOCK_READING_CONTENT,
   KAKITORI_CONTENT,
 ];
