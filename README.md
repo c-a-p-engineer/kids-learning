@@ -2,7 +2,13 @@
 
 子どもがスマートフォンやタブレットで遊びながら学べる、ブラウザ学習コンテンツ集です。
 
-- 公開サイト: https://c-a-p-engineer.github.io/kids-learning/
+## 🎮 すぐにあそぶ
+
+### [▶ まなびのライブラリをひらく](https://c-a-p-engineer.github.io/kids-learning/)
+
+スマートフォン・タブレット・PCのブラウザから、そのまま利用できます。
+
+- 公開サイト: [https://c-a-p-engineer.github.io/kids-learning/](https://c-a-p-engineer.github.io/kids-learning/)
 - 対応端末: スマートフォン / タブレット / PC
 - 保存方式: 学習記録は原則として利用中のブラウザ内に保存
 - 配布方式: GitHub Pages
