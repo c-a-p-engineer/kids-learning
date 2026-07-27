@@ -83,6 +83,8 @@ const THEME_ICONS: Record<string, string> = {
   "btn-theme-cyber": "🤖",
 };
 
+const INDEPENDENT_VIEW_IDS = ["number-sequence-experience", "clock-reading-experience", "pencil-practice-experience"];
+
 function iconMarkup(icon: string, label: string): string {
   return `<span class="child-button-icon" aria-hidden="true">${icon}</span><span class="child-button-label">${label}</span>`;
 }
@@ -181,6 +183,25 @@ function decoratePortal(): void {
   }
 }
 
+function bindIndependentViewTabs(): void {
+  const main = document.getElementById("main-content");
+  const tabs = document.getElementById("game-tabs");
+  if (!main || !tabs || main.dataset.independentTabsBound === "true") return;
+  main.dataset.independentTabsBound = "true";
+
+  const sync = (): void => {
+    const independentViewActive = INDEPENDENT_VIEW_IDS.some((id) => {
+      const view = document.getElementById(id);
+      return view instanceof HTMLElement && !view.classList.contains("hidden");
+    });
+    if (independentViewActive) tabs.classList.add("hidden");
+  };
+
+  const observer = new MutationObserver(sync);
+  observer.observe(main, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
+  sync();
+}
+
 function decorateLevelButtons(): void {
   const levels: Array<[string, string]> = [
     ["#larger-number-root [data-role='btn-start-easy']", "🐣"],
@@ -208,6 +229,7 @@ function applyCommonUi(): void {
   decorateFilters();
   decorateThemes();
   decoratePortal();
+  bindIndependentViewTabs();
   decorateLevelButtons();
 }
 
