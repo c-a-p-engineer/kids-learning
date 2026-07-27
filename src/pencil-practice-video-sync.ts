@@ -1,3 +1,6 @@
+import "./pencil-practice-strict-flow";
+import "./pencil-practice-guide-replay";
+
 interface PencilScoreRow {
   id: number;
   date: string;
