@@ -106,6 +106,12 @@ function decorateTitles(): void {
   });
 }
 
+function syncFilterAriaState(): void {
+  document.querySelectorAll<HTMLButtonElement>("#portal-filter-group [data-filter]").forEach((button) => {
+    button.setAttribute("aria-pressed", String(button.classList.contains("is-active")));
+  });
+}
+
 function decorateFilters(): void {
   document.querySelectorAll<HTMLButtonElement>("#portal-filter-group [data-filter]").forEach((button) => {
     if (button.dataset.commonUi === "true") return;
@@ -118,6 +124,16 @@ function decorateFilters(): void {
     const label = button.textContent?.trim() ?? "";
     button.innerHTML = iconMarkup(icon, label);
   });
+
+  syncFilterAriaState();
+
+  const group = document.getElementById("portal-filter-group");
+  if (group && group.dataset.commonUiAria !== "true") {
+    group.dataset.commonUiAria = "true";
+    group.addEventListener("click", () => {
+      window.requestAnimationFrame(syncFilterAriaState);
+    });
+  }
 }
 
 function decorateThemes(): void {
