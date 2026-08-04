@@ -46,8 +46,15 @@ function arrangeBoard(board: HTMLElement): void {
     beads.forEach((bead, columnIndex) => {
       bead.dataset.abacusColumn = String(columnIndex);
       const mappedValue = rowStart + (10 - columnIndex);
-      bead.dataset.abacusValue = String(mappedValue);
-      bead.setAttribute("aria-label", `${mappedValue}にする。右の玉が数に入る`);
+      const disabled = bead.classList.contains("is-disabled");
+      if (disabled) {
+        delete bead.dataset.abacusValue;
+        bead.setAttribute("aria-hidden", "true");
+      } else {
+        bead.dataset.abacusValue = String(mappedValue);
+        bead.removeAttribute("aria-hidden");
+        bead.setAttribute("aria-label", `${mappedValue}にする。右の玉が数に入る`);
+      }
       bead.classList.remove("is-active", "is-counted", "is-uncounted", "is-red", "is-yellow");
       bead.classList.add(colorClass(rowIndex, columnIndex));
 
