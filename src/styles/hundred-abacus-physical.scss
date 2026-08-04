@@ -1,0 +1,109 @@
+.hundred-abacus-board--physical {
+  border-color: #9a6036;
+  background: linear-gradient(90deg, #c88950 0 1.1rem, #f1d09a 1.1rem calc(100% - 1.1rem), #c88950 calc(100% - 1.1rem));
+  box-shadow:
+    inset 0 0 0 2px #6f4328,
+    0 5px 0 color-mix(in srgb, #6f4328 70%, var(--app-border));
+  padding: 0.65rem 1.3rem;
+  gap: 0.3rem;
+}
+
+.hundred-abacus-row--physical {
+  position: relative;
+  display: block;
+  min-height: clamp(1.7rem, 6.5vw, 2.4rem);
+  background: none;
+}
+
+.hundred-abacus-row--physical::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(#a5adb5, #e3e8ec 45%, #8a9299 55%, #cbd1d6);
+  transform: translateY(-50%);
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.22);
+}
+
+.hundred-abacus-row--physical .hundred-abacus-bead {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  width: clamp(1.15rem, 6.8vw, 2rem);
+  height: clamp(1.35rem, 6vw, 1.9rem);
+  min-height: 0;
+  border: 1px solid rgba(90, 47, 20, 0.62);
+  border-radius: 42% 42% 46% 46%;
+  padding: 0;
+  transform: translateY(-50%);
+  transition: left 120ms ease, right 120ms ease, filter 120ms ease, transform 120ms ease;
+  box-shadow:
+    inset 4px 0 4px rgba(255, 255, 255, 0.34),
+    inset -4px 0 4px rgba(80, 34, 10, 0.28),
+    0 2px 2px rgba(40, 25, 15, 0.2);
+}
+
+.hundred-abacus-row--physical .hundred-abacus-bead.is-uncounted {
+  left: var(--abacus-offset, 0%);
+  right: auto;
+}
+
+.hundred-abacus-row--physical .hundred-abacus-bead.is-counted {
+  right: var(--abacus-offset, 0%);
+  left: auto;
+  filter: saturate(1.08) brightness(1.02);
+}
+
+.hundred-abacus-row--physical .hundred-abacus-bead.is-red {
+  background: linear-gradient(90deg, #f34a48, #db171b 55%, #a90b12);
+}
+
+.hundred-abacus-row--physical .hundred-abacus-bead.is-yellow {
+  background: linear-gradient(90deg, #ffe96a, #f3c72d 55%, #d79d08);
+}
+
+.hundred-abacus-row--physical .hundred-abacus-bead.is-disabled {
+  opacity: 0.25;
+}
+
+.hundred-abacus-row--physical .hundred-abacus-bead:focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.hundred-abacus-board--physical::after {
+  content: "ひだり＝かぞえない　　みぎ＝かぞえる";
+  display: block;
+  margin-top: 0.45rem;
+  color: #5f3b22;
+  font-size: clamp(0.68rem, 2.8vw, 0.82rem);
+  font-weight: 900;
+  text-align: center;
+}
+
+body[data-theme="cyber"] .hundred-abacus-board--physical {
+  background: linear-gradient(90deg, #6c4428 0 1.1rem, #162235 1.1rem calc(100% - 1.1rem), #6c4428 calc(100% - 1.1rem));
+}
+
+body[data-theme="cyber"] .hundred-abacus-board--physical::after {
+  color: #f3d6b7;
+}
+
+@media (max-width: 420px) {
+  .hundred-abacus-board--physical {
+    padding-inline: 1rem;
+  }
+
+  .hundred-abacus-row--physical .hundred-abacus-bead {
+    width: clamp(1.05rem, 6.7vw, 1.7rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hundred-abacus-row--physical .hundred-abacus-bead {
+    transition: none;
+  }
+}
