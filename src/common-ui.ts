@@ -154,7 +154,7 @@ function decorateThemes(): void {
 
     button.dataset.commonUi = "true";
     button.classList.add("child-action-with-icon", "child-theme-button");
-    const label = button.textContent.trim();
+    const label = (button.textContent ?? "").trim();
     button.innerHTML = iconMarkup(icon, label);
   });
 }
