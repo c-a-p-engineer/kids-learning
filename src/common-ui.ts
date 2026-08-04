@@ -1,9 +1,8 @@
 import "./styles/common-ui.scss";
 import "./number-sequence";
 import "./clock-reading";
-import "./pencil-practice";
-import "./pencil-practice-video";
-import "./pencil-practice-video-sync";
+import "./pencil-practice-timed";
+import "./learning-path";
 
 type ButtonVariant = "portal" | "back" | "menu" | "close" | "action";
 
@@ -85,7 +84,12 @@ const THEME_ICONS: Record<string, string> = {
   "btn-theme-cyber": "🤖",
 };
 
-const INDEPENDENT_VIEW_IDS = ["number-sequence-experience", "clock-reading-experience", "pencil-practice-experience"];
+const INDEPENDENT_VIEW_IDS = [
+  "number-sequence-experience",
+  "clock-reading-experience",
+  "pencil-practice-experience",
+  "hundred-abacus-experience",
+];
 
 function iconMarkup(icon: string, label: string): string {
   return `<span class="child-button-icon" aria-hidden="true">${icon}</span><span class="child-button-label">${label}</span>`;
@@ -175,8 +179,8 @@ function decoratePortal(): void {
   const contentCount = document.querySelector<HTMLElement>(".portal-content-count");
   if (contentCount && contentCount.dataset.commonUi !== "true") {
     contentCount.dataset.commonUi = "true";
-    contentCount.innerHTML = '<span aria-hidden="true">🎮</span><span>8つ</span>';
-    contentCount.setAttribute("aria-label", "8つの学習コンテンツ");
+    contentCount.innerHTML = '<span aria-hidden="true">🎮</span><span>9つ</span>';
+    contentCount.setAttribute("aria-label", "9つの学習コンテンツ");
   }
 
   const search = document.getElementById("portal-search-input");
