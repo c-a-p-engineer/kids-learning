@@ -10,6 +10,13 @@ const LEARNING_PATH = [
   { id: "kakitori", icon: "✏️", category: "language" },
 ] as const;
 
+const HEADER_STEPS: Array<[string, number]> = [
+  [".hundred-abacus-step", 4],
+  [".number-sequence-step", 5],
+  [".clock-reading-step", 7],
+  [".pencil-practice-step", 8],
+];
+
 let applying = false;
 
 function applyLearningPath(): void {
@@ -39,6 +46,16 @@ function applyLearningPath(): void {
       badge.textContent = `STEP ${step}`;
     });
 
+    const note = document.getElementById("learning-path-note");
+    if (note) {
+      note.innerHTML = "<strong>⬇️ STEP 1から じゅんばんに やってみよう</strong><span>みる → おぼえる → かず → そろばん → ならび → くらべる → とけい → せん → かく</span>";
+    }
+
+    HEADER_STEPS.forEach(([selector, step]) => {
+      const label = document.querySelector<HTMLElement>(selector);
+      if (label) label.textContent = `STEP ${step}`;
+    });
+
     const counter = document.querySelector<HTMLElement>(".portal-content-count");
     if (counter) {
       counter.setAttribute("aria-label", `${LEARNING_PATH.length}つの学習コンテンツ`);
@@ -57,12 +74,12 @@ function initLearningPath(): void {
   };
   schedule();
 
-  const list = document.getElementById("content-list");
-  if (!list) return;
+  const main = document.getElementById("main-content");
+  if (!main) return;
   const observer = new MutationObserver(() => {
     if (!applying) window.requestAnimationFrame(applyLearningPath);
   });
-  observer.observe(list, { childList: true, subtree: true });
+  observer.observe(main, { childList: true, subtree: true });
 }
 
 if (document.readyState === "loading") {
