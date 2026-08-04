@@ -3,6 +3,7 @@ import "./styles/hundred-abacus-physical.scss";
 
 const ROOT_ID = "hundred-abacus-experience";
 const BOARD_SELECTOR = '[data-role="problem-abacus"], [data-role="free-abacus"]';
+const BEAD_STEP_PERCENT = 7.15;
 
 function isVisibleBoard(board: HTMLElement): boolean {
   const screen = board.closest<HTMLElement>(".hundred-abacus-screen");
@@ -52,11 +53,8 @@ function arrangeBoard(board: HTMLElement): void {
 
       const countedBead = columnIndex >= firstCountedColumn;
       bead.classList.add(countedBead ? "is-counted" : "is-uncounted");
-      const sideIndex = countedBead ? columnIndex - firstCountedColumn : columnIndex;
-      const sideCount = countedBead ? counted : 10 - counted;
-      bead.style.setProperty("--abacus-side-index", String(sideIndex));
-      bead.style.setProperty("--abacus-side-count", String(sideCount));
-      bead.style.setProperty("--abacus-column", String(columnIndex));
+      const offsetIndex = countedBead ? 9 - columnIndex : columnIndex;
+      bead.style.setProperty("--abacus-offset", `${offsetIndex * BEAD_STEP_PERCENT}%`);
     });
   });
 }
