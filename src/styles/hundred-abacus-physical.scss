@@ -12,6 +12,7 @@
   position: relative;
   display: block;
   min-height: clamp(1.7rem, 6.5vw, 2.4rem);
+  border-radius: 0.55rem;
   background: none;
 }
 
@@ -28,33 +29,56 @@
   box-shadow: 0 1px 1px rgba(0, 0, 0, 0.22);
 }
 
+.hundred-abacus-row--physical::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  top: 14%;
+  bottom: 14%;
+  left: 38%;
+  right: 38%;
+  border-inline: 1px dashed rgba(116, 74, 38, 0.24);
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.12);
+  pointer-events: none;
+}
+
 .hundred-abacus-row--physical .hundred-abacus-bead {
   position: absolute;
   z-index: 1;
   top: 50%;
+  left: var(--abacus-position, 5%);
+  right: auto;
   width: clamp(1.15rem, 6.8vw, 2rem);
   height: clamp(1.35rem, 6vw, 1.9rem);
   min-height: 0;
   border: 1px solid rgba(90, 47, 20, 0.62);
   border-radius: 42% 42% 46% 46%;
   padding: 0;
-  transform: translateY(-50%);
-  transition: left 120ms ease, right 120ms ease, filter 120ms ease, transform 120ms ease;
+  transform: translate(-50%, -50%);
+  transition:
+    left 340ms cubic-bezier(0.22, 1, 0.36, 1),
+    filter 180ms ease,
+    transform 180ms ease,
+    box-shadow 180ms ease;
   box-shadow:
     inset 4px 0 4px rgba(255, 255, 255, 0.34),
     inset -4px 0 4px rgba(80, 34, 10, 0.28),
     0 2px 2px rgba(40, 25, 15, 0.2);
+  will-change: left, transform, filter;
 }
 
 .hundred-abacus-row--physical .hundred-abacus-bead.is-uncounted {
-  left: var(--abacus-offset, 0%);
-  right: auto;
+  filter: saturate(0.92) brightness(0.97);
 }
 
 .hundred-abacus-row--physical .hundred-abacus-bead.is-counted {
-  right: var(--abacus-offset, 0%);
-  left: auto;
-  filter: saturate(1.08) brightness(1.02);
+  filter: saturate(1.15) brightness(1.06);
+  box-shadow:
+    inset 4px 0 4px rgba(255, 255, 255, 0.42),
+    inset -4px 0 4px rgba(80, 34, 10, 0.28),
+    0 2px 2px rgba(40, 25, 15, 0.2),
+    0 0 0 2px rgba(255, 255, 255, 0.48);
 }
 
 .hundred-abacus-row--physical .hundred-abacus-bead.is-red {
@@ -67,6 +91,11 @@
 
 .hundred-abacus-row--physical .hundred-abacus-bead.is-disabled {
   opacity: 0.25;
+}
+
+.hundred-abacus-row--physical .hundred-abacus-bead:not(.is-disabled):hover {
+  transform: translate(-50%, -50%) scale(1.08);
+  filter: brightness(1.15);
 }
 
 .hundred-abacus-row--physical .hundred-abacus-bead:focus-visible {
@@ -92,6 +121,11 @@ body[data-theme="cyber"] .hundred-abacus-board--physical::after {
   color: #f3d6b7;
 }
 
+body[data-theme="cyber"] .hundred-abacus-row--physical::after {
+  border-color: rgba(219, 234, 254, 0.24);
+  background: rgba(96, 165, 250, 0.06);
+}
+
 @media (max-width: 420px) {
   .hundred-abacus-board--physical {
     padding-inline: 1rem;
@@ -105,5 +139,6 @@ body[data-theme="cyber"] .hundred-abacus-board--physical::after {
 @media (prefers-reduced-motion: reduce) {
   .hundred-abacus-row--physical .hundred-abacus-bead {
     transition: none;
+    will-change: auto;
   }
 }
