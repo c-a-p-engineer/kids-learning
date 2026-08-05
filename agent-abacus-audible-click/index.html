@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta
+      name="description"
+      content="スマートフォンやタブレットで遊べる、子ども向けの書字・算数・記憶・図形学習コンテンツ集です。"
+    />
+    <meta name="theme-color" content="#fffdf5" />
+    <title>まなびのライブラリ | kids-learning</title>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+    <script type="module" crossorigin src="./assets/main-jo9_Ygqu.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/main-C2WUODcp.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">学習コンテンツへ移動</a>
+
+    <div id="app" class="app-shell">
+      <header id="game-tabs" class="tab-bar hidden" aria-label="画面切り替え">
+        <button id="tab-home" class="tab active-tab" type="button">れんしゅう</button>
+        <button id="tab-parent" class="tab" type="button">おうちのひと</button>
+      </header>
+
+      <main id="main-content" class="view-root" tabindex="-1">
+        <section id="view-portal" class="view scrollable portal-view" aria-labelledby="portal-heading">
+          <div class="portal-sticky-header">
+            <div class="portal-heading-row">
+              <div>
+                <p class="portal-eyebrow">あそんで まなぼう</p>
+                <h1 id="portal-heading" class="portal-title">まなびのライブラリ</h1>
+                <p class="portal-subtitle">やってみたいものを えらんでね</p>
+              </div>
+              <span class="portal-content-count" aria-label="5つの学習コンテンツ">5つ</span>
+            </div>
+
+            <details class="portal-settings">
+              <summary>いろを かえる</summary>
+              <div class="portal-theme-switch" aria-label="画面の色を切り替える">
+                <button id="btn-theme-warm" class="portal-theme-btn is-active" type="button" aria-pressed="true">
+                  あたたかい
+                </button>
+                <button id="btn-theme-cool" class="portal-theme-btn" type="button" aria-pressed="false">
+                  すずしい
+                </button>
+                <button id="btn-theme-fancy" class="portal-theme-btn" type="button" aria-pressed="false">
+                  かわいい
+                </button>
+                <button id="btn-theme-cyber" class="portal-theme-btn" type="button" aria-pressed="false">
+                  サイバー
+                </button>
+              </div>
+            </details>
+
+            <div class="portal-tools">
+              <label class="portal-search-box" for="portal-search-input">
+                <span class="sr-only">学習コンテンツを検索</span>
+                <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zM9.5 14C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"></path>
+                </svg>
+                <input
+                  id="portal-search-input"
+                  type="search"
+                  inputmode="search"
+                  autocomplete="off"
+                  placeholder="なまえで さがす"
+                />
+              </label>
+
+              <div id="portal-filter-group" class="portal-filter-group" aria-label="学習カテゴリ">
+                <button type="button" class="portal-filter-btn is-active" data-filter="all" aria-pressed="true">
+                  ぜんぶ
+                </button>
+                <button type="button" class="portal-filter-btn" data-filter="language" aria-pressed="false">
+                  こくご
+                </button>
+                <button type="button" class="portal-filter-btn" data-filter="math" aria-pressed="false">
+                  さんすう
+                </button>
+                <button type="button" class="portal-filter-btn" data-filter="memory" aria-pressed="false">
+                  きおく
+                </button>
+                <button type="button" class="portal-filter-btn" data-filter="shape" aria-pressed="false">
+                  ずけい
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div id="content-list" class="content-list" aria-label="学習コンテンツ一覧"></div>
+          <div id="portal-empty-state" class="portal-empty-state hidden" role="status">
+            <p>「<span id="portal-empty-keyword"></span>」は見つかりませんでした。</p>
+            <p class="portal-empty-hint">べつの ことばや「ぜんぶ」を ためしてね。</p>
+          </div>
+
+          <p class="portal-storage-note">きろくは、このたんまつのブラウザに ほぞんされます。</p>
+        </section>
+
+        <section id="view-home" class="view scrollable hidden" aria-label="ミッション一覧">
+          <div id="kakitori-home" class="home-content">
+            <div class="home-header-row">
+              <h2 class="page-title">どれにする？</h2>
+              <button id="btn-back-portal" class="link-btn" type="button">← 一覧にもどる</button>
+            </div>
+            <div id="mission-list" class="mission-list"></div>
+          </div>
+          <div id="dotburst-home" class="home-content hidden">
+            <div class="home-header-row">
+              <h2 class="page-title">ドットバースト</h2>
+              <button id="btn-dotburst-back-portal" class="link-btn" type="button">← 一覧にもどる</button>
+            </div>
+            <div id="dotburst-root" class="dotburst-root"></div>
+          </div>
+          <div id="flashcard-home" class="home-content hidden">
+            <div class="home-header-row">
+              <h2 class="page-title">えもじフラッシュ</h2>
+              <button id="btn-flashcard-back-portal" class="link-btn" type="button">← 一覧にもどる</button>
+            </div>
+            <div id="flashcard-root" class="flashcard-root"></div>
+          </div>
+          <div id="larger-number-home" class="home-content hidden">
+            <div class="home-header-row">
+              <h2 class="page-title">どっちが大きい？</h2>
+              <button id="btn-larger-number-back-portal" class="link-btn" type="button">← 一覧にもどる</button>
+            </div>
+            <div id="larger-number-root" class="larger-number-root"></div>
+          </div>
+          <div id="fit-shape-home" class="home-content hidden">
+            <div class="home-header-row">
+              <h2 class="page-title">ぴったりシェイプ</h2>
+              <button id="btn-fit-shape-back-portal" class="link-btn" type="button">← 一覧にもどる</button>
+            </div>
+            <div id="fit-shape-root" class="fit-shape-root"></div>
+          </div>
+        </section>
+
+        <section id="view-play" class="view hidden play-view" aria-label="れんしゅう画面">
+          <div class="play-header">
+            <p id="play-title" class="play-title"></p>
+          </div>
+
+          <p id="play-lap" class="play-lap"></p>
+          <div class="play-progress" aria-label="進み具合">
+            <p id="play-progress-text" class="play-progress-text">1/1 100%</p>
+            <div class="play-progress-track">
+              <div id="play-progress-fill" class="play-progress-fill"></div>
+            </div>
+            <div id="play-progress-pips" class="play-progress-pips"></div>
+          </div>
+
+          <div class="canvas-area">
+            <div id="target-char" class="guide-char-base"></div>
+            <canvas id="guide-canvas"></canvas>
+            <canvas id="draw-canvas"></canvas>
+          </div>
+
+          <div class="stroke-info">
+            <div class="stroke-info-head">
+              <p id="stroke-badge" class="stroke-badge">1画目</p>
+              <button id="btn-clear" class="stroke-clear-btn" type="button">やりなおす</button>
+            </div>
+            <p class="stroke-note">さいごまで ていねいに かいてみよう！</p>
+          </div>
+
+          <section class="stroke-model" aria-label="書き順のお手本">
+            <div class="stroke-model-head">
+              <p class="stroke-model-title">書き順のお手本</p>
+              <button id="btn-replay-model" class="stroke-model-replay" type="button">もういちど</button>
+            </div>
+            <div id="stroke-model" class="stroke-model-view">読み込み中...</div>
+          </section>
+
+          <div class="play-actions">
+            <button id="btn-done" class="action-primary" type="button">できた！</button>
+            <button id="btn-read-char" class="action-secondary action-compact" type="button">読む</button>
+            <button id="btn-back-home" class="action-quit" type="button">× やめる</button>
+          </div>
+        </section>
+
+        <section id="view-parent" class="view scrollable hidden parent-view" aria-label="おうちの人モード">
+          <h2 class="page-title dark">おうちの人 モード</h2>
+
+          <section class="card card-form">
+            <h3 class="card-title">あたらしい課題</h3>
+            <div class="new-mission-row">
+              <input id="p-word" type="text" placeholder="れんしゅうしたい文字" class="text-input" />
+              <input id="p-count" type="number" min="1" max="20" value="1" class="count-input" />
+              <button id="btn-add-mission" type="button" class="action-secondary">追加</button>
+            </div>
+            <p id="add-error" class="error-text hidden">文字と回数(1-20)を入力してね！</p>
+          </section>
+
+          <section class="card card-calendar">
+            <div class="calendar-header">
+              <button id="btn-calendar-prev" class="calendar-nav" type="button" aria-label="前の月">◀</button>
+              <h3 id="calendar-label" class="calendar-label"></h3>
+              <button id="btn-calendar-next" class="calendar-nav" type="button" aria-label="次の月">▶</button>
+            </div>
+            <div class="calendar-weekdays" aria-hidden="true">
+              <span>日</span><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span>土</span>
+            </div>
+            <div id="calendar-grid" class="calendar-grid"></div>
+            <div class="calendar-log-wrap">
+              <h4 id="calendar-selected-date" class="calendar-log-title"></h4>
+              <ul id="calendar-log-list" class="calendar-log-list"></ul>
+            </div>
+          </section>
+
+          <h3 class="history-title">れんしゅうのきろく</h3>
+          <section class="card storage-card">
+            <h4 class="card-subtitle">保存状況</h4>
+            <p id="storage-summary" class="storage-summary"></p>
+            <div class="storage-actions">
+              <button id="btn-prune-old-history" type="button" class="action-warning">古い10件を削除</button>
+              <button id="btn-download-all-images" type="button" class="action-secondary action-compact">
+                画像を一括DL
+              </button>
+              <button id="btn-download-all-videos" type="button" class="action-secondary action-compact">
+                動画を一括DL
+              </button>
+            </div>
+            <button id="btn-reset-data" type="button" class="action-danger">データをリセット</button>
+          </section>
+          <div id="history-grid" class="history-grid"></div>
+        </section>
+      </main>
+    </div>
+
+    <div id="replay-overlay" class="overlay hidden" aria-hidden="true">
+      <div class="overlay-panel" role="dialog" aria-modal="true" aria-labelledby="replay-char">
+        <h4 id="replay-char" class="overlay-title">再生</h4>
+        <div class="replay-canvas-wrap">
+          <canvas id="modal-replay-canvas" width="280" height="280"></canvas>
+        </div>
+        <button id="btn-close-replay" class="action-neutral" type="button">とじる</button>
+      </div>
+    </div>
+
+    <div id="celebrate-stamp" class="celebrate-stamp hidden" aria-live="polite">
+      <p class="stamp-mark">💮</p>
+      <p class="stamp-text">ガンバったね！</p>
+    </div>
+
+  </body>
+</html>
