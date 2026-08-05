@@ -1,4 +1,5 @@
 import type { LearningContent } from "../app/types";
+import { BALLOON_ATTACK_CONTENT } from "./balloon-attack";
 import { CLOCK_READING_CONTENT } from "./clock-reading";
 import { DOTBURST_CONTENT } from "./dotburst";
 import { FLASHCARD_CONTENT } from "./flashcard";
@@ -9,6 +10,7 @@ import { NUMBER_SEQUENCE_CONTENT } from "./number-sequence";
 import { PENCIL_PRACTICE_CONTENT } from "./pencil-practice";
 
 export const LEARNING_CONTENTS: LearningContent[] = [
+  BALLOON_ATTACK_CONTENT,
   FIT_SHAPE_CONTENT,
   FLASHCARD_CONTENT,
   DOTBURST_CONTENT,
