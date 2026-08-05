@@ -2,7 +2,6 @@ const LEARNING_PATH = [
   { id: "fit-shape", icon: "🧩", category: "shape" },
   { id: "flashcard", icon: "🧠", category: "memory" },
   { id: "dotburst", icon: "🟡", category: "math" },
-  { id: "hundred-abacus", icon: "🧮", category: "math" },
   { id: "number-sequence", icon: "🔢", category: "math" },
   { id: "larger-number", icon: "⚖️", category: "math" },
   { id: "clock-reading", icon: "🕐", category: "math" },
@@ -11,10 +10,9 @@ const LEARNING_PATH = [
 ] as const;
 
 const HEADER_STEPS: Array<[string, number]> = [
-  [".hundred-abacus-step", 4],
-  [".number-sequence-step", 5],
-  [".clock-reading-step", 7],
-  [".pencil-practice-step", 8],
+  [".number-sequence-step", 4],
+  [".clock-reading-step", 6],
+  [".pencil-practice-step", 7],
 ];
 
 let applying = false;
@@ -48,7 +46,7 @@ function applyLearningPath(): void {
 
     const note = document.getElementById("learning-path-note");
     if (note) {
-      note.innerHTML = "<strong>⬇️ STEP 1から じゅんばんに やってみよう</strong><span>みる → おぼえる → かず → そろばん → ならび → くらべる → とけい → せん → かく</span>";
+      note.innerHTML = "<strong>⬇️ STEP 1から じゅんばんに やってみよう</strong><span>みる → おぼえる → かず → ならび → くらべる → とけい → せん → かく</span>";
     }
 
     HEADER_STEPS.forEach(([selector, step]) => {
