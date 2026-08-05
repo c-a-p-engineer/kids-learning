@@ -4,24 +4,75 @@ import "./styles/hundred-abacus-physical.scss";
 const ROOT_ID = "hundred-abacus-experience";
 const BOARD_SELECTOR = '[data-role="problem-abacus"], [data-role="free-abacus"]';
 const BEAD_STEP_PERCENT = 7.15;
+const SOUND_THROTTLE_MS = 32;
+
+let dragging = false;
+let dragBoard: HTMLElement | null = null;
+let lastInteractionValue: number | null = null;
+let lastSoundAt = 0;
 
 function isVisibleBoard(board: HTMLElement): boolean {
   const screen = board.closest<HTMLElement>(".hundred-abacus-screen");
   return Boolean(screen?.classList.contains("is-active"));
 }
 
-function playAbacusSound(value: number): void {
+function readBoardValue(board: HTMLElement): number {
+  const value = Number(board.getAttribute("aria-valuenow") ?? "0");
+  return Number.isFinite(value) ? value : 0;
+}
+
+function playAbacusSound(previousValue: number, value: number): void {
+  if (previousValue === value) return;
+  const now = performance.now();
+  if (now - lastSoundAt < SOUND_THROTTLE_MS) return;
+  lastSoundAt = now;
+
   audioService.resume();
+  const increasing = value > previousValue;
+  const baseFrequency = increasing ? 520 : 390;
+
+  // 木の玉が棒へ当たるような、短く聞き取りやすい二層の音。
+  audioService.playTone({
+    frequency: baseFrequency,
+    sweepToFrequency: increasing ? 430 : 330,
+    type: "triangle",
+    gain: 0.15,
+    durationMs: 72,
+  });
+  audioService.playTone({
+    frequency: increasing ? 920 : 760,
+    type: "square",
+    gain: 0.055,
+    durationMs: 34,
+    startDelayMs: 7,
+  });
+
+  // 5と10のまとまりは音でも区別する。
   if (value > 0 && value % 10 === 0) {
-    audioService.playTone({ frequency: 520, type: "triangle", gain: 0.11, durationMs: 120 });
-    audioService.playTone({ frequency: 780, type: "triangle", gain: 0.09, durationMs: 140, startDelayMs: 80 });
-    return;
+    audioService.playTone({
+      frequency: 1040,
+      sweepToFrequency: 1320,
+      type: "sine",
+      gain: 0.11,
+      durationMs: 125,
+      startDelayMs: 42,
+    });
+  } else if (value > 0 && value % 5 === 0) {
+    audioService.playTone({
+      frequency: 820,
+      type: "sine",
+      gain: 0.09,
+      durationMs: 95,
+      startDelayMs: 38,
+    });
   }
-  if (value > 0 && value % 5 === 0) {
-    audioService.playTone({ frequency: 660, type: "triangle", gain: 0.1, durationMs: 110 });
-    return;
-  }
-  audioService.playTone({ frequency: 390, type: "square", gain: 0.07, durationMs: 55 });
+}
+
+function playInteractionValue(board: HTMLElement, value: number): void {
+  const previousValue = lastInteractionValue ?? readBoardValue(board);
+  if (previousValue === value) return;
+  playAbacusSound(previousValue, value);
+  lastInteractionValue = value;
 }
 
 function colorClass(rowIndex: number, columnIndex: number): "is-red" | "is-yellow" {
@@ -31,7 +82,7 @@ function colorClass(rowIndex: number, columnIndex: number): "is-red" | "is-yello
 }
 
 function arrangeBoard(board: HTMLElement): void {
-  const value = Number(board.getAttribute("aria-valuenow") ?? "0");
+  const value = readBoardValue(board);
   board.classList.add("hundred-abacus-board--physical");
 
   board.querySelectorAll<HTMLElement>(".hundred-abacus-row").forEach((row, rowIndex) => {
@@ -66,30 +117,121 @@ function arrangeBoard(board: HTMLElement): void {
   });
 }
 
+function keyboardNextValue(board: HTMLElement, event: KeyboardEvent): number | null {
+  const current = readBoardValue(board);
+  const maximum = Number(board.getAttribute("aria-valuemax") ?? "100");
+  let next = current;
+
+  if (event.key === "ArrowRight" || event.key === "ArrowUp") next += 1;
+  else if (event.key === "ArrowLeft" || event.key === "ArrowDown") next -= 1;
+  else if (event.key === "PageUp") next += 10;
+  else if (event.key === "PageDown") next -= 10;
+  else if (event.key === "Home") next = 0;
+  else if (event.key === "End") next = maximum;
+  else return null;
+
+  return Math.max(0, Math.min(maximum, next));
+}
+
 function bindBoard(board: HTMLElement): void {
   if (board.dataset.physicalAbacusBound === "true") {
     arrangeBoard(board);
     return;
   }
   board.dataset.physicalAbacusBound = "true";
-  let previousValue = Number(board.getAttribute("aria-valuenow") ?? "0");
 
-  const observer = new MutationObserver((mutations) => {
-    const valueChanged = mutations.some((mutation) => mutation.type === "attributes" && mutation.attributeName === "aria-valuenow");
-    arrangeBoard(board);
-    if (!valueChanged) return;
-    const nextValue = Number(board.getAttribute("aria-valuenow") ?? "0");
-    if (nextValue !== previousValue && isVisibleBoard(board)) playAbacusSound(nextValue);
-    previousValue = nextValue;
+  board.addEventListener(
+    "keydown",
+    (event) => {
+      if (!isVisibleBoard(board)) return;
+      const next = keyboardNextValue(board, event);
+      if (next === null) return;
+      lastInteractionValue = readBoardValue(board);
+      playInteractionValue(board, next);
+      lastInteractionValue = null;
+    },
+    { capture: true },
+  );
+
+  const observer = new MutationObserver(() => arrangeBoard(board));
+  observer.observe(board, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ["aria-valuenow"],
   });
-  observer.observe(board, { childList: true, subtree: true, attributes: true, attributeFilter: ["aria-valuenow"] });
   arrangeBoard(board);
+}
+
+function bindInteractionSounds(root: HTMLElement): void {
+  if (root.dataset.abacusSoundBound === "true") return;
+  root.dataset.abacusSoundBound = "true";
+
+  root.addEventListener(
+    "pointerdown",
+    (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      const bead = target.closest<HTMLElement>("[data-abacus-value]");
+      const board = bead?.closest<HTMLElement>(BOARD_SELECTOR);
+      if (!bead || !board || !isVisibleBoard(board)) return;
+      const value = Number(bead.dataset.abacusValue);
+      if (!Number.isFinite(value)) return;
+
+      audioService.resume();
+      dragging = true;
+      dragBoard = board;
+      lastInteractionValue = readBoardValue(board);
+      playInteractionValue(board, value);
+    },
+    { capture: true },
+  );
+
+  root.addEventListener(
+    "click",
+    (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      const reset = target.closest<HTMLElement>('[data-role="problem-reset"], [data-role="free-reset"]');
+      if (!reset) return;
+      const screen = reset.closest<HTMLElement>(".hundred-abacus-screen");
+      const board = screen?.querySelector<HTMLElement>(BOARD_SELECTOR);
+      if (!board) return;
+      const current = readBoardValue(board);
+      if (current !== 0) playAbacusSound(current, 0);
+    },
+    { capture: true },
+  );
+
+  window.addEventListener(
+    "pointermove",
+    (event) => {
+      if (!dragging || !dragBoard) return;
+      const element = document.elementFromPoint(event.clientX, event.clientY);
+      if (!(element instanceof HTMLElement)) return;
+      const bead = element.closest<HTMLElement>("[data-abacus-value]");
+      const board = bead?.closest<HTMLElement>(BOARD_SELECTOR);
+      if (!bead || board !== dragBoard) return;
+      const value = Number(bead.dataset.abacusValue);
+      if (Number.isFinite(value)) playInteractionValue(dragBoard, value);
+    },
+    { passive: true },
+  );
+
+  const stopDragging = (): void => {
+    dragging = false;
+    dragBoard = null;
+    lastInteractionValue = null;
+  };
+  window.addEventListener("pointerup", stopDragging, { passive: true });
+  window.addEventListener("pointercancel", stopDragging, { passive: true });
 }
 
 function applyPhysicalAbacus(): void {
   const root = document.getElementById(ROOT_ID);
   if (!root) return;
   root.querySelectorAll<HTMLElement>(BOARD_SELECTOR).forEach(bindBoard);
+  bindInteractionSounds(root);
 
   const observer = new MutationObserver(() => {
     root.querySelectorAll<HTMLElement>(BOARD_SELECTOR).forEach(bindBoard);
