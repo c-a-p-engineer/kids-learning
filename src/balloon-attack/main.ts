@@ -1,23 +1,53 @@
 const GAME_SECONDS = 30;
 const COUNTDOWN_SECONDS = 3;
-const CAMERA_WIDTH = 160;
-const CAMERA_HEIGHT = 120;
-const MOTION_THRESHOLD = 34;
-const MOTION_RATIO_TO_POP = 0.075;
 const MAX_BALLOONS = 4;
 const SPAWN_INTERVAL_MS = 780;
+const MEDIAPIPE_MODULE_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/+esm";
+const MEDIAPIPE_WASM_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm";
+const HAND_MODEL_URL = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
+
+type Landmark = { x: number; y: number; z?: number };
+type HandResult = { landmarks?: Landmark[][] };
+type HandLandmarkerLike = {
+  detectForVideo(video: HTMLVideoElement, timestampMs: number): HandResult;
+  close(): void;
+};
+type VisionModule = {
+  FilesetResolver: {
+    forVisionTasks(baseUrl: string): Promise<unknown>;
+  };
+  HandLandmarker: {
+    createFromOptions(
+      fileset: unknown,
+      options: {
+        baseOptions: { modelAssetPath: string; delegate?: "GPU" | "CPU" };
+        runningMode: "VIDEO";
+        numHands: number;
+        minHandDetectionConfidence: number;
+        minHandPresenceConfidence: number;
+        minTrackingConfidence: number;
+      },
+    ): Promise<HandLandmarkerLike>;
+  };
+};
 
 type BalloonRecord = {
   element: HTMLDivElement;
   bornAt: number;
 };
 
+type HandPoint = {
+  x: number;
+  y: number;
+  radius: number;
+};
+
 const video = document.querySelector<HTMLVideoElement>("#camera")!;
-const canvas = document.querySelector<HTMLCanvasElement>("#motion-canvas")!;
-const context = canvas.getContext("2d", { willReadFrequently: true })!;
 const stage = document.querySelector<HTMLElement>("#stage")!;
 const balloonLayer = document.querySelector<HTMLElement>("#balloon-layer")!;
 const effects = document.querySelector<HTMLElement>("#effects")!;
+const handLayer = document.querySelector<HTMLElement>("#hand-layer")!;
+const handStatus = document.querySelector<HTMLElement>("#hand-status")!;
 const scoreElement = document.querySelector<HTMLElement>("#score")!;
 const timeElement = document.querySelector<HTMLElement>("#time")!;
 const timerElement = document.querySelector<HTMLElement>(".timer")!;
@@ -32,18 +62,25 @@ const startButton = document.querySelector<HTMLButtonElement>("#start-button")!;
 const retryButton = document.querySelector<HTMLButtonElement>("#retry-button")!;
 const retryCameraButton = document.querySelector<HTMLButtonElement>("#retry-camera-button")!;
 
-canvas.width = CAMERA_WIDTH;
-canvas.height = CAMERA_HEIGHT;
-
 let stream: MediaStream | null = null;
-let previousFrame: Uint8ClampedArray | null = null;
+let handLandmarker: HandLandmarkerLike | null = null;
 let animationId = 0;
 let spawnTimer = 0;
 let gameTimer = 0;
 let score = 0;
 let running = false;
 let audioContext: AudioContext | null = null;
+let lastVideoTime = -1;
 const balloons: BalloonRecord[] = [];
+const handMarkers = Array.from({ length: 2 }, (_, index) => {
+  const marker = document.createElement("div");
+  marker.className = "hand-marker";
+  marker.dataset.handIndex = String(index);
+  marker.innerHTML = '<span class="hand-marker-icon">✋</span>';
+  marker.hidden = true;
+  handLayer.append(marker);
+  return marker;
+});
 
 function setPanel(panel: HTMLElement | null): void {
   [startPanel, countdownPanel, resultPanel, errorPanel].forEach((item) => item.classList.toggle("hidden", item !== panel));
@@ -84,22 +121,58 @@ function playFinishSound(): void {
   });
 }
 
+async function prepareHandTracker(): Promise<void> {
+  if (handLandmarker) return;
+  handStatus.textContent = "✋ てを さがしています";
+  const visionModule = (await import(/* @vite-ignore */ MEDIAPIPE_MODULE_URL)) as unknown as VisionModule;
+  const fileset = await visionModule.FilesetResolver.forVisionTasks(MEDIAPIPE_WASM_URL);
+  try {
+    handLandmarker = await visionModule.HandLandmarker.createFromOptions(fileset, {
+      baseOptions: { modelAssetPath: HAND_MODEL_URL, delegate: "GPU" },
+      runningMode: "VIDEO",
+      numHands: 2,
+      minHandDetectionConfidence: 0.45,
+      minHandPresenceConfidence: 0.4,
+      minTrackingConfidence: 0.4,
+    });
+  } catch {
+    handLandmarker = await visionModule.HandLandmarker.createFromOptions(fileset, {
+      baseOptions: { modelAssetPath: HAND_MODEL_URL, delegate: "CPU" },
+      runningMode: "VIDEO",
+      numHands: 2,
+      minHandDetectionConfidence: 0.45,
+      minHandPresenceConfidence: 0.4,
+      minTrackingConfidence: 0.4,
+    });
+  }
+}
+
 async function prepareCamera(): Promise<void> {
-  if (stream) return;
   if (!navigator.mediaDevices?.getUserMedia) {
     throw new Error("このブラウザはカメラ機能に対応していません。");
   }
-  stream = await navigator.mediaDevices.getUserMedia({
-    video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
-    audio: false,
-  });
-  video.srcObject = stream;
-  await video.play();
+  if (!stream) {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
+      audio: false,
+    });
+    video.srcObject = stream;
+    await video.play();
+  }
+  await prepareHandTracker();
 }
 
 function clearBalloons(): void {
   balloons.splice(0).forEach(({ element }) => element.remove());
   effects.replaceChildren();
+}
+
+function hideHandMarkers(): void {
+  handMarkers.forEach((marker) => {
+    marker.hidden = true;
+    marker.classList.remove("is-touching");
+  });
+  handStatus.textContent = "✋ てを みせてね";
 }
 
 function createBalloon(): void {
@@ -115,6 +188,7 @@ function createBalloon(): void {
   balloon.className = `balloon ${colors[Math.floor(Math.random() * colors.length)]}`;
   balloon.style.left = `${x}px`;
   balloon.style.top = `${y}px`;
+  balloon.style.width = `${size}px`;
   balloon.style.animationDelay = `${Math.random() * -2}s`;
   balloon.textContent = "✨";
   balloonLayer.append(balloon);
@@ -141,43 +215,76 @@ function popBalloon(record: BalloonRecord): void {
   window.setTimeout(createBalloon, 130);
 }
 
-function motionRatioForBalloon(record: BalloonRecord, current: Uint8ClampedArray): number {
-  if (!previousFrame) return 0;
-  const stageRect = stage.getBoundingClientRect();
-  const rect = record.element.getBoundingClientRect();
-  const mirroredLeft = stageRect.right - rect.right;
-  const x0 = Math.max(0, Math.floor((mirroredLeft / stageRect.width) * CAMERA_WIDTH));
-  const x1 = Math.min(CAMERA_WIDTH - 1, Math.ceil(((mirroredLeft + rect.width) / stageRect.width) * CAMERA_WIDTH));
-  const y0 = Math.max(0, Math.floor(((rect.top - stageRect.top) / stageRect.height) * CAMERA_HEIGHT));
-  const y1 = Math.min(CAMERA_HEIGHT - 1, Math.ceil(((rect.bottom - stageRect.top) / stageRect.height) * CAMERA_HEIGHT));
-  let changed = 0;
-  let sampled = 0;
-  for (let y = y0; y <= y1; y += 2) {
-    for (let x = x0; x <= x1; x += 2) {
-      const index = (y * CAMERA_WIDTH + x) * 4;
-      const difference = Math.abs(current[index] - previousFrame[index]) + Math.abs(current[index + 1] - previousFrame[index + 1]) + Math.abs(current[index + 2] - previousFrame[index + 2]);
-      if (difference > MOTION_THRESHOLD * 3) changed += 1;
-      sampled += 1;
-    }
-  }
-  return sampled > 0 ? changed / sampled : 0;
+function distance(a: Landmark, b: Landmark): number {
+  return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
-function detectMotion(): void {
-  if (!running) return;
-  context.save();
-  context.scale(-1, 1);
-  context.drawImage(video, -CAMERA_WIDTH, 0, CAMERA_WIDTH, CAMERA_HEIGHT);
-  context.restore();
-  const current = context.getImageData(0, 0, CAMERA_WIDTH, CAMERA_HEIGHT).data;
-  const now = performance.now();
-  for (const record of [...balloons]) {
-    if (now - record.bornAt > 380 && motionRatioForBalloon(record, current) >= MOTION_RATIO_TO_POP) {
-      popBalloon(record);
+function handPointFromLandmarks(landmarks: Landmark[], stageRect: DOMRect): HandPoint | null {
+  if (landmarks.length < 21) return null;
+  const palmIndexes = [0, 5, 9, 13, 17];
+  const palm = palmIndexes.reduce(
+    (total, index) => ({ x: total.x + landmarks[index].x, y: total.y + landmarks[index].y }),
+    { x: 0, y: 0 },
+  );
+  const centerX = 1 - palm.x / palmIndexes.length;
+  const centerY = palm.y / palmIndexes.length;
+  const handSpan = Math.max(distance(landmarks[5], landmarks[17]), distance(landmarks[0], landmarks[9]));
+  return {
+    x: centerX * stageRect.width,
+    y: centerY * stageRect.height,
+    radius: Math.min(100, Math.max(48, handSpan * stageRect.width * 0.95)),
+  };
+}
+
+function circleTouchesRect(point: HandPoint, rect: DOMRect, stageRect: DOMRect): boolean {
+  const left = rect.left - stageRect.left;
+  const top = rect.top - stageRect.top;
+  const closestX = Math.max(left, Math.min(point.x, left + rect.width));
+  const closestY = Math.max(top, Math.min(point.y, top + rect.height));
+  return Math.hypot(point.x - closestX, point.y - closestY) <= point.radius;
+}
+
+function renderHands(points: HandPoint[]): void {
+  const stageRect = stage.getBoundingClientRect();
+  let anyTouching = false;
+  points.forEach((point, index) => {
+    const marker = handMarkers[index];
+    marker.hidden = false;
+    marker.style.left = `${point.x}px`;
+    marker.style.top = `${point.y}px`;
+    marker.style.width = `${point.radius * 2}px`;
+    let touching = false;
+    const now = performance.now();
+    for (const record of [...balloons]) {
+      if (now - record.bornAt < 260) continue;
+      if (circleTouchesRect(point, record.element.getBoundingClientRect(), stageRect)) {
+        touching = true;
+        popBalloon(record);
+        break;
+      }
     }
+    marker.classList.toggle("is-touching", touching);
+    anyTouching ||= touching;
+  });
+  handMarkers.slice(points.length).forEach((marker) => {
+    marker.hidden = true;
+    marker.classList.remove("is-touching");
+  });
+  handStatus.textContent = points.length > 0 ? (anyTouching ? "💥 あたった！" : `✋ てを ${points.length}こ みつけたよ`) : "✋ てを みせてね";
+}
+
+function detectHands(): void {
+  if (!running || !handLandmarker) return;
+  if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && video.currentTime !== lastVideoTime) {
+    lastVideoTime = video.currentTime;
+    const result = handLandmarker.detectForVideo(video, performance.now());
+    const stageRect = stage.getBoundingClientRect();
+    const points = (result.landmarks ?? [])
+      .map((landmarks) => handPointFromLandmarks(landmarks, stageRect))
+      .filter((point): point is HandPoint => point !== null);
+    renderHands(points);
   }
-  previousFrame = new Uint8ClampedArray(current);
-  animationId = requestAnimationFrame(detectMotion);
+  animationId = requestAnimationFrame(detectHands);
 }
 
 function stopGame(): void {
@@ -187,6 +294,7 @@ function stopGame(): void {
   window.clearInterval(gameTimer);
   timerElement.classList.remove("is-ending");
   clearBalloons();
+  hideHandMarkers();
   resultScore.textContent = String(score);
   setPanel(resultPanel);
   playFinishSound();
@@ -212,12 +320,13 @@ async function startGame(): Promise<void> {
     await countdown();
     setPanel(null);
     clearBalloons();
+    hideHandMarkers();
     score = 0;
     scoreElement.textContent = "0";
     timeElement.textContent = String(GAME_SECONDS);
-    previousFrame = null;
+    lastVideoTime = -1;
     running = true;
-    for (let i = 0; i < 3; i += 1) createBalloon();
+    for (let index = 0; index < 3; index += 1) createBalloon();
     spawnTimer = window.setInterval(createBalloon, SPAWN_INTERVAL_MS);
     let remaining = GAME_SECONDS;
     gameTimer = window.setInterval(() => {
@@ -226,11 +335,13 @@ async function startGame(): Promise<void> {
       timerElement.classList.toggle("is-ending", remaining <= 5);
       if (remaining <= 0) stopGame();
     }, 1000);
-    animationId = requestAnimationFrame(detectMotion);
+    animationId = requestAnimationFrame(detectHands);
   } catch (error) {
     const message = error instanceof DOMException && error.name === "NotAllowedError"
       ? "カメラが許可されていません。ブラウザの設定でカメラを許可してください。"
-      : error instanceof Error ? error.message : "カメラを開始できませんでした。";
+      : error instanceof Error
+        ? `手の認識を開始できませんでした。通信状態を確認して、もう一度お試しください。(${error.message})`
+        : "カメラと手の認識を開始できませんでした。";
     errorMessage.textContent = message;
     setPanel(errorPanel);
   } finally {
@@ -254,4 +365,6 @@ window.addEventListener("pagehide", () => {
   window.clearInterval(spawnTimer);
   window.clearInterval(gameTimer);
   stream?.getTracks().forEach((track) => track.stop());
+  handLandmarker?.close();
+  handLandmarker = null;
 });
