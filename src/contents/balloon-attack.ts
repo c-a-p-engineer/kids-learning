@@ -14,9 +14,17 @@ document.addEventListener(
     if (!(target instanceof HTMLElement)) return;
     const card = target.closest<HTMLElement>("[data-content-id='balloon-attack']");
     if (!card) return;
+
     event.preventDefault();
     event.stopPropagation();
-    window.location.href = "./balloon-attack/";
+
+    const portalUrl = new URL(window.location.href);
+    portalUrl.search = "";
+    portalUrl.hash = "";
+    if (!portalUrl.pathname.endsWith("/")) {
+      portalUrl.pathname = `${portalUrl.pathname}/`;
+    }
+    window.location.href = new URL("balloon-attack/", portalUrl).href;
   },
   { capture: true },
 );
