@@ -1,18 +1,33 @@
 import { audioService } from "./app/audio";
 import "./styles/listening-mission.scss";
 
-type ListeningLevel = "one" | "two" | "three";
+type ListeningLevel = "one" | "two" | "three" | "wait" | "nogo" | "condition";
 type ListeningScreen = "start" | "game" | "history" | "result";
 type FeedbackTone = "neutral" | "success" | "return";
+type RoundKind = "sequence" | "wait" | "nogo" | "condition";
 
 interface ListeningItem {
   emoji: string;
   name: string;
 }
 
+interface ListeningCondition {
+  firstLabel: string;
+  firstEmoji: string;
+  firstTarget: ListeningItem;
+  secondLabel: string;
+  secondEmoji: string;
+  secondTarget: ListeningItem;
+  activeLabel: string;
+  activeEmoji: string;
+}
+
 interface ListeningRound {
+  kind: RoundKind;
   targets: ListeningItem[];
   choices: ListeningItem[];
+  forbidden?: ListeningItem;
+  condition?: ListeningCondition;
 }
 
 interface ListeningHistoryRecord {
@@ -40,6 +55,8 @@ const CONTENT_ID = "listening-mission";
 const STORAGE_KEY = "listening_mission_v1_history";
 const SESSION_MISSIONS = 5;
 const MAX_HISTORY = 40;
+const WAIT_CUE_MIN_MS = 900;
+const WAIT_CUE_MAX_MS = 1800;
 
 const ITEMS: ListeningItem[] = [
   { emoji: "🍎", name: "りんご" },
@@ -65,11 +82,13 @@ class ListeningMissionGame {
   private targetIndex = 0;
   private round: ListeningRound | null = null;
   private speaking = false;
+  private waitCueReady = false;
   private roundHadDetour = false;
   private roundUsedReplay = false;
   private locked = false;
   private nextTimerId: number | null = null;
   private speechTimerId: number | null = null;
+  private cueTimerId: number | null = null;
   private speechToken = 0;
   private stats: ListeningSessionStats = this.emptyStats();
 
@@ -112,23 +131,38 @@ class ListeningMissionGame {
         <section class="listening-mission-screen is-active" data-role="start-screen">
           <div class="listening-mission-hero" aria-hidden="true">👂 → 🧠 → 👆</div>
           <h3>おはなしを さいごまで きこう</h3>
-          <p class="listening-mission-lead">きこえたものを、じゅんばんに タッチ！</p>
-          <p class="listening-mission-session-note">🏁 5ミッションで おしまい</p>
+          <p class="listening-mission-lead">きく・おぼえる・まつ・かんがえるを れんしゅう！</p>
+          <p class="listening-mission-session-note">🏁 どのレベルも 5ミッションで おしまい</p>
           <div class="listening-mission-levels">
             <button type="button" data-role="start-one">
               <span class="listening-mission-level-icon" aria-hidden="true">🐣</span>
-              <strong>やさしい</strong>
-              <small>「りんごを タッチ」の 1こ</small>
+              <strong>LV1・1こ</strong>
+              <small>「りんごを タッチ」</small>
             </button>
             <button type="button" data-role="start-two">
               <span class="listening-mission-level-icon" aria-hidden="true">🦁</span>
-              <strong>ふつう</strong>
-              <small>「いぬ → ほし」の 2こ</small>
+              <strong>LV2・2こ</strong>
+              <small>「いぬ → ほし」の じゅんばん</small>
             </button>
             <button type="button" data-role="start-three">
               <span class="listening-mission-level-icon" aria-hidden="true">🐉</span>
-              <strong>むずかしい</strong>
-              <small>「りんご → いぬ → ほし」の 3こ</small>
+              <strong>LV3・3こ</strong>
+              <small>3こを おぼえて じゅんばんに</small>
+            </button>
+            <button type="button" data-role="start-wait">
+              <span class="listening-mission-level-icon" aria-hidden="true">⏳</span>
+              <strong>LV4・まって！</strong>
+              <small>おとが なるまで タッチしない</small>
+            </button>
+            <button type="button" data-role="start-nogo">
+              <span class="listening-mission-level-icon" aria-hidden="true">🛑</span>
+              <strong>LV5・おさない！</strong>
+              <small>「ねこは おさない」を ききわける</small>
+            </button>
+            <button type="button" data-role="start-condition">
+              <span class="listening-mission-level-icon" aria-hidden="true">🌦️</span>
+              <strong>LV6・じょうけん</strong>
+              <small>ルールを きいて、あとから はんだん</small>
             </button>
           </div>
           <button type="button" class="listening-mission-sub" data-role="open-history">📊 おうちのひとの きろく</button>
@@ -137,7 +171,7 @@ class ListeningMissionGame {
         <section class="listening-mission-screen" data-role="game-screen">
           <div class="listening-mission-progress-row">
             <span>🎯 <strong data-role="mission-progress">1 / 5</strong></span>
-            <span data-role="level-label">やさしい・1こ</span>
+            <span data-role="level-label">LV1・1こ</span>
           </div>
           <div class="listening-mission-progress-track" aria-label="ミッションの進み具合">
             <div class="listening-mission-progress-fill" data-role="progress-fill"></div>
@@ -150,6 +184,7 @@ class ListeningMissionGame {
             <button type="button" class="listening-mission-replay" data-role="replay-instruction">🔊 もういちど きく</button>
           </div>
 
+          <div class="listening-mission-cue hidden" data-role="special-cue" aria-live="assertive"></div>
           <div class="listening-mission-step-dots" data-role="step-dots" aria-label="いまの順番"></div>
           <div class="listening-mission-choices" data-role="choices" aria-label="タッチするもの"></div>
           <div class="listening-mission-feedback" data-role="feedback" aria-live="assertive">👂 おはなしを きいてみよう</div>
@@ -164,7 +199,7 @@ class ListeningMissionGame {
             <button type="button" data-role="history-back">↩️ もどる</button>
           </div>
           <p class="listening-mission-history-note">
-            点数ではなく「最初の指示でできた」「途中でそれても戻れた」を見るための家庭内記録です。
+            点数ではなく「最初の指示でできた」「待つべき時に待てた」「途中でそれても戻れた」を見るための家庭内記録です。
           </p>
           <div class="listening-mission-history" data-role="history-list"></div>
         </section>
@@ -188,6 +223,9 @@ class ListeningMissionGame {
     this.node<HTMLButtonElement>("start-one").addEventListener("click", () => this.startSession("one"));
     this.node<HTMLButtonElement>("start-two").addEventListener("click", () => this.startSession("two"));
     this.node<HTMLButtonElement>("start-three").addEventListener("click", () => this.startSession("three"));
+    this.node<HTMLButtonElement>("start-wait").addEventListener("click", () => this.startSession("wait"));
+    this.node<HTMLButtonElement>("start-nogo").addEventListener("click", () => this.startSession("nogo"));
+    this.node<HTMLButtonElement>("start-condition").addEventListener("click", () => this.startSession("condition"));
     this.node<HTMLButtonElement>("open-history").addEventListener("click", () => this.showHistory());
     this.node<HTMLButtonElement>("history-back").addEventListener("click", () => this.showScreen("start"));
     this.node<HTMLButtonElement>("result-back").addEventListener("click", () => this.showScreen("start"));
@@ -280,6 +318,7 @@ class ListeningMissionGame {
 
     this.round = this.createRound();
     this.targetIndex = 0;
+    this.waitCueReady = false;
     this.roundHadDetour = false;
     this.roundUsedReplay = false;
     this.locked = false;
@@ -289,17 +328,47 @@ class ListeningMissionGame {
 
   private createRound(): ListeningRound {
     const shuffled = this.shuffle(ITEMS);
-    const { targetCount, choiceCount } = this.levelConfig(this.level);
+
+    if (this.level === "wait") {
+      return { kind: "wait", targets: [shuffled[0]], choices: this.shuffle(shuffled.slice(0, 5)) };
+    }
+
+    if (this.level === "nogo") {
+      return {
+        kind: "nogo",
+        targets: [shuffled[0]],
+        forbidden: shuffled[1],
+        choices: this.shuffle(shuffled.slice(0, 6)),
+      };
+    }
+
+    if (this.level === "condition") {
+      const activeFirst = Math.random() < 0.5;
+      const condition: ListeningCondition = {
+        firstLabel: "あめ",
+        firstEmoji: "🌧️",
+        firstTarget: shuffled[0],
+        secondLabel: "はれ",
+        secondEmoji: "☀️",
+        secondTarget: shuffled[1],
+        activeLabel: activeFirst ? "あめ" : "はれ",
+        activeEmoji: activeFirst ? "🌧️" : "☀️",
+      };
+      return {
+        kind: "condition",
+        targets: [activeFirst ? condition.firstTarget : condition.secondTarget],
+        choices: this.shuffle(shuffled.slice(0, 6)),
+        condition,
+      };
+    }
+
+    const targetCount = this.level === "one" ? 1 : this.level === "two" ? 2 : 3;
+    const choiceCount = this.level === "one" ? 4 : this.level === "two" ? 6 : 8;
     return {
+      kind: "sequence",
       targets: shuffled.slice(0, targetCount),
       choices: this.shuffle(shuffled.slice(0, choiceCount)),
     };
-  }
-
-  private levelConfig(level: ListeningLevel): { targetCount: number; choiceCount: number } {
-    if (level === "one") return { targetCount: 1, choiceCount: 4 };
-    if (level === "two") return { targetCount: 2, choiceCount: 6 };
-    return { targetCount: 3, choiceCount: 8 };
   }
 
   private renderRound(): void {
@@ -312,6 +381,7 @@ class ListeningMissionGame {
     this.node<HTMLElement>("listen-status").textContent = "よく きいてね";
     this.node<HTMLElement>("fallback-text").classList.add("hidden");
     this.node<HTMLElement>("fallback-text").textContent = "";
+    this.hideSpecialCue();
     this.setFeedback("👂 おはなしを きいてみよう", "neutral");
     this.renderStepDots();
 
@@ -345,10 +415,12 @@ class ListeningMissionGame {
     if (!round || this.locked || this.screen !== "game") return;
 
     if (this.speaking) {
-      this.stats.earlyTaps += 1;
-      this.roundHadDetour = true;
-      this.setFeedback("👂 さいごまで きいてから タッチしよう", "return");
-      audioService.playTone({ frequency: 330, type: "sine", gain: 0.05, durationMs: 120 });
+      this.recordEarlyTap("👂 さいごまで きいてから タッチしよう");
+      return;
+    }
+
+    if (round.kind === "wait" && !this.waitCueReady) {
+      this.recordEarlyTap("⏳ まだ まってね。おとが なったら タッチ！");
       return;
     }
 
@@ -358,7 +430,11 @@ class ListeningMissionGame {
     if (item.name !== target.name) {
       this.stats.offTargetTaps += 1;
       this.roundHadDetour = true;
-      this.setFeedback("🔄 ミッションに もどろう。おもいだしてみよう", "return");
+      if (round.kind === "nogo" && item.name === round.forbidden?.name) {
+        this.setFeedback("🛑 それは『おさない』おやくそく！ おもいだしてみよう", "return");
+      } else {
+        this.setFeedback("🔄 ミッションに もどろう。おもいだしてみよう", "return");
+      }
       audioService.playTone({ frequency: 300, type: "triangle", gain: 0.05, durationMs: 160 });
       return;
     }
@@ -378,6 +454,17 @@ class ListeningMissionGame {
       return;
     }
 
+    this.completeRound();
+  }
+
+  private recordEarlyTap(message: string): void {
+    this.stats.earlyTaps += 1;
+    this.roundHadDetour = true;
+    this.setFeedback(message, "return");
+    audioService.playTone({ frequency: 330, type: "sine", gain: 0.05, durationMs: 120 });
+  }
+
+  private completeRound(): void {
     this.locked = true;
     if (!this.roundHadDetour && !this.roundUsedReplay) this.stats.firstTry += 1;
     if (this.roundHadDetour) this.stats.recovered += 1;
@@ -390,6 +477,9 @@ class ListeningMissionGame {
     const round = this.round;
     if (!round) return;
 
+    this.clearCueTimer();
+    this.waitCueReady = false;
+    this.hideSpecialCue();
     this.stopSpeech();
     const token = ++this.speechToken;
     this.speaking = true;
@@ -397,7 +487,7 @@ class ListeningMissionGame {
     this.node<HTMLElement>("listen-status").textContent = "👂 おはなしを きこう";
     this.node<HTMLElement>("fallback-text").classList.add("hidden");
 
-    const text = this.instructionText(round.targets);
+    const text = this.instructionText(round);
     this.speechTimerId = window.setTimeout(() => {
       this.speechTimerId = null;
       if (token !== this.speechToken) return;
@@ -421,7 +511,6 @@ class ListeningMissionGame {
     if (token !== this.speechToken) return;
     this.speaking = false;
     this.node<HTMLButtonElement>("replay-instruction").disabled = false;
-    this.node<HTMLElement>("listen-status").textContent = "👉 きこえたら タッチ！";
 
     const fallback = this.node<HTMLElement>("fallback-text");
     if (fallbackText) {
@@ -431,16 +520,73 @@ class ListeningMissionGame {
       fallback.classList.add("hidden");
       fallback.textContent = "";
     }
+
+    if (this.round?.kind === "wait") {
+      this.startWaitCue();
+      return;
+    }
+
+    if (this.round?.kind === "condition") {
+      this.showConditionCue();
+      return;
+    }
+
+    this.node<HTMLElement>("listen-status").textContent = "👉 きこえたら タッチ！";
   }
 
-  private instructionText(targets: ListeningItem[]): string {
-    const first = targets[0]?.name ?? "";
-    if (targets.length <= 1) return `${first}を タッチしてね`;
+  private startWaitCue(): void {
+    this.node<HTMLElement>("listen-status").textContent = "⏳ まだ まってね";
+    const delay = WAIT_CUE_MIN_MS + Math.random() * (WAIT_CUE_MAX_MS - WAIT_CUE_MIN_MS);
+    this.cueTimerId = window.setTimeout(() => {
+      this.cueTimerId = null;
+      if (this.screen !== "game" || this.round?.kind !== "wait") return;
+      this.waitCueReady = true;
+      this.node<HTMLElement>("listen-status").textContent = "🔔 いま！ タッチ！";
+      this.showSpecialCue("🔔 いま！");
+      audioService.playTone({ frequency: 880, sweepToFrequency: 1175, gain: 0.1, durationMs: 260 });
+    }, delay);
+  }
 
-    const second = targets[1]?.name ?? "";
-    if (targets.length === 2) return `${first}を タッチして、つぎに ${second}を タッチしてね`;
+  private showConditionCue(): void {
+    const condition = this.round?.condition;
+    if (!condition) return;
+    this.node<HTMLElement>("listen-status").textContent = "🤔 ルールを おもいだして タッチ！";
+    this.showSpecialCue(`${condition.activeEmoji} ${condition.activeLabel}`);
+  }
 
-    const third = targets[2]?.name ?? "";
+  private showSpecialCue(text: string): void {
+    const cue = this.node<HTMLElement>("special-cue");
+    cue.textContent = text;
+    cue.classList.remove("hidden");
+  }
+
+  private hideSpecialCue(): void {
+    const cue = this.node<HTMLElement>("special-cue");
+    cue.textContent = "";
+    cue.classList.add("hidden");
+  }
+
+  private instructionText(round: ListeningRound): string {
+    if (round.kind === "wait") {
+      return `おとが なったら ${round.targets[0]?.name ?? ""}を タッチしてね`;
+    }
+
+    if (round.kind === "nogo") {
+      return `${round.forbidden?.name ?? ""}は おさないで。${round.targets[0]?.name ?? ""}を タッチしてね`;
+    }
+
+    if (round.kind === "condition" && round.condition) {
+      const condition = round.condition;
+      return `${condition.firstLabel}なら ${condition.firstTarget.name}、${condition.secondLabel}なら ${condition.secondTarget.name}を タッチしてね`;
+    }
+
+    const first = round.targets[0]?.name ?? "";
+    if (round.targets.length <= 1) return `${first}を タッチしてね`;
+
+    const second = round.targets[1]?.name ?? "";
+    if (round.targets.length === 2) return `${first}を タッチして、つぎに ${second}を タッチしてね`;
+
+    const third = round.targets[2]?.name ?? "";
     return `${first}を タッチして、つぎに ${second}を タッチして、さいごに ${third}を タッチしてね`;
   }
 
@@ -481,7 +627,7 @@ class ListeningMissionGame {
             <dl>
               <div><dt>1回でできた</dt><dd>${row.firstTry}/${row.missions}</dd></div>
               <div><dt>聞きなおし</dt><dd>${row.replays}回</dd></div>
-              <div><dt>話の途中のタップ</dt><dd>${row.earlyTaps}回</dd></div>
+              <div><dt>待つ前・話の途中のタップ</dt><dd>${row.earlyTaps}回</dd></div>
               <div><dt>別のものをタップ</dt><dd>${row.offTargetTaps}回</dd></div>
               <div class="is-highlight"><dt>それても戻れた</dt><dd>${row.recovered}回</dd></div>
             </dl>
@@ -503,7 +649,7 @@ class ListeningMissionGame {
         return (
           typeof row.id === "number" &&
           typeof row.date === "string" &&
-          (row.level === "one" || row.level === "two" || row.level === "three") &&
+          this.isListeningLevel(row.level) &&
           typeof row.levelLabel === "string" &&
           typeof row.missions === "number" &&
           typeof row.firstTry === "number" &&
@@ -516,6 +662,10 @@ class ListeningMissionGame {
     } catch {
       return [];
     }
+  }
+
+  private isListeningLevel(level: unknown): level is ListeningLevel {
+    return level === "one" || level === "two" || level === "three" || level === "wait" || level === "nogo" || level === "condition";
   }
 
   private saveHistory(): void {
@@ -558,7 +708,15 @@ class ListeningMissionGame {
       window.clearTimeout(this.nextTimerId);
       this.nextTimerId = null;
     }
+    this.clearCueTimer();
     this.stopSpeech();
+  }
+
+  private clearCueTimer(): void {
+    if (this.cueTimerId !== null) {
+      window.clearTimeout(this.cueTimerId);
+      this.cueTimerId = null;
+    }
   }
 
   private stopSpeech(): void {
@@ -576,9 +734,12 @@ class ListeningMissionGame {
   }
 
   private levelLabel(level: ListeningLevel): string {
-    if (level === "one") return "やさしい・1こ";
-    if (level === "two") return "ふつう・2こ";
-    return "むずかしい・3こ";
+    if (level === "one") return "LV1・1こ";
+    if (level === "two") return "LV2・2こ";
+    if (level === "three") return "LV3・3こ";
+    if (level === "wait") return "LV4・まって";
+    if (level === "nogo") return "LV5・おさない";
+    return "LV6・じょうけん";
   }
 
   private shuffle<T>(items: readonly T[]): T[] {
