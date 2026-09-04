@@ -1,8 +1,9 @@
 import { audioService } from "./app/audio";
 import "./styles/listening-mission.scss";
 
-type ListeningLevel = "one" | "two";
+type ListeningLevel = "one" | "two" | "three";
 type ListeningScreen = "start" | "game" | "history" | "result";
+type FeedbackTone = "neutral" | "success" | "return";
 
 interface ListeningItem {
   emoji: string;
@@ -117,12 +118,17 @@ class ListeningMissionGame {
             <button type="button" data-role="start-one">
               <span class="listening-mission-level-icon" aria-hidden="true">🐣</span>
               <strong>やさしい</strong>
-              <small>「りんごを タッチ」</small>
+              <small>「りんごを タッチ」の 1こ</small>
             </button>
             <button type="button" data-role="start-two">
               <span class="listening-mission-level-icon" aria-hidden="true">🦁</span>
               <strong>ふつう</strong>
               <small>「いぬ → ほし」の 2こ</small>
+            </button>
+            <button type="button" data-role="start-three">
+              <span class="listening-mission-level-icon" aria-hidden="true">🐉</span>
+              <strong>むずかしい</strong>
+              <small>「りんご → いぬ → ほし」の 3こ</small>
             </button>
           </div>
           <button type="button" class="listening-mission-sub" data-role="open-history">📊 おうちのひとの きろく</button>
@@ -131,7 +137,7 @@ class ListeningMissionGame {
         <section class="listening-mission-screen" data-role="game-screen">
           <div class="listening-mission-progress-row">
             <span>🎯 <strong data-role="mission-progress">1 / 5</strong></span>
-            <span data-role="level-label">やさしい</span>
+            <span data-role="level-label">やさしい・1こ</span>
           </div>
           <div class="listening-mission-progress-track" aria-label="ミッションの進み具合">
             <div class="listening-mission-progress-fill" data-role="progress-fill"></div>
@@ -181,6 +187,7 @@ class ListeningMissionGame {
     this.node<HTMLButtonElement>("back-portal").addEventListener("click", () => this.closeToPortal());
     this.node<HTMLButtonElement>("start-one").addEventListener("click", () => this.startSession("one"));
     this.node<HTMLButtonElement>("start-two").addEventListener("click", () => this.startSession("two"));
+    this.node<HTMLButtonElement>("start-three").addEventListener("click", () => this.startSession("three"));
     this.node<HTMLButtonElement>("open-history").addEventListener("click", () => this.showHistory());
     this.node<HTMLButtonElement>("history-back").addEventListener("click", () => this.showScreen("start"));
     this.node<HTMLButtonElement>("result-back").addEventListener("click", () => this.showScreen("start"));
@@ -237,11 +244,8 @@ class ListeningMissionGame {
   }
 
   private syncFromLocation(): void {
-    if (this.isCurrentPath()) {
-      this.showExperience();
-    } else {
-      this.hideExperience();
-    }
+    if (this.isCurrentPath()) this.showExperience();
+    else this.hideExperience();
   }
 
   private showExperience(): void {
@@ -285,11 +289,17 @@ class ListeningMissionGame {
 
   private createRound(): ListeningRound {
     const shuffled = this.shuffle(ITEMS);
-    const targetCount = this.level === "one" ? 1 : 2;
-    const targets = shuffled.slice(0, targetCount);
-    const choiceCount = this.level === "one" ? 4 : 6;
-    const choices = this.shuffle(shuffled.slice(0, choiceCount));
-    return { targets, choices };
+    const { targetCount, choiceCount } = this.levelConfig(this.level);
+    return {
+      targets: shuffled.slice(0, targetCount),
+      choices: this.shuffle(shuffled.slice(0, choiceCount)),
+    };
+  }
+
+  private levelConfig(level: ListeningLevel): { targetCount: number; choiceCount: number } {
+    if (level === "one") return { targetCount: 1, choiceCount: 4 };
+    if (level === "two") return { targetCount: 2, choiceCount: 6 };
+    return { targetCount: 3, choiceCount: 8 };
   }
 
   private renderRound(): void {
@@ -322,8 +332,7 @@ class ListeningMissionGame {
   private renderStepDots(): void {
     const round = this.round;
     if (!round) return;
-    const dots = this.node<HTMLElement>("step-dots");
-    dots.innerHTML = round.targets
+    this.node<HTMLElement>("step-dots").innerHTML = round.targets
       .map((_, index) => {
         const state = index < this.targetIndex ? "is-done" : index === this.targetIndex ? "is-current" : "";
         return `<span class="listening-mission-step-dot ${state}">${index + 1}</span>`;
@@ -365,7 +374,7 @@ class ListeningMissionGame {
     audioService.playTone({ frequency: 660, sweepToFrequency: 990, gain: 0.09, durationMs: 180 });
 
     if (this.targetIndex < round.targets.length) {
-      this.setFeedback("💮 1こめ できた！ つぎは どれだったかな？", "success");
+      this.setFeedback(`💮 ${this.targetIndex}こめ できた！ つぎは どれだったかな？`, "success");
       return;
     }
 
@@ -425,8 +434,14 @@ class ListeningMissionGame {
   }
 
   private instructionText(targets: ListeningItem[]): string {
-    if (targets.length <= 1) return `${targets[0]?.name ?? ""}を タッチしてね`;
-    return `${targets[0]?.name ?? ""}を タッチして、つぎに ${targets[1]?.name ?? ""}を タッチしてね`;
+    const first = targets[0]?.name ?? "";
+    if (targets.length <= 1) return `${first}を タッチしてね`;
+
+    const second = targets[1]?.name ?? "";
+    if (targets.length === 2) return `${first}を タッチして、つぎに ${second}を タッチしてね`;
+
+    const third = targets[2]?.name ?? "";
+    return `${first}を タッチして、つぎに ${second}を タッチして、さいごに ${third}を タッチしてね`;
   }
 
   private finishSession(): void {
@@ -488,7 +503,7 @@ class ListeningMissionGame {
         return (
           typeof row.id === "number" &&
           typeof row.date === "string" &&
-          (row.level === "one" || row.level === "two") &&
+          (row.level === "one" || row.level === "two" || row.level === "three") &&
           typeof row.levelLabel === "string" &&
           typeof row.missions === "number" &&
           typeof row.firstTry === "number" &&
@@ -530,7 +545,7 @@ class ListeningMissionGame {
     if (screen !== "game") this.stopRound();
   }
 
-  private setFeedback(message: string, tone: "neutral" | "success" | "return"): void {
+  private setFeedback(message: string, tone: FeedbackTone): void {
     const feedback = this.node<HTMLElement>("feedback");
     feedback.textContent = message;
     feedback.classList.remove("is-success", "is-return");
@@ -561,7 +576,9 @@ class ListeningMissionGame {
   }
 
   private levelLabel(level: ListeningLevel): string {
-    return level === "one" ? "やさしい・1こ" : "ふつう・2こ";
+    if (level === "one") return "やさしい・1こ";
+    if (level === "two") return "ふつう・2こ";
+    return "むずかしい・3こ";
   }
 
   private shuffle<T>(items: readonly T[]): T[] {
@@ -580,9 +597,12 @@ class ListeningMissionGame {
   }
 
   private resolvePortalPath(): string {
-    const path = window.location.pathname;
-    if (path.endsWith(`/${CONTENT_ID}`)) return path.slice(0, -CONTENT_ID.length);
-    return path.endsWith("/") ? path : `${path}/`;
+    const normalized = window.location.pathname.replace(/\/$/, "");
+    if (normalized.endsWith(`/${CONTENT_ID}`)) {
+      const base = normalized.slice(0, -CONTENT_ID.length);
+      return base.endsWith("/") ? base : `${base}/`;
+    }
+    return window.location.pathname.endsWith("/") ? window.location.pathname : `${window.location.pathname}/`;
   }
 
   private isCurrentPath(): boolean {
