@@ -247,7 +247,7 @@ class ListeningMissionGame {
   private showExperience(): void {
     document.querySelectorAll<HTMLElement>("#main-content > .view").forEach((view) => view.classList.add("hidden"));
     this.root.classList.remove("hidden");
-    if (this.screen !== "game") this.showScreen("start");
+    this.showScreen("start");
   }
 
   private hideExperience(): void {
