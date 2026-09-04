@@ -3,6 +3,7 @@ import "./number-sequence";
 import "./clock-reading";
 import "./pencil-practice-timed";
 import "./listening-mission";
+import "./traffic-crossing";
 import "./learning-path";
 
 type ButtonVariant = "portal" | "back" | "menu" | "close" | "action";
@@ -91,6 +92,7 @@ const INDEPENDENT_VIEW_IDS = [
   "pencil-practice-experience",
   "hundred-abacus-experience",
   "listening-mission-experience",
+  "traffic-crossing-experience",
 ];
 
 function iconMarkup(icon: string, label: string): string {
@@ -181,8 +183,8 @@ function decoratePortal(): void {
   const contentCount = document.querySelector<HTMLElement>(".portal-content-count");
   if (contentCount && contentCount.dataset.commonUi !== "true") {
     contentCount.dataset.commonUi = "true";
-    contentCount.innerHTML = '<span aria-hidden="true">🎮</span><span>10こ</span>';
-    contentCount.setAttribute("aria-label", "10この学習コンテンツ");
+    contentCount.innerHTML = '<span aria-hidden="true">🎮</span><span>11こ</span>';
+    contentCount.setAttribute("aria-label", "11この学習コンテンツ");
   }
 
   const search = document.getElementById("portal-search-input");
