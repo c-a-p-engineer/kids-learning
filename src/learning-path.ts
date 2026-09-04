@@ -1,4 +1,5 @@
 const LEARNING_PATH = [
+  { id: "listening-mission", icon: "👂", category: "memory" },
   { id: "fit-shape", icon: "🧩", category: "shape" },
   { id: "flashcard", icon: "🧠", category: "memory" },
   { id: "dotburst", icon: "🟡", category: "math" },
@@ -10,9 +11,10 @@ const LEARNING_PATH = [
 ] as const;
 
 const HEADER_STEPS: Array<[string, number]> = [
-  [".number-sequence-step", 4],
-  [".clock-reading-step", 6],
-  [".pencil-practice-step", 7],
+  [".listening-mission-step", 1],
+  [".number-sequence-step", 5],
+  [".clock-reading-step", 7],
+  [".pencil-practice-step", 8],
 ];
 
 let applying = false;
@@ -44,9 +46,17 @@ function applyLearningPath(): void {
       badge.textContent = `STEP ${step}`;
     });
 
+    const balloonCard = list.querySelector<HTMLElement>('[data-content-id="balloon-attack"]');
+    if (balloonCard) {
+      balloonCard.style.order = "100";
+      balloonCard.dataset.category = "activity";
+      const icon = balloonCard.querySelector<HTMLElement>(".content-icon");
+      if (icon) icon.textContent = "🎈";
+    }
+
     const note = document.getElementById("learning-path-note");
     if (note) {
-      note.innerHTML = "<strong>⬇️ STEP 1から じゅんばんに やってみよう</strong><span>みる → おぼえる → かず → ならび → くらべる → とけい → せん → かく</span>";
+      note.innerHTML = "<strong>⬇️ STEP 1から じゅんばんに やってみよう</strong><span>きく → みる → おぼえる → かず → ならび → くらべる → とけい → せん → かく</span>";
     }
 
     HEADER_STEPS.forEach(([selector, step]) => {
@@ -56,8 +66,9 @@ function applyLearningPath(): void {
 
     const counter = document.querySelector<HTMLElement>(".portal-content-count");
     if (counter) {
-      counter.setAttribute("aria-label", `${LEARNING_PATH.length}つの学習コンテンツ`);
-      counter.innerHTML = `<span aria-hidden="true">🎮</span><span>${LEARNING_PATH.length}つ</span>`;
+      const count = list.querySelectorAll("[data-content-id]").length;
+      counter.setAttribute("aria-label", `${count}この学習コンテンツ`);
+      counter.innerHTML = `<span aria-hidden="true">🎮</span><span>${count}こ</span>`;
     }
   } finally {
     applying = false;
