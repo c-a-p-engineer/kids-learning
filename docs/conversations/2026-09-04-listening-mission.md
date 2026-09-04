@@ -59,4 +59,5 @@
 ## 関連
 
 - Branch: `feature/listening-mission`
+- Pull Request: `#15`
 - 仕様書: `docs/きいてミッション.md`
