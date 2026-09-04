@@ -46,6 +46,14 @@ function applyLearningPath(): void {
       badge.textContent = `STEP ${step}`;
     });
 
+    const balloonCard = list.querySelector<HTMLElement>('[data-content-id="balloon-attack"]');
+    if (balloonCard) {
+      balloonCard.style.order = "100";
+      balloonCard.dataset.category = "activity";
+      const icon = balloonCard.querySelector<HTMLElement>(".content-icon");
+      if (icon) icon.textContent = "🎈";
+    }
+
     const note = document.getElementById("learning-path-note");
     if (note) {
       note.innerHTML = "<strong>⬇️ STEP 1から じゅんばんに やってみよう</strong><span>きく → みる → おぼえる → かず → ならび → くらべる → とけい → せん → かく</span>";
