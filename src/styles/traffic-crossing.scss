@@ -119,6 +119,27 @@
   line-height: 1.35;
 }
 
+.traffic-crossing-best-panel {
+  width: min(100%, 560px);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.traffic-crossing-best-panel span {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border: 2px solid var(--app-border);
+  border-radius: 14px;
+  padding: 0.55rem 0.65rem;
+  background: var(--app-surface);
+  font-size: 0.92rem;
+}
+
 .traffic-crossing-note {
   align-self: center;
   padding: 0.65rem 0.85rem;
@@ -133,6 +154,15 @@
   border-radius: 14px;
   padding: 0.65rem 0.8rem;
   background: var(--app-surface);
+}
+
+.traffic-crossing-timer {
+  margin-left: auto;
+  border-radius: 999px;
+  padding: 0.3rem 0.6rem;
+  background: var(--app-surface-soft);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .traffic-crossing-field {
@@ -209,7 +239,8 @@
   font-size: clamp(2.5rem, 12vw, 4.2rem);
 }
 
-.traffic-crossing-car.is-reverse {
+// Android等の車絵文字は標準表示が左向きなので、右へ進む車だけ水平反転する。
+.traffic-crossing-car.is-facing-right {
   transform: translate(-50%, -50%) scaleX(-1);
 }
 
@@ -255,6 +286,49 @@
   font-size: clamp(4rem, 20vw, 7rem);
 }
 
+.traffic-crossing-result-time {
+  font-size: clamp(1.5rem, 6vw, 2.2rem);
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.traffic-crossing-result-rank {
+  min-height: 1.6em;
+  color: var(--app-primary-strong);
+  font-weight: 900;
+}
+
+.traffic-crossing-ranking {
+  width: min(100%, 360px);
+  margin: 0 auto;
+  border: 2px solid var(--app-border);
+  border-radius: 16px;
+  padding: 0.75rem 1rem;
+  background: var(--app-surface);
+  text-align: left;
+}
+
+.traffic-crossing-ranking > strong {
+  display: block;
+  margin-bottom: 0.4rem;
+  text-align: center;
+}
+
+.traffic-crossing-ranking ol {
+  margin: 0;
+  padding-left: 2.2rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.traffic-crossing-ranking li + li {
+  margin-top: 0.25rem;
+}
+
+.traffic-crossing-ranking p {
+  text-align: center;
+}
+
 .traffic-crossing-result-actions {
   width: min(100%, 430px);
   margin: 0 auto;
@@ -274,6 +348,16 @@
 .traffic-crossing-result-actions button:focus-visible {
   outline: 4px solid var(--app-secondary);
   outline-offset: 3px;
+}
+
+@media (max-width: 420px) {
+  .traffic-crossing-best-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .traffic-crossing-timer {
+    margin-left: 0;
+  }
 }
 
 @media (min-width: 640px) {
@@ -297,7 +381,9 @@
   .traffic-crossing-field,
   .traffic-crossing-levels button,
   .traffic-crossing-hold,
-  .traffic-crossing-result-actions button {
+  .traffic-crossing-result-actions button,
+  .traffic-crossing-best-panel span,
+  .traffic-crossing-ranking {
     border: 2px solid CanvasText;
   }
 }
