@@ -1,0 +1,469 @@
+.listening-mission-experience {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  padding: 1rem;
+  background: var(--app-bg);
+  color: var(--app-text);
+  -webkit-overflow-scrolling: touch;
+}
+
+.listening-mission-shell {
+  width: min(100%, 900px);
+  min-height: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.listening-mission-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.listening-mission-header h2 {
+  margin: 0.15rem 0 0;
+  color: var(--app-heading);
+  font-size: clamp(1.35rem, 5vw, 2rem);
+  line-height: 1.25;
+}
+
+.listening-mission-step,
+.listening-mission-parent-label {
+  margin: 0;
+  color: var(--app-primary-strong);
+  font-size: 0.86rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.listening-mission-back,
+.listening-mission-sub,
+.listening-mission-replay,
+.listening-mission-result-actions button,
+.listening-mission-history-head button {
+  min-height: 48px;
+  border: 2px solid var(--app-border);
+  border-radius: 14px;
+  padding: 0.7rem 1rem;
+  background: var(--app-surface);
+  color: var(--app-text);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.listening-mission-back {
+  flex: 0 0 auto;
+}
+
+.listening-mission-screen {
+  display: none;
+  flex: 1;
+}
+
+.listening-mission-screen.is-active {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.listening-mission-screen[data-role="start-screen"] {
+  align-items: stretch;
+  justify-content: center;
+  text-align: center;
+}
+
+.listening-mission-hero {
+  font-size: clamp(2.3rem, 10vw, 4rem);
+  line-height: 1.2;
+}
+
+.listening-mission-screen h3 {
+  margin: 0;
+  color: var(--app-heading);
+  font-size: clamp(1.3rem, 5vw, 1.8rem);
+}
+
+.listening-mission-lead,
+.listening-mission-session-note,
+.listening-mission-history-note,
+.listening-mission-result-message {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.listening-mission-session-note {
+  display: inline-flex;
+  align-self: center;
+  padding: 0.55rem 0.85rem;
+  border-radius: 999px;
+  background: var(--app-surface-soft);
+  font-weight: 800;
+}
+
+.listening-mission-levels {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.8rem;
+}
+
+.listening-mission-levels button {
+  min-height: 92px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: 0.8rem;
+  border: 2px solid var(--app-border);
+  border-radius: 20px;
+  padding: 0.9rem 1rem;
+  background: var(--app-surface);
+  color: var(--app-text);
+  text-align: left;
+  box-shadow: 0 5px 0 color-mix(in srgb, var(--app-border) 70%, transparent);
+  cursor: pointer;
+}
+
+.listening-mission-levels button:active {
+  transform: translateY(2px);
+  box-shadow: 0 3px 0 color-mix(in srgb, var(--app-border) 70%, transparent);
+}
+
+.listening-mission-level-icon {
+  grid-row: 1 / 3;
+  font-size: 2.3rem;
+}
+
+.listening-mission-levels strong {
+  font-size: 1.2rem;
+}
+
+.listening-mission-levels small {
+  color: var(--app-subtext);
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+
+.listening-mission-sub {
+  align-self: center;
+  background: var(--app-surface-soft);
+}
+
+.listening-mission-progress-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-weight: 800;
+}
+
+.listening-mission-progress-track {
+  height: 12px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--app-border);
+}
+
+.listening-mission-progress-fill {
+  width: 20%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--app-primary);
+  transition: width 180ms ease;
+}
+
+.listening-mission-callout {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0.75rem;
+  border: 2px solid var(--app-primary-soft);
+  border-radius: 20px;
+  padding: 0.85rem;
+  background: var(--app-surface);
+}
+
+.listening-mission-ear {
+  grid-row: 1 / 4;
+  font-size: 2.7rem;
+}
+
+.listening-mission-status {
+  margin: 0;
+  color: var(--app-heading);
+  font-size: 1.15rem;
+  font-weight: 900;
+}
+
+.listening-mission-fallback {
+  grid-column: 2;
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  background: var(--app-surface-soft);
+  line-height: 1.45;
+  font-weight: 700;
+}
+
+.listening-mission-replay {
+  grid-column: 2;
+  justify-self: start;
+  min-height: 44px;
+  padding: 0.55rem 0.8rem;
+  background: var(--app-surface-soft);
+}
+
+.listening-mission-replay:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.listening-mission-step-dots {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+}
+
+.listening-mission-step-dot {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--app-border);
+  border-radius: 50%;
+  background: var(--app-surface);
+  font-weight: 900;
+}
+
+.listening-mission-step-dot.is-current {
+  border-color: var(--app-primary);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--app-primary) 18%, transparent);
+}
+
+.listening-mission-step-dot.is-done {
+  border-color: var(--app-secondary);
+  background: var(--app-success-soft);
+}
+
+.listening-mission-step-arrow {
+  font-weight: 900;
+  color: var(--app-muted);
+}
+
+.listening-mission-choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.listening-mission-choice {
+  min-height: 112px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  border: 3px solid var(--app-border);
+  border-radius: 20px;
+  padding: 0.6rem;
+  background: var(--app-surface);
+  color: var(--app-text);
+  font-size: 1rem;
+  font-weight: 800;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.listening-mission-choice-emoji {
+  font-size: clamp(2.4rem, 12vw, 4rem);
+  line-height: 1.1;
+}
+
+.listening-mission-choice.is-selected {
+  border-color: var(--app-secondary);
+  background: var(--app-success-soft);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--app-secondary) 18%, transparent);
+}
+
+.listening-mission-feedback {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  padding: 0.7rem 0.9rem;
+  background: var(--app-surface-muted);
+  text-align: center;
+  line-height: 1.4;
+  font-weight: 900;
+}
+
+.listening-mission-feedback.is-success {
+  background: var(--app-success-soft);
+}
+
+.listening-mission-feedback.is-return {
+  border: 2px dashed var(--app-primary-soft);
+  background: var(--app-surface-soft);
+}
+
+.listening-mission-history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.listening-mission-history {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.listening-mission-history-item {
+  border: 2px solid var(--app-border);
+  border-radius: 18px;
+  padding: 0.9rem;
+  background: var(--app-surface);
+}
+
+.listening-mission-history-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.65rem;
+}
+
+.listening-mission-history-title span {
+  color: var(--app-muted);
+  font-size: 0.9rem;
+}
+
+.listening-mission-history-item dl {
+  margin: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.listening-mission-history-item dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  border-top: 1px solid var(--app-border);
+  padding-top: 0.4rem;
+}
+
+.listening-mission-history-item dt,
+.listening-mission-history-item dd {
+  margin: 0;
+}
+
+.listening-mission-history-item dd {
+  font-weight: 900;
+}
+
+.listening-mission-history-item .is-highlight {
+  color: var(--app-secondary);
+  font-weight: 800;
+}
+
+.listening-mission-empty {
+  border: 2px dashed var(--app-border);
+  border-radius: 16px;
+  padding: 1rem;
+  text-align: center;
+}
+
+.listening-mission-screen[data-role="result-screen"] {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.listening-mission-finish {
+  font-size: clamp(4rem, 18vw, 7rem);
+}
+
+.listening-mission-result-stars {
+  font-size: clamp(1.7rem, 7vw, 2.6rem);
+  letter-spacing: 0.12em;
+}
+
+.listening-mission-result-actions {
+  width: min(100%, 430px);
+  display: grid;
+  gap: 0.7rem;
+}
+
+.listening-mission-result-actions button {
+  width: 100%;
+}
+
+.listening-mission-primary {
+  border-color: var(--app-primary) !important;
+  background: var(--app-primary) !important;
+  color: #ffffff !important;
+}
+
+.listening-mission-back:focus-visible,
+.listening-mission-sub:focus-visible,
+.listening-mission-replay:focus-visible,
+.listening-mission-levels button:focus-visible,
+.listening-mission-choice:focus-visible,
+.listening-mission-result-actions button:focus-visible,
+.listening-mission-history-head button:focus-visible {
+  outline: 4px solid var(--app-secondary);
+  outline-offset: 3px;
+}
+
+@media (min-width: 640px) {
+  .listening-mission-experience {
+    padding: 1.5rem;
+  }
+
+  .listening-mission-levels {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .listening-mission-choices {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .listening-mission-choice {
+    min-height: 140px;
+  }
+
+  .listening-mission-history {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .listening-mission-progress-fill,
+  .listening-mission-levels button {
+    transition: none;
+  }
+
+  .listening-mission-levels button:active {
+    transform: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .listening-mission-choice,
+  .listening-mission-callout,
+  .listening-mission-history-item,
+  .listening-mission-levels button {
+    border: 2px solid CanvasText;
+  }
+
+  .listening-mission-choice.is-selected,
+  .listening-mission-step-dot.is-current {
+    outline: 3px solid Highlight;
+  }
+}
