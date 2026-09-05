@@ -1,7 +1,7 @@
 import { audioService } from "./app/audio";
 import "./styles/traffic-crossing.scss";
 
-type TrafficLevel = "one" | "two";
+type TrafficLevel = "one" | "two" | "three" | "four";
 type TrafficScreen = "start" | "game" | "result";
 type TrafficResult = "success" | "collision";
 
@@ -26,6 +26,8 @@ interface CarState {
 interface TrafficScoreStore {
   one: number[];
   two: number[];
+  three: number[];
+  four: number[];
 }
 
 interface ScoreResult {
@@ -43,6 +45,12 @@ const PLAYER_X = 0.5;
 const CAR_X_HIT_DISTANCE = 0.11;
 const CAR_Y_HIT_DISTANCE = 0.065;
 const CAR_EMOJIS = ["🚗", "🚕", "🚙"] as const;
+const LEVEL_LABELS: Record<TrafficLevel, string> = {
+  one: "LV1・1しゃせん",
+  two: "LV2・2しゃせん",
+  three: "LV3・3しゃせん",
+  four: "LV4・4しゃせん",
+};
 
 class TrafficCrossingGame {
   private readonly root: HTMLElement;
@@ -110,12 +118,24 @@ class TrafficCrossingGame {
               <strong>LV2・2しゃせん</strong>
               <small>ひだりと みぎ、りょうほうを みよう</small>
             </button>
+            <button type="button" data-role="start-three">
+              <span aria-hidden="true">🐯</span>
+              <strong>LV3・3しゃせん</strong>
+              <small>3つの しゃせんを じゅんばんに みよう</small>
+            </button>
+            <button type="button" data-role="start-four">
+              <span aria-hidden="true">🐉</span>
+              <strong>LV4・4しゃせん</strong>
+              <small>4つの しゃせん。いちばん むずかしい！</small>
+            </button>
           </div>
           <div class="traffic-crossing-best-panel" aria-label="ベストタイム">
             <span>🏆 LV1 <strong data-role="best-one">まだなし</strong></span>
             <span>🏆 LV2 <strong data-role="best-two">まだなし</strong></span>
+            <span>🏆 LV3 <strong data-role="best-three">まだなし</strong></span>
+            <span>🏆 LV4 <strong data-role="best-four">まだなし</strong></span>
           </div>
-          <p class="traffic-crossing-note">⚠️ くるまと ぶつかったら そのかいは おしまい</p>
+          <p class="traffic-crossing-note">⚠️ くるまと ぶつかったら おとと ぶるぶるで おしらせして、そのかいは おしまい</p>
         </section>
 
         <section class="traffic-crossing-screen" data-role="game-screen">
@@ -159,6 +179,8 @@ class TrafficCrossingGame {
     this.node<HTMLButtonElement>("back-portal").addEventListener("click", () => this.closeToPortal());
     this.node<HTMLButtonElement>("start-one").addEventListener("click", () => this.startGame("one"));
     this.node<HTMLButtonElement>("start-two").addEventListener("click", () => this.startGame("two"));
+    this.node<HTMLButtonElement>("start-three").addEventListener("click", () => this.startGame("three"));
+    this.node<HTMLButtonElement>("start-four").addEventListener("click", () => this.startGame("four"));
     this.node<HTMLButtonElement>("retry").addEventListener("click", () => this.startGame(this.level));
     this.node<HTMLButtonElement>("menu").addEventListener("click", () => this.showScreen("start"));
 
@@ -277,7 +299,7 @@ class TrafficCrossingGame {
     this.cars = [];
     this.nextCarId = 1;
     const lanes = this.lanes();
-    this.spawnCountdowns = lanes.map((lane, index) => this.nextSpawnDelay(lane) + index * 0.35);
+    this.spawnCountdowns = lanes.map((lane, index) => this.nextSpawnDelay(lane) + index * 0.28);
     this.node<HTMLElement>("cars").innerHTML = "";
     this.node<HTMLElement>("level-label").textContent = this.levelLabel();
     this.node<HTMLElement>("game-status").textContent = "👀 くるまを よくみよう";
@@ -298,9 +320,24 @@ class TrafficCrossingGame {
     if (this.level === "one") {
       return [{ y: 0.52, direction: 1, minSpeed: 0.16, maxSpeed: 0.31, minGap: 1.35, maxGap: 3.6 }];
     }
+    if (this.level === "two") {
+      return [
+        { y: 0.42, direction: 1, minSpeed: 0.17, maxSpeed: 0.33, minGap: 1.1, maxGap: 3.0 },
+        { y: 0.65, direction: -1, minSpeed: 0.18, maxSpeed: 0.34, minGap: 1.15, maxGap: 3.15 },
+      ];
+    }
+    if (this.level === "three") {
+      return [
+        { y: 0.34, direction: 1, minSpeed: 0.17, maxSpeed: 0.34, minGap: 1.05, maxGap: 2.85 },
+        { y: 0.52, direction: -1, minSpeed: 0.18, maxSpeed: 0.35, minGap: 1.0, maxGap: 2.75 },
+        { y: 0.70, direction: 1, minSpeed: 0.19, maxSpeed: 0.36, minGap: 1.05, maxGap: 2.9 },
+      ];
+    }
     return [
-      { y: 0.42, direction: 1, minSpeed: 0.17, maxSpeed: 0.33, minGap: 1.1, maxGap: 3.0 },
-      { y: 0.65, direction: -1, minSpeed: 0.18, maxSpeed: 0.34, minGap: 1.15, maxGap: 3.15 },
+      { y: 0.29, direction: 1, minSpeed: 0.18, maxSpeed: 0.35, minGap: 0.95, maxGap: 2.7 },
+      { y: 0.44, direction: -1, minSpeed: 0.19, maxSpeed: 0.36, minGap: 0.9, maxGap: 2.55 },
+      { y: 0.59, direction: 1, minSpeed: 0.18, maxSpeed: 0.36, minGap: 0.95, maxGap: 2.6 },
+      { y: 0.74, direction: -1, minSpeed: 0.2, maxSpeed: 0.37, minGap: 0.9, maxGap: 2.5 },
     ];
   }
 
@@ -434,7 +471,7 @@ class TrafficCrossingGame {
     this.node<HTMLElement>("result-time").textContent = `⏱️ ${this.formatTime(completedMs)}`;
 
     if (result === "collision") {
-      audioService.playTone({ frequency: 240, type: "triangle", gain: 0.07, durationMs: 240, sweepToFrequency: 150 });
+      this.playCollisionFeedback();
       this.node<HTMLElement>("result-icon").textContent = "⚠️";
       this.node<HTMLElement>("result-title").textContent = "ぶつかった！ おしまい";
       this.node<HTMLElement>("result-rank").textContent = "今回は ハイスコアには とうろくしないよ";
@@ -453,6 +490,19 @@ class TrafficCrossingGame {
     this.showScreen("result");
   }
 
+  private playCollisionFeedback(): void {
+    audioService.playTone({ frequency: 260, type: "triangle", gain: 0.09, durationMs: 180, sweepToFrequency: 130 });
+    audioService.playTone({ frequency: 150, type: "triangle", gain: 0.08, durationMs: 260, startDelayMs: 120, sweepToFrequency: 90 });
+
+    const vibrationNavigator = navigator as Navigator & { vibrate?: (pattern: number | number[]) => boolean };
+    if (typeof vibrationNavigator.vibrate !== "function") return;
+    try {
+      vibrationNavigator.vibrate([120, 60, 180]);
+    } catch {
+      // Vibration API is optional; unsupported or blocked environments continue with sound only.
+    }
+  }
+
   private rankMessage(score: ScoreResult): string {
     if (score.rank === 1) return "🏆 1い！ ベストタイムを こうしん！";
     if (score.rank !== null) return `⭐ ベスト5の ${score.rank}いに はいった！`;
@@ -461,7 +511,7 @@ class TrafficCrossingGame {
   }
 
   private loadScores(): TrafficScoreStore {
-    const empty: TrafficScoreStore = { one: [], two: [] };
+    const empty: TrafficScoreStore = { one: [], two: [], three: [], four: [] };
     try {
       const raw = localStorage.getItem(SCORE_STORAGE_KEY);
       if (!raw) return empty;
@@ -471,6 +521,8 @@ class TrafficCrossingGame {
       return {
         one: this.normalizeScores(candidate.one),
         two: this.normalizeScores(candidate.two),
+        three: this.normalizeScores(candidate.three),
+        four: this.normalizeScores(candidate.four),
       };
     } catch {
       return empty;
@@ -505,6 +557,8 @@ class TrafficCrossingGame {
     const scores = this.loadScores();
     this.node<HTMLElement>("best-one").textContent = scores.one[0] ? this.formatTime(scores.one[0]) : "まだなし";
     this.node<HTMLElement>("best-two").textContent = scores.two[0] ? this.formatTime(scores.two[0]) : "まだなし";
+    this.node<HTMLElement>("best-three").textContent = scores.three[0] ? this.formatTime(scores.three[0]) : "まだなし";
+    this.node<HTMLElement>("best-four").textContent = scores.four[0] ? this.formatTime(scores.four[0]) : "まだなし";
   }
 
   private renderRanking(): void {
@@ -537,7 +591,7 @@ class TrafficCrossingGame {
   }
 
   private levelLabel(): string {
-    return this.level === "one" ? "LV1・1しゃせん" : "LV2・2しゃせん";
+    return LEVEL_LABELS[this.level];
   }
 
   private randomBetween(min: number, max: number): number {
