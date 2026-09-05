@@ -14,11 +14,13 @@ class TrafficEngineSound {
 
   init(): void {
     document.addEventListener("pointerdown", (event) => this.handleUserGesture(event), { capture: true });
+    document.addEventListener("click", (event) => this.handleUserGesture(event), { capture: true });
     document.addEventListener("keydown", (event) => this.handleKeyGesture(event), { capture: true });
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) this.fadeToSilence();
+      else this.resume();
     });
-    window.addEventListener("pagehide", () => this.shutdown(), { once: true });
+    window.addEventListener("pagehide", () => this.fadeToSilence());
     this.animationId = window.requestAnimationFrame(() => this.tick());
   }
 
@@ -37,7 +39,10 @@ class TrafficEngineSound {
     if (event.key !== " " && event.key !== "Enter") return;
     const target = event.target;
     if (!(target instanceof Element)) return;
-    if (!target.closest(`${EXPERIENCE_SELECTOR} [data-role="hold-button"]`)) return;
+    const control = target.closest(
+      `${EXPERIENCE_SELECTOR} [data-level], ${EXPERIENCE_SELECTOR} [data-role="retry"], ${EXPERIENCE_SELECTOR} [data-role="hold-button"]`,
+    );
+    if (!control) return;
     this.ensureGraph();
     this.resume();
   }
@@ -151,21 +156,6 @@ class TrafficEngineSound {
 
   private fadeToSilence(): void {
     this.setGain(0.0001, 0.03);
-  }
-
-  private shutdown(): void {
-    if (this.animationId !== null) {
-      window.cancelAnimationFrame(this.animationId);
-      this.animationId = null;
-    }
-    if (this.context) {
-      void this.context.close();
-    }
-    this.context = null;
-    this.masterGain = null;
-    this.engineOscillator = null;
-    this.harmonicOscillator = null;
-    this.filter = null;
   }
 }
 
