@@ -1,3 +1,4 @@
+import "../traffic-engine-sound";
 import type { LearningContent } from "../app/types";
 
 export const TRAFFIC_CROSSING_CONTENT: LearningContent = {
