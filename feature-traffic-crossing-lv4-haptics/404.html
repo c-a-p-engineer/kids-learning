@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Redirecting...</title>
+    <script>
+      (function () {
+        var repositoryBase = "/kids-learning/";
+        var requestedPath = window.location.pathname + window.location.search + window.location.hash;
+        var target = new URL(repositoryBase, window.location.origin);
+
+        // GitHub Pagesの404は、必ずSPAの入口へ戻す。
+        // 未知の第2パスをディレクトリとして扱うと、そのURLも404になり再転送が無限に続く。
+        target.searchParams.set("redirect", requestedPath);
+        window.location.replace(target.toString());
+      })();
+    </script>
+  </head>
+  <body></body>
+</html>
