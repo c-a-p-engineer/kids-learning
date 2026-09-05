@@ -1,22 +1,13 @@
 import { audioService } from "./app/audio";
 import "./styles/traffic-crossing.scss";
 
-type TrafficLevel =
-  | "one"
-  | "two"
-  | "three"
-  | "four"
-  | "five"
-  | "six"
-  | "seven"
-  | "eight"
-  | "nine"
-  | "ten";
+type TrafficLevel = "one" | "two" | "three" | "four" | "five" | "six";
+type LegacyTrafficLevel = "seven" | "eight" | "nine" | "ten";
+type StoredScoreKey = TrafficLevel | LegacyTrafficLevel;
 type TrafficScreen = "start" | "game" | "result";
 type TrafficResult = "success" | "collision";
 type SignalState = "red" | "green";
-type SpecialVehicle = "ambulance" | "bus";
-type MissionMarker = "star" | "heart" | "diamond";
+type SpecialVehicle = "ambulance";
 
 interface LaneConfig {
   y: number;
@@ -35,18 +26,16 @@ interface CarState {
   speed: number;
   element: HTMLElement;
   special: SpecialVehicle | null;
-  marker: MissionMarker | null;
-  markerNotified: boolean;
   hitDistanceX: number;
 }
 
 interface SpawnOptions {
   special?: SpecialVehicle;
-  marker?: MissionMarker;
   speedMultiplier?: number;
+  speedOverride?: number;
 }
 
-type TrafficScoreStore = Record<TrafficLevel, number[]>;
+type TrafficScoreStore = Record<TrafficLevel, number[]> & Partial<Record<LegacyTrafficLevel, number[]>>;
 
 interface ScoreResult {
   rank: number | null;
@@ -61,11 +50,6 @@ interface LevelMeta {
   group: "basic" | "challenge";
 }
 
-interface MarkerMeta {
-  emoji: string;
-  spoken: string;
-}
-
 const CONTENT_ID = "traffic-crossing";
 const SCORE_STORAGE_KEY = "traffic_crossing_v1_scores";
 const MAX_SCORES_PER_LEVEL = 5;
@@ -75,11 +59,10 @@ const PLAYER_SPEED = 0.19;
 const PLAYER_X = 0.5;
 const CAR_X_HIT_DISTANCE = 0.11;
 const CAR_Y_HIT_DISTANCE = 0.065;
-const ISLAND_Y = 0.52;
 const IMPACT_DELAY_MS = 560;
 const CAR_EMOJIS = ["🚗", "🚕", "🚙"] as const;
-const LEVEL_KEYS: TrafficLevel[] = ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
-const MISSION_MARKER_KEYS: MissionMarker[] = ["star", "heart", "diamond"];
+const LEVEL_KEYS: TrafficLevel[] = ["one", "two", "three", "four", "five", "six"];
+const LEGACY_LEVEL_KEYS: LegacyTrafficLevel[] = ["seven", "eight", "nine", "ten"];
 
 const LEVEL_META: Record<TrafficLevel, LevelMeta> = {
   one: { number: 1, icon: "🐣", label: "LV1・1しゃせん", description: "ひだりから くるまが くるよ", group: "basic" },
@@ -88,16 +71,6 @@ const LEVEL_META: Record<TrafficLevel, LevelMeta> = {
   four: { number: 4, icon: "🐉", label: "LV4・4しゃせん", description: "4つの しゃせんを よくみよう", group: "basic" },
   five: { number: 5, icon: "🚦", label: "LV5・しんごう", description: "あかは まつ。あおでも くるまを みよう", group: "challenge" },
   six: { number: 6, icon: "🚑", label: "LV6・きゅうきゅうしゃ", description: "ちかづく きゅうきゅうしゃにも ちゅうい", group: "challenge" },
-  seven: { number: 7, icon: "🚌", label: "LV7・しかく", description: "バスで みえないときは まとう", group: "challenge" },
-  eight: { number: 8, icon: "🏝️", label: "LV8・ちゅうおう", description: "まんなかで とまって もういちど かくにん", group: "challenge" },
-  nine: { number: 9, icon: "👂", label: "LV9・きいてから", description: "しるしの くるまを おぼえて まとう", group: "challenge" },
-  ten: { number: 10, icon: "🔄", label: "LV10・ルールチェンジ", description: "まんなかで あたらしい ルールに きりかえ", group: "challenge" },
-};
-
-const MISSION_MARKERS: Record<MissionMarker, MarkerMeta> = {
-  star: { emoji: "⭐", spoken: "ほし" },
-  heart: { emoji: "❤️", spoken: "ハート" },
-  diamond: { emoji: "🔷", spoken: "ひしがた" },
 };
 
 function isTrafficLevel(value: string | undefined): value is TrafficLevel {
@@ -120,16 +93,11 @@ class TrafficCrossingGame {
   private cars: CarState[] = [];
   private nextCarId = 1;
   private spawnCountdowns: number[] = [];
+  private openingDecisionPending = true;
 
   private signalState: SignalState = "green";
   private signalCountdown = 0;
   private ambulanceCountdown = -1;
-  private busCountdown = -1;
-  private missionSpawnCountdown = -1;
-  private missionTarget: MissionMarker | null = null;
-  private missionSatisfied = true;
-  private missionPhase: 1 | 2 = 1;
-  private islandReached = false;
   private transientMessage = "";
   private transientMessageUntilMs = 0;
 
@@ -206,7 +174,6 @@ class TrafficCrossingGame {
               <strong data-role="signal-text">あお</strong>
             </div>
             <div class="traffic-crossing-challenge" data-role="challenge-banner" aria-live="polite"></div>
-            <div class="traffic-crossing-island" data-role="island" aria-hidden="true">🏝️ ちゅうおう</div>
             <div class="traffic-crossing-road" data-role="road"></div>
             <div class="traffic-crossing-cars" data-role="cars"></div>
             <div class="traffic-crossing-player" data-role="player" aria-hidden="true">🧒</div>
@@ -303,6 +270,11 @@ class TrafficCrossingGame {
       return;
     }
 
+    if (this.openingDecisionPending) {
+      if (this.elapsedMs < 3500) this.spawnOpeningDecisionCar();
+      else this.openingDecisionPending = false;
+    }
+
     this.moving = true;
     this.node<HTMLButtonElement>("hold-button").classList.add("is-held");
     this.setStatus("🚶 すすむ");
@@ -310,9 +282,6 @@ class TrafficCrossingGame {
 
   private movementBlockedMessage(): string | null {
     if (this.level === "five" && this.signalState === "red") return "🔴 あか。あおに なるまで まとう";
-    if ((this.level === "nine" || this.level === "ten") && !this.missionSatisfied) {
-      return this.missionTarget ? `${MISSION_MARKERS[this.missionTarget].emoji} の くるまが とおるまで まとう` : "👂 ルールを きいて まとう";
-    }
     return null;
   }
 
@@ -397,6 +366,7 @@ class TrafficCrossingGame {
     this.lastTimerTenth = -1;
     this.cars = [];
     this.nextCarId = 1;
+    this.openingDecisionPending = true;
     this.resetLevelFeatures();
 
     const lanes = this.lanes();
@@ -410,8 +380,10 @@ class TrafficCrossingGame {
     this.prepareLevelVisuals();
     this.showScreen("game");
 
+    const decisionLane = this.nextLaneIndex();
     lanes.forEach((lane, index) => {
-      const initialX = lane.direction === 1 ? this.randomBetween(0.12, 0.28) : this.randomBetween(0.72, 0.88);
+      if (index === decisionLane) return;
+      const initialX = lane.direction === 1 ? this.randomBetween(0.1, 0.25) : this.randomBetween(0.75, 0.9);
       this.spawnCar(index, initialX);
     });
 
@@ -424,12 +396,6 @@ class TrafficCrossingGame {
     this.signalState = "green";
     this.signalCountdown = 0;
     this.ambulanceCountdown = -1;
-    this.busCountdown = -1;
-    this.missionSpawnCountdown = -1;
-    this.missionTarget = null;
-    this.missionSatisfied = true;
-    this.missionPhase = 1;
-    this.islandReached = false;
     this.transientMessage = "";
     this.transientMessageUntilMs = 0;
 
@@ -438,12 +404,6 @@ class TrafficCrossingGame {
       this.signalCountdown = this.randomBetween(1.5, 2.4);
     }
     if (this.level === "six") this.ambulanceCountdown = 2.2;
-    if (this.level === "seven") this.busCountdown = 2.6;
-    if (this.level === "nine" || this.level === "ten") {
-      this.missionSatisfied = false;
-      this.missionTarget = this.pickMissionMarker();
-      this.missionSpawnCountdown = 1.4;
-    }
   }
 
   private announceLevelRule(): void {
@@ -453,31 +413,12 @@ class TrafficCrossingGame {
     }
     if (this.level === "six") {
       audioService.speak("きゅうきゅうしゃが ちかづいてきたら、いったん とまろう。", { rate: 0.92 });
-      return;
     }
-    if (this.level === "seven") {
-      audioService.speak("バスで むこうが みえないときは、みえるまで まとう。", { rate: 0.92 });
-      return;
-    }
-    if (this.level === "eight") {
-      audioService.speak("まんなかで いちど とまって、もういちど みぎと ひだりを みよう。", { rate: 0.92 });
-      return;
-    }
-    if (this.level === "nine" || this.level === "ten") this.speakMissionRule();
-  }
-
-  private speakMissionRule(): void {
-    if (!this.missionTarget) return;
-    const marker = MISSION_MARKERS[this.missionTarget];
-    const prefix = this.level === "ten" && this.missionPhase === 2 ? "ルールチェンジ。" : "";
-    audioService.speak(`${prefix}${marker.spoken}の しるしが ついた くるまが とおってから、すすもう。`, { rate: 0.9 });
   }
 
   private prepareLevelVisuals(): void {
     const signal = this.node<HTMLElement>("signal-indicator");
     signal.classList.toggle("is-visible", this.level === "five");
-    const island = this.node<HTMLElement>("island");
-    island.classList.toggle("is-visible", this.level === "eight" || this.level === "ten");
     this.node<HTMLElement>("field").classList.remove("is-impact");
     this.node<HTMLElement>("player").classList.remove("is-hit");
   }
@@ -485,36 +426,26 @@ class TrafficCrossingGame {
   private lanes(): LaneConfig[] {
     switch (this.level) {
       case "one":
-        return [{ y: 0.52, direction: 1, minSpeed: 0.16, maxSpeed: 0.31, minGap: 1.35, maxGap: 3.6 }];
+        return [{ y: 0.52, direction: 1, minSpeed: 0.16, maxSpeed: 0.31, minGap: 1.2, maxGap: 3.2 }];
       case "two":
         return [
-          { y: 0.42, direction: 1, minSpeed: 0.17, maxSpeed: 0.33, minGap: 1.1, maxGap: 3.0 },
-          { y: 0.65, direction: -1, minSpeed: 0.18, maxSpeed: 0.34, minGap: 1.15, maxGap: 3.15 },
+          { y: 0.42, direction: 1, minSpeed: 0.17, maxSpeed: 0.33, minGap: 1.0, maxGap: 2.8 },
+          { y: 0.65, direction: -1, minSpeed: 0.18, maxSpeed: 0.34, minGap: 1.05, maxGap: 2.95 },
         ];
       case "three":
       case "five":
       case "six":
-      case "seven":
-      case "nine":
         return [
-          { y: 0.34, direction: 1, minSpeed: 0.17, maxSpeed: 0.34, minGap: 1.05, maxGap: 2.85 },
-          { y: 0.52, direction: -1, minSpeed: 0.18, maxSpeed: 0.35, minGap: 1.0, maxGap: 2.75 },
-          { y: 0.70, direction: 1, minSpeed: 0.19, maxSpeed: 0.36, minGap: 1.05, maxGap: 2.9 },
+          { y: 0.34, direction: 1, minSpeed: 0.17, maxSpeed: 0.34, minGap: 0.95, maxGap: 2.65 },
+          { y: 0.52, direction: -1, minSpeed: 0.18, maxSpeed: 0.35, minGap: 0.9, maxGap: 2.55 },
+          { y: 0.70, direction: 1, minSpeed: 0.19, maxSpeed: 0.36, minGap: 0.95, maxGap: 2.7 },
         ];
       case "four":
         return [
-          { y: 0.29, direction: 1, minSpeed: 0.18, maxSpeed: 0.35, minGap: 0.95, maxGap: 2.7 },
-          { y: 0.44, direction: -1, minSpeed: 0.19, maxSpeed: 0.36, minGap: 0.9, maxGap: 2.55 },
-          { y: 0.59, direction: 1, minSpeed: 0.18, maxSpeed: 0.36, minGap: 0.95, maxGap: 2.6 },
-          { y: 0.74, direction: -1, minSpeed: 0.2, maxSpeed: 0.37, minGap: 0.9, maxGap: 2.5 },
-        ];
-      case "eight":
-      case "ten":
-        return [
-          { y: 0.29, direction: 1, minSpeed: 0.17, maxSpeed: 0.34, minGap: 1.05, maxGap: 2.9 },
-          { y: 0.42, direction: -1, minSpeed: 0.18, maxSpeed: 0.35, minGap: 1.0, maxGap: 2.8 },
-          { y: 0.63, direction: 1, minSpeed: 0.18, maxSpeed: 0.35, minGap: 1.0, maxGap: 2.75 },
-          { y: 0.76, direction: -1, minSpeed: 0.19, maxSpeed: 0.36, minGap: 0.95, maxGap: 2.65 },
+          { y: 0.29, direction: 1, minSpeed: 0.18, maxSpeed: 0.35, minGap: 0.9, maxGap: 2.5 },
+          { y: 0.44, direction: -1, minSpeed: 0.19, maxSpeed: 0.36, minGap: 0.85, maxGap: 2.4 },
+          { y: 0.59, direction: 1, minSpeed: 0.18, maxSpeed: 0.36, minGap: 0.9, maxGap: 2.45 },
+          { y: 0.74, direction: -1, minSpeed: 0.2, maxSpeed: 0.37, minGap: 0.85, maxGap: 2.35 },
         ];
     }
   }
@@ -546,7 +477,6 @@ class TrafficCrossingGame {
     this.updateCars(delta);
     if (!this.running) return;
     this.updateSpawns(delta);
-    this.updateBlindSpot();
     this.renderFeatureHud();
 
     this.animationId = window.requestAnimationFrame((nextTime) => this.frame(nextTime));
@@ -555,8 +485,6 @@ class TrafficCrossingGame {
   private updateLevelFeatures(delta: number): void {
     if (this.level === "five") this.updateSignal(delta);
     if (this.level === "six") this.updateAmbulanceSpawner(delta);
-    if (this.level === "seven") this.updateBusSpawner(delta);
-    if ((this.level === "nine" || this.level === "ten") && !this.missionSatisfied) this.updateMissionSpawner(delta);
   }
 
   private updateSignal(delta: number): void {
@@ -585,59 +513,11 @@ class TrafficCrossingGame {
     audioService.playTone({ frequency: 760, type: "sine", gain: 0.05, durationMs: 140, startDelayMs: 300 });
   }
 
-  private updateBusSpawner(delta: number): void {
-    if (this.cars.some((car) => car.special === "bus")) return;
-    this.busCountdown -= delta;
-    if (this.busCountdown > 0) return;
-    const lanes = this.lanes();
-    const laneIndex = Math.max(0, lanes.length - 1);
-    this.spawnCar(laneIndex, undefined, { special: "bus", speedMultiplier: 0.78 });
-    this.busCountdown = this.randomBetween(5.8, 8.5);
-  }
-
-  private updateMissionSpawner(delta: number): void {
-    if (!this.missionTarget) return;
-    if (this.cars.some((car) => car.marker === this.missionTarget)) return;
-    this.missionSpawnCountdown -= delta;
-    if (this.missionSpawnCountdown > 0) return;
-    const lanes = this.lanes();
-    const laneIndex = Math.floor(Math.random() * lanes.length);
-    this.spawnCar(laneIndex, undefined, { marker: this.missionTarget, speedMultiplier: 0.9 });
-    this.missionSpawnCountdown = -1;
-  }
-
   private updatePlayer(delta: number): void {
     if (!this.moving) return;
-
-    const nextY = Math.max(PLAYER_GOAL_Y, this.playerY - PLAYER_SPEED * delta);
-    const usesIsland = this.level === "eight" || this.level === "ten";
-    if (usesIsland && !this.islandReached && this.playerY > ISLAND_Y && nextY <= ISLAND_Y) {
-      this.playerY = ISLAND_Y;
-      this.islandReached = true;
-      this.renderPlayer();
-      this.stopMoving();
-      this.onIslandReached();
-      return;
-    }
-
-    this.playerY = nextY;
+    this.playerY = Math.max(PLAYER_GOAL_Y, this.playerY - PLAYER_SPEED * delta);
     this.renderPlayer();
     if (this.playerY <= PLAYER_GOAL_Y) this.finish("success");
-  }
-
-  private onIslandReached(): void {
-    audioService.playTone({ frequency: 520, gain: 0.05, durationMs: 110 });
-    if (this.level === "ten") {
-      const previous = this.missionTarget;
-      this.missionPhase = 2;
-      this.missionSatisfied = false;
-      this.missionTarget = this.pickMissionMarker(previous ?? undefined);
-      this.missionSpawnCountdown = 1.0;
-      this.setTransientMessage("🔄 ルールチェンジ！ あたらしい しるしを きこう", 1400);
-      this.speakMissionRule();
-      return;
-    }
-    this.setTransientMessage("🏝️ まんなか。もういちど みぎ・ひだりを みよう", 1600);
   }
 
   private renderPlayer(): void {
@@ -658,7 +538,6 @@ class TrafficCrossingGame {
     for (const car of [...this.cars]) {
       car.x += car.direction * car.speed * delta;
       car.element.style.left = `${car.x * 100}%`;
-      this.checkMissionPass(car);
 
       const lane = lanes[car.laneIndex];
       if (lane && Math.abs(car.x - PLAYER_X) < car.hitDistanceX && Math.abs(lane.y - this.playerY) < CAR_Y_HIT_DISTANCE) {
@@ -667,17 +546,6 @@ class TrafficCrossingGame {
       }
       if (car.x < -0.24 || car.x > 1.24) this.removeCar(car.id);
     }
-  }
-
-  private checkMissionPass(car: CarState): void {
-    if (car.markerNotified || !car.marker || this.missionSatisfied || car.marker !== this.missionTarget) return;
-    const passed = car.direction === 1 ? car.x >= PLAYER_X : car.x <= PLAYER_X;
-    if (!passed) return;
-    car.markerNotified = true;
-    this.missionSatisfied = true;
-    this.setTransientMessage("✅ しるしの くるまが とおった！ いまだ", 1400);
-    audioService.playTone({ frequency: 880, gain: 0.06, durationMs: 100 });
-    audioService.playTone({ frequency: 1120, gain: 0.06, durationMs: 130, startDelayMs: 90 });
   }
 
   private updateSpawns(delta: number): void {
@@ -693,9 +561,38 @@ class TrafficCrossingGame {
 
   private nextSpawnDelay(lane: LaneConfig): number {
     const pattern = Math.random();
-    if (pattern < 0.18) return this.randomBetween(lane.minGap * 0.9, lane.minGap * 1.1);
-    if (pattern > 0.82) return this.randomBetween(lane.maxGap * 0.95, lane.maxGap * 1.2);
+    if (pattern < 0.22) return this.randomBetween(lane.minGap * 0.9, lane.minGap * 1.08);
+    if (pattern > 0.84) return this.randomBetween(lane.maxGap * 0.95, lane.maxGap * 1.12);
     return this.randomBetween(lane.minGap, lane.maxGap);
+  }
+
+  private nextLaneIndex(): number {
+    const lanes = this.lanes();
+    let bestIndex = 0;
+    let bestY = -Infinity;
+    lanes.forEach((lane, index) => {
+      if (lane.y < this.playerY && lane.y > bestY) {
+        bestY = lane.y;
+        bestIndex = index;
+      }
+    });
+    return bestIndex;
+  }
+
+  private spawnOpeningDecisionCar(): void {
+    if (!this.openingDecisionPending) return;
+    const lanes = this.lanes();
+    const laneIndex = this.nextLaneIndex();
+    const lane = lanes[laneIndex];
+    if (!lane) return;
+
+    this.openingDecisionPending = false;
+    const baseSpeed = (lane.minSpeed + lane.maxSpeed) / 2;
+    const speed = baseSpeed * this.randomBetween(0.96, 1.04);
+    const timeToLane = Math.max(0.35, (this.playerY - lane.y) / PLAYER_SPEED);
+    const collisionTime = timeToLane + this.randomBetween(-0.04, 0.04);
+    const initialX = this.clamp(PLAYER_X - lane.direction * speed * collisionTime, -0.12, 1.12);
+    this.spawnCar(laneIndex, initialX, { speedOverride: speed });
   }
 
   private spawnCar(laneIndex: number, initialX?: number, options: SpawnOptions = {}): void {
@@ -706,32 +603,27 @@ class TrafficCrossingGame {
     element.setAttribute("aria-hidden", "true");
 
     const special = options.special ?? null;
-    const marker = options.marker ?? null;
     if (special === "ambulance") {
       element.textContent = "🚑";
       element.classList.add("is-emergency");
-    } else if (special === "bus") {
-      element.textContent = "🚌";
-      element.classList.add("is-bus");
     } else {
       element.textContent = CAR_EMOJIS[Math.floor(Math.random() * CAR_EMOJIS.length)] ?? "🚗";
     }
-    if (marker) element.dataset.marker = MISSION_MARKERS[marker].emoji;
     if (lane.direction === 1) element.classList.add("is-facing-right");
     element.style.top = `${lane.y * 100}%`;
 
     const speedMultiplier = options.speedMultiplier ?? 1;
+    const speed =
+      options.speedOverride ?? this.randomBetween(lane.minSpeed, lane.maxSpeed) * speedMultiplier;
     const car: CarState = {
       id: this.nextCarId++,
       laneIndex,
       x: initialX ?? (lane.direction === 1 ? -0.14 : 1.14),
       direction: lane.direction,
-      speed: this.randomBetween(lane.minSpeed, lane.maxSpeed) * speedMultiplier,
+      speed,
       element,
       special,
-      marker,
-      markerNotified: false,
-      hitDistanceX: special === "bus" ? 0.16 : CAR_X_HIT_DISTANCE,
+      hitDistanceX: CAR_X_HIT_DISTANCE,
     };
     element.style.left = `${car.x * 100}%`;
     this.node<HTMLElement>("cars").appendChild(element);
@@ -743,17 +635,6 @@ class TrafficCrossingGame {
     if (index < 0) return;
     this.cars[index].element.remove();
     this.cars.splice(index, 1);
-  }
-
-  private updateBlindSpot(): void {
-    this.cars.forEach((car) => car.element.classList.remove("is-occluded"));
-    if (this.level !== "seven") return;
-    const bus = this.cars.find((car) => car.special === "bus" && Math.abs(car.x - PLAYER_X) < 0.33);
-    if (!bus) return;
-    const hiddenLane = Math.max(0, bus.laneIndex - 1);
-    this.cars.forEach((car) => {
-      if (car.id !== bus.id && car.laneIndex === hiddenLane) car.element.classList.add("is-occluded");
-    });
   }
 
   private stopMoving(): void {
@@ -799,20 +680,6 @@ class TrafficCrossingGame {
         } else {
           message = "👀 くるま と 🚑 を みよう";
         }
-      } else if (this.level === "seven") {
-        const bus = this.cars.find((car) => car.special === "bus" && Math.abs(car.x - PLAYER_X) < 0.33);
-        message = bus ? "🚌 バスで むこうが みえない！ まとう" : "👀 バスの むこうも かくにん";
-        danger = Boolean(bus);
-      } else if (this.level === "eight") {
-        message = this.islandReached ? "🏝️ もういちど みぎ・ひだり" : "🏝️ まんなかで いちど とまろう";
-      } else if (this.level === "nine") {
-        message = this.missionMessage("👂");
-      } else if (this.level === "ten") {
-        message = this.missionSatisfied
-          ? this.missionPhase === 1
-            ? "✅ まずは まんなかまで"
-            : "✅ あたらしい ルールOK"
-          : this.missionMessage("🔄");
       }
     }
 
@@ -820,12 +687,6 @@ class TrafficCrossingGame {
     banner.textContent = message;
     banner.classList.toggle("is-visible", Boolean(message));
     banner.classList.toggle("is-danger", danger);
-  }
-
-  private missionMessage(prefix: string): string {
-    if (!this.missionTarget) return `${prefix} ルールを きこう`;
-    const marker = MISSION_MARKERS[this.missionTarget];
-    return this.missionSatisfied ? "✅ いまだ！ くるまも みよう" : `${prefix} ${marker.emoji} の くるまを まとう`;
   }
 
   private approachingAmbulance(): CarState | null {
@@ -910,10 +771,6 @@ class TrafficCrossingGame {
       four: [],
       five: [],
       six: [],
-      seven: [],
-      eight: [],
-      nine: [],
-      ten: [],
     };
   }
 
@@ -924,19 +781,20 @@ class TrafficCrossingGame {
       if (!raw) return empty;
       const parsed: unknown = JSON.parse(raw);
       if (typeof parsed !== "object" || parsed === null) return empty;
-      const candidate = parsed as Partial<Record<TrafficLevel, unknown>>;
-      return {
+      const candidate = parsed as Partial<Record<StoredScoreKey, unknown>>;
+      const scores: TrafficScoreStore = {
         one: this.normalizeScores(candidate.one),
         two: this.normalizeScores(candidate.two),
         three: this.normalizeScores(candidate.three),
         four: this.normalizeScores(candidate.four),
         five: this.normalizeScores(candidate.five),
         six: this.normalizeScores(candidate.six),
-        seven: this.normalizeScores(candidate.seven),
-        eight: this.normalizeScores(candidate.eight),
-        nine: this.normalizeScores(candidate.nine),
-        ten: this.normalizeScores(candidate.ten),
       };
+      LEGACY_LEVEL_KEYS.forEach((level) => {
+        const legacy = this.normalizeScores(candidate[level]);
+        if (legacy.length > 0) scores[level] = legacy;
+      });
+      return scores;
     } catch {
       return empty;
     }
@@ -1014,13 +872,12 @@ class TrafficCrossingGame {
     return LEVEL_META[this.level].label;
   }
 
-  private pickMissionMarker(exclude?: MissionMarker): MissionMarker {
-    const choices = exclude ? MISSION_MARKER_KEYS.filter((marker) => marker !== exclude) : MISSION_MARKER_KEYS;
-    return choices[Math.floor(Math.random() * choices.length)] ?? "star";
-  }
-
   private randomBetween(min: number, max: number): number {
     return min + Math.random() * (max - min);
+  }
+
+  private clamp(value: number, min: number, max: number): number {
+    return Math.min(max, Math.max(min, value));
   }
 
   private node<T extends HTMLElement>(role: string): T {
