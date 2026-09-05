@@ -19,8 +19,7 @@
   gap: 1rem;
 }
 
-.traffic-crossing-header,
-.traffic-crossing-status-row {
+.traffic-crossing-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -28,7 +27,8 @@
 }
 
 .traffic-crossing-header h2,
-.traffic-crossing-screen h3 {
+.traffic-crossing-screen h3,
+.traffic-crossing-level-group h4 {
   margin: 0;
   color: var(--app-heading);
 }
@@ -87,6 +87,18 @@
   line-height: 1.15;
 }
 
+.traffic-crossing-level-group {
+  width: min(100%, 720px);
+  margin: 0 auto;
+  display: grid;
+  gap: 0.55rem;
+  text-align: left;
+}
+
+.traffic-crossing-level-group h4 {
+  font-size: 1rem;
+}
+
 .traffic-crossing-levels {
   display: grid;
   grid-template-columns: 1fr;
@@ -110,34 +122,35 @@
 }
 
 .traffic-crossing-levels button strong {
-  font-size: 1.15rem;
+  font-size: 1.08rem;
 }
 
 .traffic-crossing-levels button small {
   color: var(--app-subtext);
-  font-size: 0.92rem;
+  font-size: 0.9rem;
   line-height: 1.35;
 }
 
 .traffic-crossing-best-panel {
-  width: min(100%, 560px);
+  width: min(100%, 620px);
   margin: 0 auto;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.6rem;
+  gap: 0.45rem;
 }
 
 .traffic-crossing-best-panel span {
-  min-height: 44px;
+  min-height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.35rem;
+  gap: 0.28rem;
   border: 2px solid var(--app-border);
   border-radius: 14px;
-  padding: 0.55rem 0.65rem;
+  padding: 0.45rem 0.5rem;
   background: var(--app-surface);
-  font-size: 0.92rem;
+  font-size: 0.82rem;
+  white-space: nowrap;
 }
 
 .traffic-crossing-note {
@@ -148,20 +161,48 @@
   font-weight: 800;
 }
 
+// Fixed two-row grid: state text changes no longer move the playfield on narrow phones.
 .traffic-crossing-status-row {
-  min-height: 44px;
-  flex-wrap: wrap;
+  min-height: 78px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "level timer"
+    "status status";
+  align-items: center;
+  gap: 0.3rem 0.65rem;
   border-radius: 14px;
-  padding: 0.65rem 0.8rem;
+  padding: 0.6rem 0.8rem;
   background: var(--app-surface);
 }
 
+.traffic-crossing-status-row > [data-role="level-label"] {
+  grid-area: level;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .traffic-crossing-timer {
-  margin-left: auto;
+  grid-area: timer;
   border-radius: 999px;
   padding: 0.3rem 0.6rem;
   background: var(--app-surface-soft);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.traffic-crossing-status-message {
+  grid-area: status;
+  min-height: 1.45em;
+  display: block;
+  overflow: hidden;
+  color: var(--app-subtext);
+  font-size: 0.92rem;
+  font-weight: 900;
+  line-height: 1.45;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -178,11 +219,12 @@
     linear-gradient(to bottom, var(--app-success-soft) 0 13%, transparent 13% 87%, var(--app-success-soft) 87% 100%),
     repeating-linear-gradient(to right, var(--app-surface) 0 9%, var(--app-border) 9% 12%);
   touch-action: none;
+  transform-origin: center;
 }
 
 .traffic-crossing-goal {
   position: absolute;
-  z-index: 4;
+  z-index: 12;
   top: 1.5%;
   left: 50%;
   transform: translateX(-50%);
@@ -191,6 +233,88 @@
   background: var(--app-surface);
   font-size: 0.85rem;
   font-weight: 900;
+}
+
+.traffic-crossing-signal {
+  position: absolute;
+  z-index: 13;
+  top: 1.3%;
+  left: 0.55rem;
+  min-width: 62px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  border: 2px solid var(--app-border);
+  border-radius: 999px;
+  padding: 0.25rem 0.45rem;
+  background: var(--app-surface);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.traffic-crossing-signal.is-visible {
+  display: flex;
+}
+
+.traffic-crossing-signal [data-role="signal-icon"] {
+  font-size: 1.15rem;
+}
+
+.traffic-crossing-challenge {
+  position: absolute;
+  z-index: 14;
+  top: 14%;
+  left: 50%;
+  width: min(calc(100% - 1rem), 440px);
+  min-height: 38px;
+  transform: translateX(-50%);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--app-border);
+  border-radius: 14px;
+  padding: 0.45rem 0.65rem;
+  background: color-mix(in srgb, var(--app-surface) 92%, transparent);
+  color: var(--app-text);
+  font-size: clamp(0.82rem, 3.8vw, 1rem);
+  font-weight: 900;
+  line-height: 1.3;
+  text-align: center;
+  pointer-events: none;
+}
+
+.traffic-crossing-challenge.is-visible {
+  display: flex;
+}
+
+.traffic-crossing-challenge.is-danger {
+  border-width: 3px;
+  box-shadow: 0 3px 0 color-mix(in srgb, var(--app-border) 65%, transparent);
+}
+
+.traffic-crossing-island {
+  position: absolute;
+  z-index: 4;
+  top: 52%;
+  left: 0;
+  right: 0;
+  min-height: 8.5%;
+  transform: translateY(-50%);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  border-top: 3px solid var(--app-border);
+  border-bottom: 3px solid var(--app-border);
+  background: color-mix(in srgb, var(--app-success-soft) 86%, var(--app-surface));
+  color: var(--app-text);
+  font-size: 0.78rem;
+  font-weight: 900;
+  pointer-events: none;
+}
+
+.traffic-crossing-island.is-visible {
+  display: flex;
 }
 
 .traffic-crossing-road,
@@ -231,17 +355,52 @@
 }
 
 .traffic-crossing-player {
+  z-index: 10;
   font-size: clamp(2.2rem, 10vw, 3.5rem);
   filter: drop-shadow(0 2px 1px rgba(0, 0, 0, 0.15));
 }
 
 .traffic-crossing-car {
   font-size: clamp(2.5rem, 12vw, 4.2rem);
+  transition: opacity 120ms linear;
 }
 
 // Android等の車絵文字は標準表示が左向きなので、右へ進む車だけ水平反転する。
 .traffic-crossing-car.is-facing-right {
   transform: translate(-50%, -50%) scaleX(-1);
+}
+
+.traffic-crossing-car.is-emergency {
+  z-index: 9;
+  font-size: clamp(2.8rem, 13vw, 4.6rem);
+  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.9));
+}
+
+.traffic-crossing-car.is-bus {
+  z-index: 9;
+  font-size: clamp(3.4rem, 16vw, 5.5rem);
+  filter: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.2));
+}
+
+.traffic-crossing-car.is-occluded {
+  opacity: 0;
+}
+
+.traffic-crossing-car[data-marker]::after {
+  content: attr(data-marker);
+  position: absolute;
+  top: -0.45em;
+  left: 50%;
+  transform: translateX(-50%);
+  display: grid;
+  place-items: center;
+  width: 1.25em;
+  height: 1.25em;
+  border: 2px solid var(--app-border);
+  border-radius: 999px;
+  background: var(--app-surface);
+  font-size: 0.48em;
+  line-height: 1;
 }
 
 .traffic-crossing-hold {
@@ -280,6 +439,49 @@
 .traffic-crossing-hold.is-held {
   transform: translateY(2px);
   box-shadow: inset 0 0 0 4px color-mix(in srgb, #fff 25%, transparent);
+}
+
+@keyframes traffic-crossing-impact-shake {
+  0% { transform: translateX(0); }
+  14% { transform: translateX(-10px) rotate(-0.8deg); }
+  28% { transform: translateX(9px) rotate(0.8deg); }
+  42% { transform: translateX(-7px); }
+  58% { transform: translateX(6px); }
+  74% { transform: translateX(-3px); }
+  100% { transform: translateX(0); }
+}
+
+@keyframes traffic-crossing-impact-flash {
+  0% { opacity: 0; }
+  20% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes traffic-crossing-player-hit {
+  0% { transform: translate(-50%, -50%) scale(1); }
+  35% { transform: translate(-50%, -50%) scale(1.35) rotate(-12deg); }
+  100% { transform: translate(-50%, -50%) scale(1); }
+}
+
+.traffic-crossing-field.is-impact {
+  animation: traffic-crossing-impact-shake 520ms ease-out both;
+}
+
+.traffic-crossing-field.is-impact::after {
+  content: "💥";
+  position: absolute;
+  z-index: 30;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 70, 70, 0.24);
+  font-size: clamp(5rem, 30vw, 10rem);
+  pointer-events: none;
+  animation: traffic-crossing-impact-flash 520ms ease-out both;
+}
+
+.traffic-crossing-player.is-hit {
+  animation: traffic-crossing-player-hit 520ms ease-out both;
 }
 
 .traffic-crossing-result-icon {
@@ -352,17 +554,30 @@
 
 @media (max-width: 420px) {
   .traffic-crossing-best-panel {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .traffic-crossing-timer {
-    margin-left: 0;
+  .traffic-crossing-best-panel span {
+    font-size: 0.74rem;
+    padding-inline: 0.3rem;
+  }
+
+  .traffic-crossing-status-row {
+    min-height: 78px;
+  }
+
+  .traffic-crossing-challenge {
+    top: 15%;
   }
 }
 
 @media (min-width: 640px) {
   .traffic-crossing-levels {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .traffic-crossing-best-panel {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 
   .traffic-crossing-field {
@@ -372,8 +587,24 @@
 
 @media (prefers-reduced-motion: reduce) {
   .traffic-crossing-hold.is-held,
-  .traffic-crossing-levels button:active {
+  .traffic-crossing-levels button:active,
+  .traffic-crossing-field.is-impact,
+  .traffic-crossing-player.is-hit {
     transform: none;
+    animation: none;
+  }
+
+  .traffic-crossing-field.is-impact {
+    box-shadow: inset 0 0 0 8px rgba(255, 70, 70, 0.42);
+  }
+
+  .traffic-crossing-field.is-impact::after {
+    animation: none;
+    opacity: 0.75;
+  }
+
+  .traffic-crossing-car {
+    transition: none;
   }
 }
 
@@ -383,7 +614,10 @@
   .traffic-crossing-hold,
   .traffic-crossing-result-actions button,
   .traffic-crossing-best-panel span,
-  .traffic-crossing-ranking {
+  .traffic-crossing-ranking,
+  .traffic-crossing-challenge,
+  .traffic-crossing-signal,
+  .traffic-crossing-island {
     border: 2px solid CanvasText;
   }
 }
