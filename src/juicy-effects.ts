@@ -168,7 +168,7 @@ function observeRewards(): void {
           if (kind) reward(kind, node);
         }
       } else {
-        for (const added of change.addedNodes) {
+        for (const added of Array.from(change.addedNodes)) {
           if (!(added instanceof Element) || added.classList.contains("fx-overlay")) continue;
           const kind = classify(added);
           if (kind) reward(kind, added);
