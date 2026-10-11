@@ -1,4 +1,5 @@
 import "./styles/common-ui.scss";
+import "./juicy-effects";
 import "./number-sequence";
 import "./clock-reading";
 import "./pencil-practice-timed";

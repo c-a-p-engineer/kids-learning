@@ -1,3 +1,4 @@
+import "../juicy-effects";
 const GAME_SECONDS = 30;
 const COUNTDOWN_SECONDS = 3;
 const MAX_BALLOONS = 4;
@@ -297,6 +298,7 @@ function stopGame(): void {
   hideHandMarkers();
   resultScore.textContent = String(score);
   setPanel(resultPanel);
+  document.dispatchEvent(new CustomEvent("kids-learning:reward", { detail: { kind: "complete", source: resultPanel } }));
   playFinishSound();
 }
 
