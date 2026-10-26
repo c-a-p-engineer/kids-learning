@@ -43,7 +43,7 @@ export function workshopHtml(q: Question, state: WorkshopState, disabled: boolea
     return '<div class="workshop"><div class="routine-order">' +
       Array.from({ length: labels.length }, (_, i) =>
         '<span class="routine-step">' + (arranged[i] ? escape(arranged[i]) : '❔ ' + (i + 1)) + '</span>').join('') +
-      '</div><p class="workshop-hint">つぎに することを タップ！</p><div class="routine-options">' +
+      '</div><div class="routine-options">' +
       labels.map((s, i) => btn('routine', s, disabled || state.sequence.includes(i), i)).join('') +
       '</div>' + btn('undo', '↩ ひとつ もどす', disabled || !state.sequence.length) + message + '</div>';
   }
@@ -64,7 +64,7 @@ export function workshopHtml(q: Question, state: WorkshopState, disabled: boolea
       '<p class="workshop-hint">あと ' + remaining + 'こ のこっているよ</p>' + message + '</div>';
   }
   const pattern = q.visual.preview ?? [];
-  return '<div class="workshop"><p class="workshop-hint">うえの じゅんばんで たたいてみよう！</p>' +
+  return '<div class="workshop">' +
     '<div class="rhythm-score">' + pattern.map((beat, i) =>
       '<span class="' + (i < state.beats.length ? 'played' : '') + '">' + escape(beat) + '</span>').join('') +
     '</div><div class="rhythm-pads">' + btn('beat', '🔵 あお', disabled, 0) +
