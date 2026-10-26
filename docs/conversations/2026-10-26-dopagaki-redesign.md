@@ -66,3 +66,16 @@
 - エビデンス: docs/renewal-2026/01-evidence-review.md
 - ゲーム: docs/renewal-2026/02-game-design.md
 - 移行: docs/renewal-2026/03-architecture-migration.md
+
+## 追加実装（同日・年長向け10ゲーム）
+
+- ユーザーの追加指示: 「今のゲームを全て退避。年長レベルのものから10個くらい作る」
+- 決定: 既存11本のコードと旧仕様書は旧版として退避。V2は現行機能から一新し、年長の数量、加減算、数列、比較、語頭、単語、図形、記憶、時計の10教材を実装する。
+- 実装: src/engine.ts、src/quest-main.ts、src/game.css、src/index.htmlを中心とする静的学習アプリ。
+- 共通仕様: 1ゲーム5問、誤答からの再挑戦、ヒント、読み上げ、静かモード、経験値、1/3/7/14日を初期値とする復習、匿名4プレイヤー。
+- 保管: archive/pre-dopagaki-20261026 の旧コードは保持。旧V1ゲームのソース52ファイルをV2ブランチから撤去。旧ゲーム仕様11本と仕様書テンプレートは docs/legacy/ に移動。
+- 旧localStorageキーは不変で、新アプリの保存キーは完全分離。端末内に残るV1データを新進捗へ自動移行していない。
+- 採用技術: TypeScript/Vite継続、ゲームUIはVanilla DOMとCSS、追加UIフレームワーク・バックエンドなし。初期構想のPreactは採用保留。
+- 自動テスト: 10ゲーム×80題と復習予定。npm run typecheck / scripts/build.sh。公開のプレビューはGitHub Actionsを使用。
+- 未実装: 長編RPGワールド、物語連携、ボス、端末間同期、V1データimport、実機での児童利用評価、学習効果の比較。
+- 現行仕様: docs/ゲーム仕様V2.md、docs/architecture.md、README.md。
