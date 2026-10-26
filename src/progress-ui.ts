@@ -1,6 +1,6 @@
 import { GAMES, MAX_LEVEL, progressFor, countDue } from './engine';
 import type { LearningSave } from './engine';
-import { recentDays, recentSummary, skillNodes, skillSummary } from './progression';
+import { recentDays, recentSummary, reviewSuggestion, skillNodes, skillSummary } from './progression';
 
 const escape = (value: string): string => value.replace(/[&<>"']/g, char =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] ?? char);
@@ -130,12 +130,17 @@ export function skillTreeHtml(save: LearningSave, profileName: string, selected:
     const next = info.maxed ? 'ぜんレベル かいほう！' :
       'つぎの レベルまで ' + info.current + '/' + info.target + ' クリア';
     const waiting = countDue(game.id, save, Date.now());
+    const tip = reviewSuggestion(save, game.id, Date.now());
+    const practice = tip.hasStruggle ? '<button type="button" class="skill-practice" data-skill-play="' +
+      game.id + '" data-level="' + tip.level + '" aria-label="' + escape(game.title) +
+      'の レベル ' + tip.level + 'を もういちど れんしゅうする">' +
+      '🌱 LV' + tip.level + ' で れんしゅう</button>' : '';
     return '<article class="skill-branch"><div class="skill-branch-header"><span class="skill-branch-icon">' +
       game.icon + '</span><div><h3>' + escape(game.title) + '</h3><p>' + escape(game.subject) +
       ' ・ ' + clears + 'かいクリア' + (waiting ? ' ・ 🔁 ' + waiting + 'こふくしゅう' : '') +
       '</p></div></div><button type="button" class="skill-start" data-game="' + game.id +
       '" aria-label="' + escape(game.title) + ' レベル ' + info.level + 'で あそぶ">' +
-      '▶ この ゲームを あそぶ（LV' + info.level + '）</button>' +
+      '▶ この ゲームを あそぶ（LV' + info.level + '）</button>' + practice +
       '<div class="skill-path" role="group" aria-label="' + escape(game.title) + ' レベルかいほう">' + tree +
       '</div><p class="skill-progress-copy">' + next + '</p></article>';
   }).join('');
