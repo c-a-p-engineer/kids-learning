@@ -438,9 +438,11 @@ function render(): void {
   applyTextSize();
   gameAudio.setScene(page === 'stats' || page === 'skills' ? 'home' : page);
 }
-function startGame(id: GameId): void {
+function startGame(id: GameId, requestedLevel?: number): void {
   stopTimers();
-  const level = unlockedLevel(save.completed[id] ?? 0);
+  const unlocked = unlockedLevel(save.completed[id] ?? 0);
+  const level = Number.isInteger(requestedLevel) && requestedLevel! >= 1 &&
+    requestedLevel! <= unlocked ? requestedLevel! : unlocked;
   const deck = chooseRound(id, save, Date.now(), 5, level);
   activityState = isActivity(id) ? newActivityState(deck[0]) : null;
   session = { gameId: id, level, deck, index: 0, right: 0, helped: 0, wrong: 0, phase: deck[0].visual.kind === 'memory' ? 'preview' : 'answer',
@@ -684,6 +686,11 @@ app.addEventListener('click', event => {
     render();
     return;
   }
+  const skillPlay = target.closest<HTMLButtonElement>('[data-skill-play]');
+  if (page === 'skills' && skillPlay && isGameId(skillPlay.dataset.skillPlay ?? '')) {
+    startGame(skillPlay.dataset.skillPlay as GameId, Number(skillPlay.dataset.level));
+    return;
+  }
   const gameBtn = target.closest<HTMLButtonElement>('[data-game]');
   if (gameBtn && isGameId(gameBtn.dataset.game ?? '')) { startGame(gameBtn.dataset.game as GameId); return; }
   const slotBtn = target.closest<HTMLButtonElement>('[data-slot]');
@@ -700,7 +707,7 @@ app.addEventListener('click', event => {
   else if (action === 'options') { dismissEffects(); stopTimers(); if (session) session.locked = false;
     beforeOptions = page === 'options' ? 'home' : page; page = 'options'; render(); }
   else if (action === 'back-options') { page = beforeOptions; render(); scheduleAdvance(); }
-  else if (action === 'replay' && session) startGame(session.gameId);
+  else if (action === 'replay' && session) startGame(session.gameId, session.level);
   else if (action === 'next') next();
   else if (action === 'hint') hint();
   else if (action === 'remember' && session?.phase === 'preview') { session.phase = 'answer'; render(); }
