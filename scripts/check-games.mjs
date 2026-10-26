@@ -8,8 +8,9 @@ const output = ts.transpileModule(source, { compilerOptions: { target: ts.Script
 const engine = await import('data:text/javascript;charset=utf-8,' + encodeURIComponent(output.outputText));
 const now = Date.UTC(2026, 9, 26);
 
-assert.equal(engine.GAMES.length, 10);
+assert.equal(engine.GAMES.length, 15);
 assert.equal(new Set(engine.GAMES.map(g => g.id)).size, 10);
+const memoryTargets = new Set();
 for (const game of engine.GAMES) {
   for (let i = 0; i < 80; i++) {
     const q = engine.makeQuestion(game.id, i);
@@ -33,10 +34,30 @@ for (const game of engine.GAMES) {
       assert.equal(ns[2], -1);
       assert.equal(ns[0] + q.visual.step * 2, Number(q.answer));
     }
-    if (game.id === 'memory') assert(q.visual.preview.includes(q.answer));
+    if (game.id === 'memory') { assert(q.visual.preview.includes(q.answer)); memoryTargets.add(q.visual.preview.indexOf(q.answer)); }
     if (game.id === 'clock') {
       assert(q.visual.hour >= 1 && q.visual.hour <= 12);
       assert([0, 30].includes(q.visual.minute));
+    }
+    if (game.id === 'bond') {
+      assert(q.visual.a >= 0 && q.visual.a <= 10);
+      assert.equal(q.visual.a + Number(q.answer), 10);
+    }
+    if (game.id === 'pattern') {
+      const prefix = q.visual.preview;
+      assert(prefix.length >= 3 && prefix.length <= 4);
+      assert.equal(q.answer, prefix[prefix.length - 2]);
+    }
+    if (game.id === 'category') assert(['どうぶつ','のりもの','たべもの','しぜん'].includes(q.answer));
+    if (game.id === 'odd') {
+      assert.equal(q.choices.length, 4);
+      assert.equal(q.visual.preview.length, 4);
+      assert.equal(q.visual.answerIndex + 1, Number(q.answer));
+      assert.equal(q.visual.preview.filter((x) => x !== q.visual.preview[q.visual.answerIndex]).length, 3);
+    }
+    if (game.id === 'colors') {
+      assert(/^#[0-9a-f]{6}$/i.test(q.visual.symbol));
+      assert(['あか','あお','きいろ','みどり','むらさき','オレンジ'].includes(q.answer));
     }
   }
   const fresh = engine.freshSave();
@@ -65,4 +86,5 @@ for (const game of engine.GAMES) {
   assert.equal(withDue[0].id, q.id);
   assert.equal(new Set(withDue.map(x => x.id)).size, 5);
 }
-console.log('PASS: 10 games × 80 cases, answer validity, arithmetic, finite rounds, recall scheduler');
+assert.deepEqual([...memoryTargets].sort(), [0, 1, 2]);
+console.log('PASS: 15 games × 80 cases, answer validity, arithmetic, finite rounds, recall scheduler');
