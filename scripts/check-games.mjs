@@ -8,7 +8,7 @@ import ts from 'typescript';
 
 // Transpile each dependency to a temporary ESM module: no extra runtime or test framework.
 const temp = mkdtempSync(join(tmpdir(), 'kids-learning-test-'));
-for (const moduleName of ['engine', 'activity-content', 'activity-ui', 'progression', 'progress-ui', 'touch-content', 'touch-ui', 'storage', 'trace-guides']) {
+for (const moduleName of ['engine', 'activity-content', 'activity-ui', 'progression', 'progress-ui', 'touch-content', 'touch-ui', 'storage', 'trace-guides', 'session']) {
   const source = readFileSync(new URL('../src/' + moduleName + '.ts', import.meta.url), 'utf8');
   const js = ts.transpileModule(source, {
     compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.ESNext }
@@ -23,6 +23,7 @@ const progressUi = await import(pathToFileURL(join(temp, 'progress-ui.mjs')).hre
 const touch = await import(pathToFileURL(join(temp, 'touch-content.mjs')).href);
 const touchUi = await import(pathToFileURL(join(temp, 'touch-ui.mjs')).href);
 const storage = await import(pathToFileURL(join(temp, 'storage.mjs')).href);
+const session = await import(pathToFileURL(join(temp, 'session.mjs')).href);
 const now = Date.UTC(2026, 9, 26);
 
 assert.equal(engine.GAMES.length, 23);
@@ -396,6 +397,7 @@ assert.throws(() => storage.parseBackup(payload, 1));
 assert.throws(() => storage.parseBackup('oops', 2));
 assert.throws(() => storage.parseBackup('x'.repeat(4 * 1024 * 1024), 2));
 assert.throws(() => storage.parseBackup(JSON.stringify({ exportedAt: '2026-10-26T00:00:00Z', slot: 2, data: { schema: 1 } }), 2));
+assert.throws(() => storage.parseBackup(JSON.stringify({ exportedAt: '2026-10-26T00:00:00Z', slot: 2, data: { schema: 2 } }), 2));
 const blocked = { setItem: () => { throw new Error('QuotaExceededError'); } };
 assert.throws(() => storage.persistSlot(blocked, 2, saved));
 assert.equal(storage.loadSlot(store, 2).xp, 123, 'failed write must not overwrite existing save');
@@ -403,6 +405,25 @@ const sanitized = storage.normalizeSave({ ...saved, xp: 'not a number', daily: {
 assert.equal(sanitized.xp, 0);
 assert.equal(sanitized.daily['2026-10-26'].answered, 3);
 console.log('PASS: direct comparison, 3 tap-only activities, 1200 new input simulations, safe per-profile backups');
+
+
+const deck = engine.chooseRound('add', engine.freshSave(), now, 5);
+const first = session.createSession('add', 1, deck);
+assert.equal(first.index, 0);
+assert.equal(first.phase, 'answer');
+assert.deepEqual(session.attemptOutcome(1, 0), { independent: true, earned: 10, kind: 'independent' });
+assert.deepEqual(session.attemptOutcome(3, 1), { independent: false, earned: 5, kind: 'supported' });
+assert.deepEqual(session.attemptOutcome(1, 0, 'practice'), { independent: false, earned: 5, kind: 'practice' });
+assert.deepEqual(session.attemptOutcome(1, 0, 'skip'), { independent: false, earned: 0, kind: 'rest' });
+assert.equal(session.advanceSession(first), first, 'must not advance unsolved questions');
+const solved = { ...first, phase: 'solved', attempts: 3, hints: 2, feedback: 'ok' };
+const advanced = session.advanceSession(solved);
+assert.equal(advanced.index, 1);
+assert.equal(advanced.phase, 'answer');
+assert.equal(advanced.attempts, 0);
+assert.equal(advanced.hints, 0);
+assert.equal(solved.index, 0, 'advance must not mutate old session');
+console.log('PASS: pure session transitions and scoring; old saves and recovery checks');
 
 rmSync(temp, { recursive: true, force: true });
 
