@@ -1,6 +1,10 @@
 import './game.css';
 import './activity.css';
 import './progress.css';
+import './touch.css';
+import { isTouchGame } from './touch-content';
+import { touchHtml, touchClick, freshTouch } from './touch-ui';
+import type { TouchState } from './touch-ui';
 import { recordDaily } from './progression';
 import { loadSlot, persistSlot, backupText, parseBackup, backupDelta } from './storage';
 import type { Backup } from './storage';
@@ -40,6 +44,7 @@ let page: AppPage = 'home';
 let beforeOptions: Exclude<AppPage, 'options'> = 'home';
 let session: Session | null = null;
 let activityState: ActivityState | null = null;
+let touchState: TouchState | null = null;
 let categoryFilter = 'all';
 let skillCategory: ProgressCategory = 'all';
 let resetArmed = false;
@@ -135,7 +140,7 @@ function setSlot(next: number): void {
   gameAudio.configure(save.settings.sound, save.settings.bgm, save.settings.seVolume, save.settings.bgmVolume);
   applyTextSize();
   session = null;
-  activityState = null;
+  activityState = null; touchState = null;
   page = 'home';
   render();
 }
@@ -272,6 +277,7 @@ function gameHtml(): string {
         dots(count) + '</button>';
     }).join('') + '</div>' : '';
   const options = q.gameId === 'compare' ? comparison :
+    isTouchGame(q.gameId) && touchState ? touchHtml(q, touchState, solved || locked) :
     isActivity(q.gameId) && activityState
     ? activityHtml(q, activityState, solved || locked) :
     memoryPreview ? '<button type="button" class="primary-btn" data-action="remember">おぼえた！ こたえる ➜</button>' :
@@ -301,7 +307,7 @@ function gameHtml(): string {
 function resultHtml(): string {
   if (!session) return homeHtml();
   const game = GAMES.find(g => g.id === session?.gameId)!;
-  const practice = session.gameId === 'trace' || session.gameId === 'move';
+  const practice = session.gameId === 'trace' || session.gameId === 'move' || session.gameId === 'connect' || session.gameId === 'maze';
   return layout('<section class="result-card"><div class="result-emoji" aria-hidden="true">' + game.icon + '🏆</div>' +
     '<p class="eyebrow">QUEST CLEAR!</p><h1>クエスト クリア！</h1>' +
     '<p>' + safe(activeProfile().name) + '、' + safe(game.title) + ' を がんばったね！</p>' +
@@ -422,6 +428,7 @@ function startGame(id: GameId, requestedLevel?: number): void {
     requestedLevel >= 1 && requestedLevel <= unlocked ? requestedLevel : unlocked;
   const deck = chooseRound(id, save, Date.now(), 5, level);
   activityState = isActivity(id) ? newActivityState(deck[0]) : null;
+  touchState = isTouchGame(id) ? freshTouch() : null;
   session = { gameId: id, level, deck, index: 0, right: 0, helped: 0, wrong: 0, phase: deck[0].visual.kind === 'memory' ? 'preview' : 'answer',
     attempts: 0, hints: 0, feedback: '', locked: false, practiced: 0, skipped: 0, committed: new Set() };
   page = 'game';
@@ -450,12 +457,15 @@ function makeHint(q: Question): string {
     case 'blocks': return '5こずつ まとめて かぞえてみよう。';
     case 'train': return 'えの なまえを ゆっくり こえに だしてみよう。';
     case 'move': return 'できる ところだけ まねしてみよう。むりしなくて いいよ。';
+    case 'connect': return '1から じゅんに おしていこう。';
+    case 'maze': return 'まえの マスの となりを おしてみよう。';
+    case 'clockhands': return 'みじかい はりが なんじ、ながい はりが なんふん。';
   }
 }
 function answer(choice: string, mode?: 'practice' | 'skip'): void {
   if (!session || session.phase !== 'answer' || session.locked || page !== 'game') return;
   const q = session.deck[session.index];
-  if (!isActivity(q.gameId) && !q.choices.includes(choice)) return;
+  if (!isActivity(q.gameId) && !isTouchGame(q.gameId) && !q.choices.includes(choice)) return;
   session.attempts++;
   if (!evaluate(q, choice)) {
     session.wrong++;
@@ -520,6 +530,7 @@ function next(): void {
   } else {
     session.index++;
     activityState = isActivity(session.gameId) ? newActivityState(session.deck[session.index]) : null;
+    touchState = isTouchGame(session.gameId) ? freshTouch() : null;
     session.attempts = 0; session.hints = 0; session.feedback = ''; session.locked = false;
     session.phase = session.deck[session.index].visual.kind === 'memory' ? 'preview' : 'answer';
   }
@@ -551,7 +562,7 @@ function resetCurrentLearning(): void {
   stopTimers();
   save = nextSave;
   session = null;
-  activityState = null;
+  activityState = null; touchState = null;
   resetArmed = false;
   backupDraft = null;
   storageWarning = 'がくしゅうきろくを リセットしました。ほかのキャラのきろくは そのままです。';
@@ -671,6 +682,16 @@ app.addEventListener('click', event => {
   const target = event.target;
   if (!(target instanceof Element)) return;
   gameAudio.unlock();
+  const touchButton = target.closest<HTMLButtonElement>('[data-touch]');
+  if (touchButton && page === 'game' && session?.phase === 'answer' && !session.locked &&
+      touchState && isTouchGame(session.gameId)) {
+    const q = session.deck[session.index];
+    const result = touchClick(q, touchState, touchButton.dataset.touch ?? '',
+      Number(touchButton.dataset.index ?? -1));
+    if (result.finished && result.value) answer(result.value, result.practice ? 'practice' : undefined);
+    else render();
+    return;
+  }
   const activityButton = target.closest<HTMLButtonElement>('[data-activity]');
   if (activityButton && page === 'game' && session?.phase === 'answer' &&
       !session.locked && activityState && isActivity(session.gameId)) {
@@ -708,13 +729,13 @@ app.addEventListener('click', event => {
   if (slotBtn) { setSlot(Number(slotBtn.dataset.slot)); return; }
   const action = target.closest<HTMLElement>('[data-action]')?.dataset.action;
   if (action === 'home') { window.speechSynthesis?.cancel(); dismissEffects(); stopTimers();
-    page = 'home'; session = null; activityState = null; resetArmed = false; render(); }
+    page = 'home'; session = null; activityState = null; touchState = null; backupDraft = null; resetArmed = false; render(); }
   else if (action === 'stats' || action === 'skills') {
     dismissEffects(); stopTimers(); gameAudio.effect('tap');
     page = action; render(); window.scrollTo({ top: 0, behavior: 'auto' });
   }
   else if (action === 'parent') { dismissEffects(); stopTimers(); page = 'parent';
-    session = null; activityState = null; resetArmed = false; render(); }
+    session = null; activityState = null; touchState = null; backupDraft = null; resetArmed = false; render(); }
   else if (action === 'options') { dismissEffects(); stopTimers(); if (session) session.locked = false;
     beforeOptions = page === 'options' ? 'home' : page; page = 'options'; render(); }
   else if (action === 'back-options') { page = beforeOptions; render(); scheduleAdvance(); }
