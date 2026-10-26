@@ -236,3 +236,58 @@ main{padding:7px 12px 20px}.hero{padding:25px 18px;min-height:210px;border-radiu
   .answer-btn{min-height:82px;flex-direction:row}
   .answer-choice{font-size:clamp(1.8rem,7vw,2.5rem)!important}
 }
+
+
+/* V2.3 — category discovery, earned levels, and five-dot grouping */
+.category-tabs{display:flex;flex-wrap:wrap;gap:9px;margin:0 0 19px}
+.category-chip{min-height:48px;display:inline-flex;gap:7px;align-items:center;
+  background:white;border:2px solid #d8e4f6;border-radius:999px;padding:8px 14px;
+  color:#43577d;font-size:.91rem;font-weight:900;box-shadow:0 3px 0 #d0dced}
+.category-chip span{background:#ebf2ff;border-radius:999px;padding:2px 8px;font-size:.8rem;color:#657cac}
+.category-chip.chosen{background:#5167c1;border-color:#4255aa;color:white;box-shadow:0 3px 0 #374993}
+.category-chip.chosen span{background:#fff3;color:#fff}
+.quest-level{font-size:.98rem;line-height:1.6;font-weight:900;color:#4653a1;margin-top:auto}
+.level-progress{width:100%;height:11px;background:#dde7f8;border-radius:999px;overflow:hidden;margin:7px 0 8px}
+.level-progress span{display:block;height:100%;border-radius:999px;
+  background:linear-gradient(90deg,#51c4b1,#f5c65b);transition:width .18s ease}
+.quest-card .quest-meta{margin-top:0;white-space:normal;font-size:.74rem}
+.dot-row.dot-groups{display:flex;flex-direction:column;align-items:center;gap:9px;max-width:none}
+.dot-pack{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;
+  background:#f3f6ff;border:2px solid #dce7fb;padding:8px;border-radius:15px;max-width:100%}
+.dot-pack .dot{flex-shrink:0}
+.visual-math .dot-pack{gap:4px;padding:5px;border-radius:10px}
+.visual-math .dot-pack .dot{width:25px;height:25px}
+.compare .dot-pack{gap:3px;padding:4px;border-width:1px}
+.compare .dot-pack .dot{width:17px;height:17px}
+.compare .dot-row{gap:4px}
+.auto-next{margin:14px auto 3px;padding:11px 13px;border-radius:12px;background:#f1f7ff;
+  font-weight:900;color:#4563aa;line-height:1.5}
+.next-btn{margin-top:10px}
+.unlock-result{display:inline-block;padding:11px 16px;border-radius:16px;
+  background:#fff4cf;border:2px solid #f6d990;color:#88551f;font-size:1.04rem;font-weight:900}
+.reset-open,.danger-btn{border-radius:13px;min-height:49px;padding:12px 16px;font-weight:900}
+.reset-open{border:2px solid #edc5c9;background:#fff5f5;color:#8c4652}
+.reset-confirm{margin:16px auto;padding:18px;border:2px solid #e8c0c6;background:#fff7f7;
+  border-radius:17px;color:#783a49;line-height:1.7}
+.reset-confirm p{color:#955666}
+.reset-actions{display:flex;flex-wrap:wrap;gap:9px;justify-content:flex-start}
+.reset-actions .secondary-btn{margin:0}
+.danger-btn{background:#c5435c;border:2px solid #9e2940;color:white}
+@media(max-width:630px){
+  .category-tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:thin;padding-bottom:9px;overscroll-behavior-x:contain}
+  .category-chip{flex-shrink:0;min-height:46px;padding:8px 11px}
+  .quest-level{font-size:.89rem}
+  .dot-row.dot-groups{gap:7px}
+  .dot-pack{gap:5px;padding:7px}
+  .dot-pack .dot{width:29px;height:29px}
+  .visual-math{gap:6px}
+  .visual-math .dot-pack .dot{width:20px;height:20px}
+  .visual-math .dot-pack{padding:4px;gap:3px}
+  .reset-actions{flex-direction:column}.reset-actions>*{width:100%}
+}
+@media(max-width:360px){
+  .dot-pack{gap:4px;padding:6px}.dot-pack .dot{width:26px;height:26px}
+}
+@media(prefers-reduced-motion:reduce){
+  .level-progress span{transition:none}
+}
