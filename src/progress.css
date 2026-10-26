@@ -179,3 +179,9 @@ button.skill-node:active{transform:translateY(2px)}
   .progress-tabs{gap:8px}
   .progress-tabs button{font-size:.9rem;padding:10px 5px;min-height:56px}
 }
+
+/* Detailed measurement caveats belong to guardians, not the child's dashboard. */
+details.growth-note{padding:12px 14px}
+details.growth-note summary{cursor:pointer;font-weight:900;color:#516b9e;min-height:38px;display:flex;align-items:center}
+details.growth-note p{margin:6px 0;line-height:1.65}
+details.growth-note summary:focus-visible{outline:3px solid #ffb23c;outline-offset:2px}
