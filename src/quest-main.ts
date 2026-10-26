@@ -22,8 +22,8 @@ interface Session {
 let page: 'home' | 'game' | 'result' | 'parent' = 'home';
 let session: Session | null = null;
 let slot = getSlot();
-let save = loadSave();
 let storageWarning = '';
+let save = loadSave();
 const HOME_TITLE = 'まなびクエスト';
 const safe = (s: string): string => s.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] || char);
 
@@ -253,7 +253,7 @@ function startGame(id: GameId): void {
     attempts: 0, hints: 0, feedback: '', committed: new Set() };
   page = 'game';
   render();
-  window.scrollTo({ top: 0, behavior: 'instant' });
+  window.scrollTo({ top: 0, behavior: 'auto' });
 }
 function tone(correct = true): void {
   if (!save.settings.sound) return;
@@ -309,7 +309,7 @@ function next(): void {
     session.phase = session.deck[session.index].visual.kind === 'memory' ? 'preview' : 'answer';
   }
   render();
-  window.scrollTo({ top: 0, behavior: 'instant' });
+  window.scrollTo({ top: 0, behavior: 'auto' });
 }
 function hint(): void {
   if (!session || session.phase !== 'answer') return;
