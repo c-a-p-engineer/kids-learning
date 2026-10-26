@@ -24,6 +24,7 @@ export function normalizeSave(parsed: unknown): LearningSave {
       data.settings.quiet = obj.settings.quiet === true;
       data.settings.sound = typeof obj.settings.sound === 'boolean' ? obj.settings.sound : true;
       data.settings.bgm = obj.settings.bgm !== false;
+      data.settings.haptics = obj.settings.haptics !== false;
       data.settings.bgmVolume = clampVolume(obj.settings.bgmVolume, 75);
       data.settings.seVolume = clampVolume(obj.settings.seVolume, 65);
       data.settings.textSize = clampTextSize(obj.settings.textSize);
