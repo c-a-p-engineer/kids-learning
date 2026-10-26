@@ -31,3 +31,9 @@
 .touch-activity button:focus-visible{outline:4px solid #ffb23c;outline-offset:3px}
 @media(max-width:380px){.touch-fallback{padding:10px}.clock-controls{gap:7px}.clock-controls>div{padding:6px}}
 @media(prefers-reduced-motion:reduce){.touch-activity *{transition:none!important}}
+
+/* Exploratory maze: all open corridors look alike; the answer is not pre-highlighted. */
+.maze-board{background:#6e91af;border-color:#9dbde1;box-shadow:0 6px 0 #c5d7eb}
+.maze-board svg{border-radius:13px}
+.maze-activity .touch-reset{align-self:center;min-width:152px}
+.maze-activity .touch-tip{margin:0;font-size:.94rem}
