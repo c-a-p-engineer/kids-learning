@@ -1,7 +1,15 @@
 import './game.css';
 import './activity.css';
 import './progress.css';
-import { readDaily, recordDaily } from './progression';
+import './touch.css';
+import { createSession, advanceSession, attemptOutcome } from './session';
+import type { Session, AnswerMode } from './session';
+import { isTouchGame } from './touch-content';
+import { touchHtml, touchClick, freshTouch } from './touch-ui';
+import type { TouchState } from './touch-ui';
+import { recordDaily } from './progression';
+import { loadSlot, persistSlot, backupText, parseBackup, backupDelta } from './storage';
+import type { Backup } from './storage';
 import { statusHtml, skillTreeHtml, PROGRESS_CATEGORIES } from './progress-ui';
 import type { ProgressCategory } from './progress-ui';
 import { gameAudio } from './game-audio';
@@ -15,32 +23,17 @@ import type { GameId, LearningSave, Question, Visual } from './engine';
 const app = document.getElementById('app');
 if (!app) throw new Error('Root #app not found');
 
-type Phase = 'preview' | 'answer' | 'solved';
-interface Session {
-  gameId: GameId;
-  level: number;
-  deck: Question[];
-  index: number;
-  right: number;
-  helped: number;
-  practiced: number;
-  skipped: number;
-  wrong: number;
-  phase: Phase;
-  attempts: number;
-  hints: number;
-  feedback: string;
-  locked: boolean;
-  committed: Set<string>;
-}
 type AppPage = 'home' | 'game' | 'result' | 'parent' | 'options' | 'stats' | 'skills';
 let page: AppPage = 'home';
 let beforeOptions: Exclude<AppPage, 'options'> = 'home';
 let session: Session | null = null;
 let activityState: ActivityState | null = null;
+let touchState: TouchState | null = null;
 let categoryFilter = 'all';
 let skillCategory: ProgressCategory = 'all';
 let resetArmed = false;
+let backupDraft: Backup | null = null;
+let backupError = '';
 let autoAdvanceTimer: number | undefined;
 let unlockAnswerTimer: number | undefined;
 const AUTO_ADVANCE_MS = 1750;
@@ -102,78 +95,28 @@ function applyTextSize(): void {
 }
 
 function loadSave(): LearningSave {
-  try {
-    const raw = localStorage.getItem(storeKey());
-    if (!raw) return freshSave();
-    const parsed: unknown = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object') return freshSave();
-    const obj = parsed as Partial<LearningSave>;
-    if (obj.schema !== 2) return freshSave();
-    const data = freshSave();
-    data.xp = Number.isFinite(obj.xp) ? Math.max(0, Number(obj.xp)) : 0;
-    data.sessions = Number.isFinite(obj.sessions) ? Math.max(0, Number(obj.sessions)) : 0;
-    if (obj.completed && typeof obj.completed === 'object') {
-      for (const game of GAMES) {
-        const n = (obj.completed as Record<string, unknown>)[game.id];
-        if (typeof n === 'number' && Number.isInteger(n) && n >= 0) data.completed[game.id] = Math.min(n, 100000);
-      }
-    }
-    if (obj.settings && typeof obj.settings === 'object') {
-      data.settings.quiet = obj.settings.quiet === true;
-      data.settings.sound = typeof obj.settings.sound === 'boolean' ? obj.settings.sound : true;
-      data.settings.bgm = obj.settings.bgm !== false;
-      data.settings.bgmVolume = clampVolume(obj.settings.bgmVolume, 75);
-      data.settings.seVolume = clampVolume(obj.settings.seVolume, 65);
-      data.settings.textSize = clampTextSize(obj.settings.textSize);
-    }
-    data.daily = readDaily(obj.daily);
-    if (obj.reviews && typeof obj.reviews === 'object') {
-      for (const [key, value] of Object.entries(obj.reviews)) {
-        if (!value || typeof value !== 'object') continue;
-        const review = value as Partial<LearningSave['reviews'][string]>;
-        const question = review.question;
-        if (!question || !isGameId(String(question.gameId)) || typeof question.id !== 'string' ||
-          !Array.isArray(question.choices) || !question.choices.every(x => typeof x === 'string') ||
-          typeof question.answer !== 'string' || !question.choices.includes(question.answer) ||
-          typeof question.prompt !== 'string' || typeof question.explanation !== 'string' ||
-          !question.visual || typeof question.visual !== 'object' ||
-          !Number.isFinite(review.dueAt) || !Number.isFinite(review.lastAnsweredAt)) continue;
-        const suffix = question.id.slice(question.gameId.length + 1);
-        const parts = suffix.match(/^(?:L([2-5]):)?(\d{1,3})$/);
-        if (!question.id.startsWith(question.gameId + ':') || !parts) continue;
-        const level = parts[1] ? Number(parts[1]) : 1;
-        const index = Number(parts[2]);
-        if (!Number.isInteger(index) || index < 0 || index > 200) continue;
-        if (key !== question.id) continue;
-        // Rebuild canonical questions for the matching difficulty level, not from persisted DOM data.
-        const canonical = chooseCanonical(question.gameId, index, level);
-        data.reviews[key] = {
-          question: canonical, stage: Math.max(0, Math.min(3, Math.floor(Number(review.stage) || 0))),
-          dueAt: Number(review.dueAt), lastAnsweredAt: Number(review.lastAnsweredAt), correct: review.correct === true
-        };
-      }
-    }
-    return data;
-  } catch {
+  try { return loadSlot(localStorage, slot); }
+  catch {
     storageWarning = 'きろくを よみこめませんでした。ほごしゃに みてもらおう。';
     return freshSave();
   }
 }
-function chooseCanonical(gameId: GameId, index: number, level = 1): Question {
-  // The import is deliberately in engine rather than trusting records on localStorage.
-  return generate(gameId, index, level);
-}
-import { makeQuestion as generate } from './engine';
-
-function saveNow(): void {
-  try { localStorage.setItem(storeKey(), JSON.stringify(save)); }
-  catch { storageWarning = 'ほぞんできません。ブラウザの あきようりょうを かくにんしてください。'; }
+function saveNow(): boolean {
+  try {
+    persistSlot(localStorage, slot, save);
+    if (storageWarning.startsWith('ほぞんできません')) storageWarning = '';
+    return true;
+  } catch {
+    storageWarning = 'ほぞんできません。ほごしゃに つたえてね。いまの へんこうは ほぞんされていません。';
+    return false;
+  }
 }
 function setSlot(next: number): void {
   if (!Number.isInteger(next) || next < 1 || next > 4) return;
   dismissEffects();
   stopTimers();
   resetArmed = false;
+  backupDraft = null; backupError = '';
   gameAudio.effect('profile');
   slot = next;
   try { localStorage.setItem('kids_learning_active_slot_v2', String(slot)); } catch { /* in-memory only */ }
@@ -181,7 +124,7 @@ function setSlot(next: number): void {
   gameAudio.configure(save.settings.sound, save.settings.bgm, save.settings.seVolume, save.settings.bgmVolume);
   applyTextSize();
   session = null;
-  activityState = null;
+  activityState = null; touchState = null;
   page = 'home';
   render();
 }
@@ -278,8 +221,7 @@ function visualHtml(visual: Visual, preview: boolean): string {
     case 'subtract': return '<div class="visual-group"><div class="math-line">' + a + ' − ' + b + ' ＝ ❓</div>' +
       dots(a, b) + '<small>うすい まるは とった かず</small></div>';
     case 'sequence': return '<div class="track">' + (visual.numbers ?? []).map(n => '<span>' + (n < 0 ? '？' : n) + '</span>').join('') + '</div>';
-    case 'compare': return '<div class="compare"><div><small>ひだり</small><strong>' + a + '</strong>' +
-      dots(a) + '</div><b>VS</b><div><small>みぎ</small><strong>' + b + '</strong>' + dots(b) + '</div></div>';
+    case 'compare': return ''; // cards are the answer surface
     case 'picture': return '<div class="big-emoji" aria-hidden="true">' + safe(visual.symbol ?? '') + '</div>';
     case 'shape': return '<div class="big-shape" aria-hidden="true">' + safe(visual.symbol ?? '') + '</div>';
     case 'clock': return analogClock(visual.hour ?? 1, visual.minute ?? 0);
@@ -308,14 +250,26 @@ function gameHtml(): string {
   const solved = session.phase === 'solved';
   const locked = session.locked;
   const longChoices = q.choices.some(choice => Array.from(choice).length >= 3);
-  const options = isActivity(q.gameId) && activityState
+  const comparison = q.gameId === 'compare' ?
+    '<div class="compare-pick" role="group" aria-label="おおきい かずを タップ">' +
+    (['ひだり', 'みぎ'] as const).map((side, i) => {
+      const count = i === 0 ? q.visual.a ?? 0 : q.visual.b ?? 0;
+      return '<button type="button" class="compare-pick-card" data-answer="' + side +
+        '" aria-label="' + count + '、' + side + 'の かずを えらぶ"' +
+        (solved || locked ? ' disabled' : '') +
+        '><span class="compare-pick-number">' + count + '</span>' +
+        dots(count) + '</button>';
+    }).join('') + '</div>' : '';
+  const options = q.gameId === 'compare' ? comparison :
+    isTouchGame(q.gameId) && touchState ? touchHtml(q, touchState, solved || locked) :
+    isActivity(q.gameId) && activityState
     ? activityHtml(q, activityState, solved || locked) :
     memoryPreview ? '<button type="button" class="primary-btn" data-action="remember">おぼえた！ こたえる ➜</button>' :
     '<div class="answer-instruction">こたえを ひとつ えらんでね</div><div class="answer-grid' + (longChoices ? ' long-choices' : '') + '">' +
     q.choices.map(choice => '<button type="button" class="answer-btn" aria-label="こたえ ' + safe(choice) +
       '" data-answer="' + safe(choice) + '"' + (solved || locked ? ' disabled' : '') +
       '><span class="answer-choice">' + safe(choice) + '</span></button>').join('') + '</div>';
-  const hint = !memoryPreview && !solved ? '<button type="button" class="hint-btn" data-action="hint">💡 ヒントを みる</button>' : '';
+  const hint = !isActivity(q.gameId) && !isTouchGame(q.gameId) && !memoryPreview && !solved ? '<button type="button" class="hint-btn" data-action="hint">💡 ヒントを みる</button>' : '';
   const feedback = session.feedback ? '<div class="feedback ' + (solved ? 'feedback-good' : 'feedback-try') +
     '" role="status">' + safe(session.feedback) + '</div>' : '';
   return layout('<section class="play-head"><button type="button" class="back-btn" data-action="home">← もどる</button>' +
@@ -323,9 +277,9 @@ function gameHtml(): string {
     '</span><span class="pill">' + number + ' / ' + session.deck.length + '</span></section>' +
     '<div class="progress" role="progressbar" aria-label="もんだいの すすみぐあい" aria-valuemin="0" aria-valuemax="5" aria-valuenow="' +
     session.index + '"><div style="width:' + percent + '%"></div></div>' +
-    '<section class="challenge" style="--accent:' + game.color + '"><div class="challenge-tag">' + game.icon + ' QUESTION ' + number + '</div>' +
+    '<section class="challenge" style="--accent:' + game.color + '"><div class="challenge-tag">' + game.icon + ' ' + number + 'もんめ</div>' +
     '<h1>' + safe(memoryPreview ? 'まずは えを おぼえよう！' : q.prompt) + '</h1>' +
-    (isActivity(q.gameId) ? '' : '<div class="visual-stage">' + visualHtml(q.visual, memoryPreview) + '</div>') +
+    (isActivity(q.gameId) || isTouchGame(q.gameId) || q.gameId === 'compare' ? '' : '<div class="visual-stage">' + visualHtml(q.visual, memoryPreview) + '</div>') +
     (memoryPreview ? '<p class="memory-note">じかんは きにしなくて いいよ。おぼえたら ボタンを おしてね。</p>' : '') +
     '<button type="button" class="read-btn" data-action="speak">🔊 もんだいを きく</button>' +
     '<div class="answers">' + options + '</div>' + feedback + hint +
@@ -337,7 +291,7 @@ function gameHtml(): string {
 function resultHtml(): string {
   if (!session) return homeHtml();
   const game = GAMES.find(g => g.id === session?.gameId)!;
-  const practice = session.gameId === 'trace' || session.gameId === 'move';
+  const practice = session.gameId === 'trace' || session.gameId === 'lines' || session.gameId === 'move' || session.gameId === 'connect' || session.gameId === 'maze';
   return layout('<section class="result-card"><div class="result-emoji" aria-hidden="true">' + game.icon + '🏆</div>' +
     '<p class="eyebrow">QUEST CLEAR!</p><h1>クエスト クリア！</h1>' +
     '<p>' + safe(activeProfile().name) + '、' + safe(game.title) + ' を がんばったね！</p>' +
@@ -416,6 +370,19 @@ function parentHtml(): string {
     '<h2>ゲーム別の進捗</h2><div class="table-wrap"><table><thead><tr><th>ゲーム</th><th>クリア</th><th>復習待ち</th></tr></thead>' +
     '<tbody>' + rows + '</tbody></table></div>' +
     '<div class="parent-actions"><button type="button" class="secondary-btn" data-action="export">⬇ このキャラのきろくを ほぞん</button>' +
+    '<h2>バックアップから ふくげん</h2>' +
+    '<p>このキャラのV2バックアップだけ復元できます。いまの記録は上書きされるので、先に保存してね。</p>' +
+    '<label class="backup-file-label" for="backup-file">📂 バックアップJSONを えらぶ</label>' +
+    '<input id="backup-file" type="file" accept=".json,application/json" aria-label="バックアップJSONファイル" />' +
+    (backupError ? '<p class="backup-error" role="alert">' + safe(backupError) + '</p>' : '') +
+    (backupDraft ? '<div class="backup-preview"><strong>ふくげんする データ（かくにん）</strong>' +
+      '<p>' + safe(activeProfile().name) + '：' + safe(backupDraft.exportedAt.slice(0, 10)) + ' のバックアップ</p>' +
+      (() => { const delta = backupDelta(save, backupDraft.data);
+        return '<p>XP：' + delta.xp[0] + ' → ' + delta.xp[1] +
+          ' / クリア：' + delta.clears[0] + ' → ' + delta.clears[1] +
+          ' / きろくの日：' + delta.days[0] + ' → ' + delta.days[1] + '</p>'; })() +
+      '<div class="reset-actions"><button type="button" class="danger-btn" data-action="backup-confirm">このキャラに ふくげんする</button>' +
+      '<button type="button" class="secondary-btn" data-action="backup-cancel">やめる</button></div></div>' : '') +
     '<h2>きろくの リセット</h2>' +
     '<p>このキャラの学習記録（XP・クリア・復習）だけを最初に戻します。音量設定、ほかの3キャラ、旧版データは残ります。</p>' +
     (resetArmed ? '<div class="reset-confirm" role="alert"><strong>ほんとうに ' + safe(activeProfile().name) +
@@ -445,8 +412,8 @@ function startGame(id: GameId, requestedLevel?: number): void {
     requestedLevel >= 1 && requestedLevel <= unlocked ? requestedLevel : unlocked;
   const deck = chooseRound(id, save, Date.now(), 5, level);
   activityState = isActivity(id) ? newActivityState(deck[0]) : null;
-  session = { gameId: id, level, deck, index: 0, right: 0, helped: 0, wrong: 0, phase: deck[0].visual.kind === 'memory' ? 'preview' : 'answer',
-    attempts: 0, hints: 0, feedback: '', locked: false, practiced: 0, skipped: 0, committed: new Set() };
+  touchState = isTouchGame(id) ? freshTouch() : null;
+  session = createSession(id, level, deck);
   page = 'game';
   gameAudio.effect('select');
   render();
@@ -469,16 +436,20 @@ function makeHint(q: Question): string {
     case 'category': return 'どこで みかける ものかな？';
     case 'odd': return 'いちばん おおい えと ちがう えを さがそう。';
     case 'colors': return 'まわりに おなじ いろの ものは あるかな？';
-    case 'trace': return 'ゆびを ゆっくり うごかして てんを つなごう。';
+    case 'trace': return 'あおい スタートから、きいろの わくの なかを ひとふでで なぞろう。';
+    case 'lines': return 'まず まっすぐな せんから、ゆっくり なぞってみよう。';
     case 'blocks': return '5こずつ まとめて かぞえてみよう。';
     case 'train': return 'えの なまえを ゆっくり こえに だしてみよう。';
     case 'move': return 'できる ところだけ まねしてみよう。むりしなくて いいよ。';
+    case 'connect': return '1から じゅんに おしていこう。';
+    case 'maze': return 'まえの マスの となりを おしてみよう。';
+    case 'clockhands': return 'みじかい はりが なんじ、ながい はりが なんふん。';
   }
 }
-function answer(choice: string, mode?: 'practice' | 'skip'): void {
+function answer(choice: string, mode?: AnswerMode): void {
   if (!session || session.phase !== 'answer' || session.locked || page !== 'game') return;
   const q = session.deck[session.index];
-  if (!isActivity(q.gameId) && !q.choices.includes(choice)) return;
+  if (!isActivity(q.gameId) && !isTouchGame(q.gameId) && !q.choices.includes(choice)) return;
   session.attempts++;
   if (!evaluate(q, choice)) {
     session.wrong++;
@@ -504,20 +475,17 @@ function answer(choice: string, mode?: 'practice' | 'skip'): void {
   const event = q.id + '|' + session.index;
   if (session.committed.has(event)) return;
   session.committed.add(event);
+  const { independent, earned, kind } = attemptOutcome(session.attempts, session.hints, mode);
   const practice = mode !== undefined;
-  const independent = !practice && session.attempts === 1 && session.hints === 0;
-  if (practice) {
-    if (mode === 'skip') session.skipped++; else session.practiced++;
-  } else if (independent) session.right++;
+  if (mode === 'skip') session.skipped++;
+  else if (mode === 'practice') session.practiced++;
+  else if (independent) session.right++;
   else session.helped++;
   const recalled = !practice && Boolean(save.reviews[q.id]?.dueAt && save.reviews[q.id].dueAt <= Date.now());
   // Tracing and self-reported movement are practice, NOT validated recall or motor proficiency.
   if (!practice) save.reviews[q.id] = nextReview(save.reviews[q.id], q, independent, Date.now());
-  const earned = mode === 'skip' ? 0 : practice ? 5 : independent ? 10 : 5;
   save.xp += earned;
-  recordDaily(save, new Date(), q.gameId,
-    mode === 'skip' ? 'rest' : practice ? 'practice' :
-    independent ? 'independent' : 'supported', earned);
+  recordDaily(save, new Date(), q.gameId, kind, earned);
   saveNow();
   session.phase = 'solved';
   session.feedback = mode === 'skip' ? '🌱 みてくれて ありがとう。つぎへ いこう！' :
@@ -541,10 +509,9 @@ function next(): void {
     page = 'result';
     gameAudio.effect('clear');
   } else {
-    session.index++;
+    session = advanceSession(session);
     activityState = isActivity(session.gameId) ? newActivityState(session.deck[session.index]) : null;
-    session.attempts = 0; session.hints = 0; session.feedback = ''; session.locked = false;
-    session.phase = session.deck[session.index].visual.kind === 'memory' ? 'preview' : 'answer';
+    touchState = isTouchGame(session.gameId) ? freshTouch() : null;
   }
   render();
   if (page === 'result') burst('clear');
@@ -564,7 +531,7 @@ function resetCurrentLearning(): void {
   const nextSave = freshSave();
   nextSave.settings = { ...old.settings };
   try {
-    localStorage.setItem(storeKey(), JSON.stringify(nextSave));
+    persistSlot(localStorage, slot, nextSave);
   } catch {
     storageWarning = 'リセットできませんでした。ブラウザのほぞんを かくにんしてください。';
     resetArmed = false;
@@ -574,8 +541,9 @@ function resetCurrentLearning(): void {
   stopTimers();
   save = nextSave;
   session = null;
-  activityState = null;
+  activityState = null; touchState = null;
   resetArmed = false;
+  backupDraft = null;
   storageWarning = 'がくしゅうきろくを リセットしました。ほかのキャラのきろくは そのままです。';
   render();
 }
@@ -591,8 +559,36 @@ function speak(): void {
   u.lang = 'ja-JP'; u.rate = 0.83;
   window.speechSynthesis.speak(u);
 }
+async function prepareBackup(file: File): Promise<void> {
+  backupDraft = null;
+  backupError = '';
+  try {
+    if (file.size > 3 * 1024 * 1024) throw new Error('ファイルが 3MBを こえています。');
+    const currentSlot = slot;
+    const text = await file.text();
+    if (slot !== currentSlot) return;
+    backupDraft = parseBackup(text, slot);
+  } catch (error) {
+    backupError = error instanceof Error ? error.message : 'バックアップを よみこめません。';
+  }
+  if (page === 'parent') render();
+}
+function restoreBackup(): void {
+  if (page !== 'parent' || !backupDraft || backupDraft.slot !== slot) return;
+  try {
+    // Single atomic localStorage write; preserve current in-memory state on failure.
+    persistSlot(localStorage, slot, backupDraft.data);
+    save = backupDraft.data;
+    backupDraft = null; backupError = '';
+    storageWarning = 'バックアップを ふくげんしました。';
+    render();
+  } catch {
+    backupError = 'ふくげん できませんでした。あきようりょうを かくにんしてください。';
+    render();
+  }
+}
 function exportSave(): void {
-  const payload = JSON.stringify({ exportedAt: new Date().toISOString(), slot, data: save }, null, 2);
+  const payload = backupText(slot, save);
   const url = URL.createObjectURL(new Blob([payload], { type: 'application/json' }));
   const a = document.createElement('a'); a.href = url; a.download = 'kids-learning-v2-player-' + slot + '.json';
   document.body.appendChild(a); a.click(); a.remove();
@@ -606,14 +602,14 @@ function completeActivity(result: ActivityResult): void {
   else render();
 }
 function onTracePointer(event: PointerEvent, phase: 'down' | 'move' | 'up' | 'cancel'): void {
-  if (page !== 'game' || session?.gameId !== 'trace' || session.phase !== 'answer' ||
+  if (page !== 'game' || (session?.gameId !== 'trace' && session?.gameId !== 'lines') || session?.phase !== 'answer' ||
       session.locked || !activityState) return;
   const svg = event.target instanceof Element ? event.target.closest<SVGSVGElement>('[data-trace-board]') : null;
   if (!svg) return;
   if (phase === 'down' || phase === 'move') event.preventDefault();
   const result = tracePointer(session.deck[session.index], activityState, phase, event, svg);
   if (result.kind === 'submit') completeActivity(result);
-  else if (phase === 'up' || phase === 'cancel') render();
+  else if (result.refresh || phase === 'up' || phase === 'cancel') render();
 }
 for (const [eventType, phase] of [
   ['pointerdown', 'down'], ['pointermove', 'move'], ['pointerup', 'up'], ['pointercancel', 'cancel']
@@ -656,10 +652,25 @@ app.addEventListener('input', event => {
   if (output) output.textContent = value + '%';
   saveNow();
 });
+app.addEventListener('change', event => {
+  const element = event.target;
+  if (page === 'parent' && element instanceof HTMLInputElement &&
+      element.id === 'backup-file' && element.files?.[0]) void prepareBackup(element.files[0]);
+});
 app.addEventListener('click', event => {
   const target = event.target;
   if (!(target instanceof Element)) return;
   gameAudio.unlock();
+  const touchButton = target.closest<HTMLButtonElement>('[data-touch]');
+  if (touchButton && page === 'game' && session?.phase === 'answer' && !session.locked &&
+      touchState && isTouchGame(session.gameId)) {
+    const q = session.deck[session.index];
+    const result = touchClick(q, touchState, touchButton.dataset.touch ?? '',
+      Number(touchButton.dataset.index ?? -1));
+    if (result.finished && result.value) answer(result.value, result.practice ? 'practice' : undefined);
+    else render();
+    return;
+  }
   const activityButton = target.closest<HTMLButtonElement>('[data-activity]');
   if (activityButton && page === 'game' && session?.phase === 'answer' &&
       !session.locked && activityState && isActivity(session.gameId)) {
@@ -697,13 +708,13 @@ app.addEventListener('click', event => {
   if (slotBtn) { setSlot(Number(slotBtn.dataset.slot)); return; }
   const action = target.closest<HTMLElement>('[data-action]')?.dataset.action;
   if (action === 'home') { window.speechSynthesis?.cancel(); dismissEffects(); stopTimers();
-    page = 'home'; session = null; activityState = null; resetArmed = false; render(); }
+    page = 'home'; session = null; activityState = null; touchState = null; backupDraft = null; resetArmed = false; render(); }
   else if (action === 'stats' || action === 'skills') {
     dismissEffects(); stopTimers(); gameAudio.effect('tap');
     page = action; render(); window.scrollTo({ top: 0, behavior: 'auto' });
   }
   else if (action === 'parent') { dismissEffects(); stopTimers(); page = 'parent';
-    session = null; activityState = null; resetArmed = false; render(); }
+    session = null; activityState = null; touchState = null; backupDraft = null; resetArmed = false; render(); }
   else if (action === 'options') { dismissEffects(); stopTimers(); if (session) session.locked = false;
     beforeOptions = page === 'options' ? 'home' : page; page = 'options'; render(); }
   else if (action === 'back-options') { page = beforeOptions; render(); scheduleAdvance(); }
@@ -732,5 +743,7 @@ app.addEventListener('click', event => {
   else if (action === 'reset-open' && page === 'parent') { resetArmed = true; render(); }
   else if (action === 'reset-cancel' && page === 'parent') { resetArmed = false; render(); }
   else if (action === 'reset-now') resetCurrentLearning();
+  else if (action === 'backup-confirm') restoreBackup();
+  else if (action === 'backup-cancel') { backupDraft = null; backupError = ''; render(); }
 });
 render();

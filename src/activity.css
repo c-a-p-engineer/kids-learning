@@ -58,3 +58,14 @@
 }
 @media(prefers-reduced-motion:reduce){.machine{animation:none}}
 .quiet-mode .machine{animation:none}
+
+/* Stroke-aware pre-writing: show the total number of strokes and the current stroke. */
+.trace-stroke-count{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:9px 15px;
+  padding:10px 14px;background:#fff0ca;border:2px solid #eed59a;border-radius:16px;color:#80551d;font-weight:900;
+  font-size:1.1rem;text-align:center}
+.trace-stroke-count strong{font-size:1.4rem}
+.trace-stroke-count span{font-variant-numeric:tabular-nums}
+.trace-rule{max-width:27rem;text-align:center;margin:0;color:#816441;line-height:1.6;font-size:.91rem;font-weight:800}
+.trace-board svg .stroke-number{pointer-events:none}
+.trace-board svg text{font-family:system-ui,sans-serif}
+@media(max-width:390px){.trace-stroke-count{font-size:1rem}.trace-stroke-count strong{font-size:1.18rem}}

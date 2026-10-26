@@ -8,11 +8,11 @@ import ts from 'typescript';
 
 // Transpile each dependency to a temporary ESM module: no extra runtime or test framework.
 const temp = mkdtempSync(join(tmpdir(), 'kids-learning-test-'));
-for (const moduleName of ['engine', 'activity-content', 'activity-ui', 'progression', 'progress-ui']) {
+for (const moduleName of ['engine', 'activity-content', 'activity-ui', 'progression', 'progress-ui', 'touch-content', 'touch-ui', 'storage', 'trace-guides', 'session']) {
   const source = readFileSync(new URL('../src/' + moduleName + '.ts', import.meta.url), 'utf8');
   const js = ts.transpileModule(source, {
     compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.ESNext }
-  }).outputText.replace(/from '\.\/(activity-content|engine|progression)'/g, "from './$1.mjs'");
+  }).outputText.replace(/from '\.\/(activity-content|engine|progression|touch-content|trace-guides)'/g, "from './$1.mjs'");
   writeFileSync(join(temp, moduleName + '.mjs'), js);
 }
 const engine = await import(pathToFileURL(join(temp, 'engine.mjs')).href);
@@ -20,9 +20,13 @@ const activity = await import(pathToFileURL(join(temp, 'activity-content.mjs')).
 const activityUi = await import(pathToFileURL(join(temp, 'activity-ui.mjs')).href);
 const progress = await import(pathToFileURL(join(temp, 'progression.mjs')).href);
 const progressUi = await import(pathToFileURL(join(temp, 'progress-ui.mjs')).href);
+const touch = await import(pathToFileURL(join(temp, 'touch-content.mjs')).href);
+const touchUi = await import(pathToFileURL(join(temp, 'touch-ui.mjs')).href);
+const storage = await import(pathToFileURL(join(temp, 'storage.mjs')).href);
+const session = await import(pathToFileURL(join(temp, 'session.mjs')).href);
 const now = Date.UTC(2026, 9, 26);
 
-assert.equal(engine.GAMES.length, 19);
+assert.equal(engine.GAMES.length, 23);
 // Audio settings are stored in the existing V2 profile object, never legacy keys.
 const defaults = engine.freshSave();
 assert.equal(defaults.schema, 2);
@@ -48,7 +52,7 @@ assert.equal(engine.clampVolume(-20, 65), 0);
 assert.equal(engine.clampVolume(Number.NaN, 65), 65);
 assert.equal(engine.clampVolume('50', 75), 75);
 
-assert.equal(new Set(engine.GAMES.map(g => g.id)).size, 19);
+assert.equal(new Set(engine.GAMES.map(g => g.id)).size, 23);
 const memoryTargets = new Set();
 for (const game of engine.GAMES) {
   for (let i = 0; i < 80; i++) {
@@ -137,7 +141,7 @@ for (let c = 0; c <= 15; c++) {
   assert.equal(p.target, 2);
   if (!p.maxed) assert.equal(p.current, c % 2);
 }
-// All 19 games must generate five distinct items with a correct option at levels 2–5.
+// All 23 games must generate five distinct items with a correct option at levels 2–5.
 let advancedQuestions = 0;
 for (const game of engine.GAMES) {
   for (let level = 2; level <= 5; level++) {
@@ -181,7 +185,7 @@ for (const game of engine.GAMES) {
 }
 console.log('PASS: advanced levels ' + advancedQuestions + ' questions and earned unlock gates');
 
-console.log('PASS: 19 games × 80 cases, answer validity, arithmetic, finite rounds, recall scheduler');
+console.log('PASS: 23 games × 80 cases, answer validity, arithmetic, finite rounds, recall scheduler');
 
 /** Non-choice input regression tests: do not fall back to 3 answer buttons. */
 for (const gameId of ['trace', 'blocks', 'train', 'move']) {
@@ -228,18 +232,73 @@ assert.equal(blockState.count, 5);
 const noExtra = activityUi.activityClick(blockQ, blockState, 'block-five', -1);
 assert.equal(noExtra.kind, 'progress'); // cannot earn another answer by tapping more
 assert.equal(blockState.count, 5);
-const traceQ = engine.makeQuestion('trace', 0);
-const traceState = activityUi.newActivityState(traceQ);
-const guide = activity.TRACE_GUIDES[traceQ.answer];
-assert(guide.points.length >= 7);
-for (let i = 0; i < guide.points.length; i++) {
-  const result = activityUi.activityClick(traceQ, traceState, 'trace-point', i);
-  if (i < guide.points.length - 1) assert.equal(result.kind, 'progress');
-  else {
-    assert.equal(result.kind, 'submit');
-    assert.equal(result.assisted, true);
+// Both line warmups and hiragana show exact stroke count and advance in stroke order.
+for (const gameId of ['lines', 'trace']) {
+  for (let i = 0; i < 40; i++) {
+    const q = engine.makeQuestion(gameId, i);
+    const guide = activity.TRACE_GUIDES[q.answer];
+    assert(guide?.strokes.length >= 1);
+    const state = activityUi.newActivityState(q);
+    let last;
+    for (const stroke of guide.strokes) {
+      for (let index = 0; index < stroke.length; index++) {
+        last = activityUi.activityClick(q, state, 'trace-point', index);
+      }
+    }
+    assert.equal(last.kind, 'submit', q.id);
+    assert.equal(last.assisted, true);
   }
 }
+const noGuide = activity.TRACE_GUIDES['の'];
+assert.equal(noGuide.strokes.length, 1, 'の is written in a single continuous stroke');
+assert(noGuide.strokes[0].length >= 12);
+const twoStroke = activity.TRACE_GUIDES['こ'];
+assert.equal(twoStroke.strokes.length, 2, 'こ requires two distinct strokes');
+const curveQuestion = engine.makeQuestion('lines', 2);
+const curveGuide = activity.TRACE_GUIDES[curveQuestion.answer];
+const curveState = activityUi.newActivityState(curveQuestion);
+const pathPoints = curveGuide.strokes[0];
+let geomResult = activityUi.traceSample(curveQuestion, curveState, 'down', pathPoints[0]);
+for (let j = 1; j < pathPoints.length; j++) {
+  geomResult = activityUi.traceSample(curveQuestion, curveState,
+    j === pathPoints.length - 1 ? 'up' : 'move', pathPoints[j]);
+}
+assert.equal(geomResult.kind, 'submit', 'following guide corridor should complete the line');
+const offState = activityUi.newActivityState(curveQuestion);
+activityUi.traceSample(curveQuestion, offState, 'down', pathPoints[0]);
+const reject = activityUi.traceSample(curveQuestion, offState, 'move', [0, 0]);
+assert.equal(reject.kind, 'progress');
+assert.equal(reject.refresh, true, 'leaving the corridor must immediately reset the stroke');
+assert.equal(offState.traceIndex, 0);
+assert.equal(offState.waypointIndex, 0);
+assert.equal(offState.drawing, false);
+
+const koQ = engine.makeQuestion('trace', 4);
+assert.equal(koQ.answer, 'こ');
+const koState = activityUi.newActivityState(koQ);
+for (let strokeIndex = 0; strokeIndex < 2; strokeIndex++) {
+  const points = activity.TRACE_GUIDES['こ'].strokes[strokeIndex];
+  if (strokeIndex === 1) {
+    activityUi.traceSample(koQ, koState, 'down', points[0]);
+    const off = activityUi.traceSample(koQ, koState, 'move', [0, 0]);
+    assert.equal(off.refresh, true);
+    assert.equal(koState.traceIndex, 1, 'second-stroke mistakes must preserve the first stroke');
+    assert.equal(koState.strokes.length, 1, 'completed first stroke remains visible');
+  }
+  let part;
+  for (let pointIndex = 0; pointIndex < points.length; pointIndex++) {
+    part = activityUi.traceSample(koQ, koState,
+      pointIndex === 0 ? 'down' : pointIndex === points.length - 1 ? 'up' : 'move',
+      points[pointIndex]);
+  }
+  if (strokeIndex === 0) assert.equal(koState.traceIndex, 1);
+  else assert.equal(part.kind, 'submit');
+}
+const outsideStart = activityUi.newActivityState(koQ);
+const startResult = activityUi.traceSample(koQ, outsideStart, 'down', [0,0]);
+assert.equal(startResult.refresh, true);
+assert.equal(outsideStart.drawing, false);
+
 const moveQ = engine.makeQuestion('move', 0);
 const moveResult = activityUi.activityClick(moveQ, activityUi.newActivityState(moveQ), 'move-done', -1);
 assert.equal(moveResult.kind, 'submit');
@@ -247,7 +306,7 @@ assert.equal(moveResult.assisted, true);
 const restResult = activityUi.activityClick(moveQ, activityUi.newActivityState(moveQ), 'move-skip', -1);
 assert.equal(restResult.kind, 'submit');
 assert.equal(restResult.skipped, true);
-console.log('PASS: tracing alternative, number block input, letter construction, seated movement and rest');
+console.log('PASS: stroke-aware tracing and warmup, number block input, letter construction, seated movement and rest');
 
 
 // V2.6 daily records never retroactively fabricate dates for an old V2.5 save.
@@ -313,6 +372,85 @@ assert(!renderedSkills.includes('data-skill-play="add" data-level="3"'), 'locked
 assert(renderedSkills.includes('skill-node locked'), 'locked branches must stay visibly locked');
 assert(!renderedSkills.includes('data-skill-play="words"'), 'category filter must hide unrelated games');
 console.log('PASS: V2.6 per-profile calendar records, migrations, stats charts and unlock-based skill tree');
+
+
+// Direct number-tap comparison: answer is the winning side; always two distinct numbers.
+for (let level = 1; level <= 5; level++) for (let i = 0; i < 80; i++) {
+  const q = engine.makeQuestion('compare', i, level);
+  assert.notEqual(q.visual.a, q.visual.b);
+  assert.equal(q.answer, q.visual.a > q.visual.b ? 'ひだり' : 'みぎ');
+  assert.deepEqual(q.choices, ['ひだり', 'みぎ']);
+  assert(engine.evaluate(q, q.answer));
+}
+for (let level = 1; level <= 5; level++) for (let i = 0; i < 80; i++) {
+  const link = engine.makeQuestion('connect', i, level);
+  const state = touchUi.freshTouch();
+  let last;
+  for (let n = 1; n <= link.visual.a; n++) last = touchUi.touchClick(link, state, 'connect', n);
+  assert.equal(last.finished, true);
+  assert.equal(last.value, link.answer);
+  const maze = engine.makeQuestion('maze', i, level);
+  const path = maze.visual.numbers;
+  const size = maze.visual.a;
+  assert(new Set(path).size === path.length);
+  for (let step = 1; step < path.length; step++) {
+    const a = path[step - 1], b = path[step];
+    assert.equal(Math.abs(Math.floor(a / size) - Math.floor(b / size)) +
+      Math.abs(a % size - b % size), 1, maze.id + ': unreachable');
+  }
+  const mazeState = touchUi.freshTouch();
+  let finished;
+  for (let n = 1; n < path.length; n++) finished = touchUi.touchClick(maze, mazeState, 'maze', path[n]);
+  assert.equal(finished.finished, true, maze.id);
+  const time = engine.makeQuestion('clockhands', i, level);
+  const clock = touchUi.freshTouch();
+  while (clock.hour !== time.visual.hour) touchUi.touchClick(time, clock, 'hour-plus');
+  while (clock.minute !== time.visual.minute) touchUi.touchClick(time, clock, 'minute-plus');
+  const checked = touchUi.touchClick(time, clock, 'clock-check');
+  assert.equal(checked.finished, true);
+}
+const saved = engine.freshSave();
+saved.xp = 123; saved.completed.add = 5;
+const memory = new Map();
+const store = { getItem: key => memory.get(key) ?? null, setItem: (key, val) => memory.set(key, val) };
+storage.persistSlot(store, 2, saved);
+assert.equal(storage.loadSlot(store, 2).xp, 123);
+assert.equal(storage.loadSlot(store, 1).xp, 0);
+const payload = storage.backupText(2, saved);
+const read = storage.parseBackup(payload, 2);
+assert.equal(read.data.xp, 123);
+assert.equal(storage.backupDelta(engine.freshSave(), read.data).xp[1], 123);
+assert.throws(() => storage.parseBackup(payload, 1));
+assert.throws(() => storage.parseBackup('oops', 2));
+assert.throws(() => storage.parseBackup('x'.repeat(4 * 1024 * 1024), 2));
+assert.throws(() => storage.parseBackup(JSON.stringify({ exportedAt: '2026-10-26T00:00:00Z', slot: 2, data: { schema: 1 } }), 2));
+assert.throws(() => storage.parseBackup(JSON.stringify({ exportedAt: '2026-10-26T00:00:00Z', slot: 2, data: { schema: 2 } }), 2));
+const blocked = { setItem: () => { throw new Error('QuotaExceededError'); } };
+assert.throws(() => storage.persistSlot(blocked, 2, saved));
+assert.equal(storage.loadSlot(store, 2).xp, 123, 'failed write must not overwrite existing save');
+const sanitized = storage.normalizeSave({ ...saved, xp: 'not a number', daily: { '2026-10-26': { answered: 3 } } });
+assert.equal(sanitized.xp, 0);
+assert.equal(sanitized.daily['2026-10-26'].answered, 3);
+console.log('PASS: direct comparison, 3 tap-only activities, 1200 new input simulations, safe per-profile backups');
+
+
+const deck = engine.chooseRound('add', engine.freshSave(), now, 5);
+const first = session.createSession('add', 1, deck);
+assert.equal(first.index, 0);
+assert.equal(first.phase, 'answer');
+assert.deepEqual(session.attemptOutcome(1, 0), { independent: true, earned: 10, kind: 'independent' });
+assert.deepEqual(session.attemptOutcome(3, 1), { independent: false, earned: 5, kind: 'supported' });
+assert.deepEqual(session.attemptOutcome(1, 0, 'practice'), { independent: false, earned: 5, kind: 'practice' });
+assert.deepEqual(session.attemptOutcome(1, 0, 'skip'), { independent: false, earned: 0, kind: 'rest' });
+assert.equal(session.advanceSession(first), first, 'must not advance unsolved questions');
+const solved = { ...first, phase: 'solved', attempts: 3, hints: 2, feedback: 'ok' };
+const advanced = session.advanceSession(solved);
+assert.equal(advanced.index, 1);
+assert.equal(advanced.phase, 'answer');
+assert.equal(advanced.attempts, 0);
+assert.equal(advanced.hints, 0);
+assert.equal(solved.index, 0, 'advance must not mutate old session');
+console.log('PASS: pure session transitions and scoring; old saves and recovery checks');
 
 rmSync(temp, { recursive: true, force: true });
 
