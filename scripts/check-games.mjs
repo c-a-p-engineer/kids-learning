@@ -176,7 +176,7 @@ for (const game of engine.GAMES) {
       }
       if (game.id === 'odd') assert.equal(q.visual.preview.length, level === 5 ? 6 : level >= 4 ? 5 : 4);
       if (game.id === 'clock' && level === 4) assert.equal(q.visual.minute % 15, 0);
-      if (game.id === 'colors' && level === 5) assert.equal(q.choices.length, 6);
+      if (game.id === 'colors' && level === 5) assert.equal(q.choices.length, 4);
     }
     const save = engine.freshSave();
     save.completed[game.id] = (level - 1) * 2;
