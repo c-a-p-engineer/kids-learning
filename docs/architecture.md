@@ -93,3 +93,13 @@ https://github.com/c-a-p-engineer/kids-learning/tree/archive/pre-dopagaki-202610
 - `quest-main.ts`: 共通の出題/回答/練習/休憩/クリア確定点から`recordDaily`を呼び、画面ナビゲーションに接続。保存・画面・業務ロジックが肥大化しないようモジュール境界を維持。
 - 直近14日を棒グラフ、30日を表で表示。以前の日付データが存在しなければ未記録として表示、偽データを生成しない。
 - 詳細: [V2.6 設計](renewal-2026/06-skill-tree-daily-records.md)。
+
+## V2.7 の責務分離と機能
+
+- session.ts：画面・音・保存に依存しないセッション生成、次問、XP算定。
+- storage.ts：V2形式の安全な保存読み込み・バックアップ・復元前差分確認。
+- trace-guides.ts：表示と判定を同じ点群にした線・ひらがな各画のガイド。
+- activity-ui.ts：画ごとの入力・枠外検出・数字ボタン代替。
+- touch-content.ts、touch-ui.ts、touch.css：点つなぎ、迷路、時計の入力。
+- quest-main.ts：既存の学習セッションへ新ゲームの完了通知と復元を接続。大小比較は数字自体を回答面にする。
+- 旧V1保存キー、V2の4人の学習記録と設定は維持。E2Eを延期し、単体テストと型検査、ビルドを先に通す。
