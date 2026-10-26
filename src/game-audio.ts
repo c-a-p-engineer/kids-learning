@@ -2,9 +2,9 @@
  * 端末だけで演奏する短いBGM/SE。外部音源・通信・再生トラッキングなし。
  * ブラウザの自動再生制限に合わせ、ユーザーの操作後に初めてAudioContextを生成する。
  */
-export type MusicScene = 'home' | 'game' | 'result' | 'parent';
+export type MusicScene = 'home' | 'game' | 'result' | 'parent' | 'options';
 export type SoundEvent = 'tap' | 'select' | 'correct' | 'retry' | 'hint' | 'clear' | 'review' | 'profile';
-const MELODIES: Record<Exclude<MusicScene, 'parent'>, number[]> = {
+const MELODIES: Record<Exclude<MusicScene, 'parent' | 'options'>, number[]> = {
   home: [523,659,784,659,587,659,523,0,440,523,659,523,392,440,523,0],
   game: [440,523,587,659,587,523,494,0,440,523,659,587,523,494,440,0],
   result: [523,659,784,1046,988,784,880,0,784,880,1046,1175,1046,988,784,0]
@@ -17,6 +17,8 @@ class GameAudio {
   private unlocked = false;
   private bgmOn = false;
   private seOn = false;
+  private bgmVolume = 75;
+  private seVolume = 65;
   private visible = true;
   private activeSounds = 0;
   constructor() {
@@ -38,15 +40,21 @@ class GameAudio {
   }
   /** 必ず実際のタップ・クリックから呼ぶ */
   unlock(): void {
+    const firstUnlock = !this.unlocked;
     this.unlocked = true;
     const ctx = this.getContext();
     if (ctx && ctx.state !== 'running') void ctx.resume().catch(() => {});
-    this.restart();
+    // Clicking an answer must NOT restart the melody or delay the next beat.
+    if (firstUnlock) this.restart();
   }
-  configure(se: boolean, bgm: boolean): void {
+  configure(se: boolean, bgm: boolean, seVolume = 65, bgmVolume = 75): void {
+    const restartNeeded = this.bgmOn !== bgm;
     this.seOn = se;
     this.bgmOn = bgm;
-    this.restart();
+    this.seVolume = Math.max(0, Math.min(100, seVolume));
+    this.bgmVolume = Math.max(0, Math.min(100, bgmVolume));
+    // Gain is applied to each new note; slider movement does not interrupt BGM.
+    if (restartNeeded) this.restart();
   }
   setScene(next: MusicScene): void {
     if (this.scene === next) return;
@@ -62,16 +70,16 @@ class GameAudio {
     this.stopLoop();
     if (!this.unlocked || !this.visible || !this.bgmOn || this.scene === 'parent') return;
     this.interval = window.setInterval(() => {
-      const melody = MELODIES[this.scene as Exclude<MusicScene, 'parent'>];
+      const melody = MELODIES[(this.scene === 'options' ? 'home' : this.scene) as Exclude<MusicScene, 'parent' | 'options'>];
       const note = melody[this.step % melody.length];
       this.step++;
-      if (note) this.playNote(note, 0.19, 0.025, 'triangle');
-      if (this.step % 4 === 1) this.playNote(220, 0.13, 0.009, 'sine');
+      if (note) this.playNote(note, 0.19, 0.09 * this.bgmVolume / 100, 'triangle');
+      if (this.step % 4 === 1) this.playNote(220, 0.13, 0.022 * this.bgmVolume / 100, 'sine');
     }, 265);
   }
   private playNote(freq: number, duration: number, volume: number, type: OscillatorType, delay = 0): void {
     const ctx = this.getContext();
-    if (!ctx || ctx.state !== 'running' || this.activeSounds >= 12) return;
+    if (!ctx || ctx.state !== 'running' || this.activeSounds >= 12 || volume <= 0) return;
     this.activeSounds++;
     try {
       const osc = ctx.createOscillator();
@@ -80,7 +88,7 @@ class GameAudio {
       osc.type = type;
       osc.frequency.setValueAtTime(freq, time);
       gain.gain.setValueAtTime(0.0001, time);
-      gain.gain.exponentialRampToValueAtTime(Math.max(0.001, volume), time + 0.025);
+      gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, volume), time + 0.025);
       gain.gain.exponentialRampToValueAtTime(0.0001, time + duration);
       osc.connect(gain).connect(ctx.destination);
       osc.start(time);
@@ -98,7 +106,7 @@ class GameAudio {
     const notes = patterns[kind];
     const delay = kind === 'clear' ? 0.105 : 0.08;
     notes.forEach((freq, idx) =>
-      this.playNote(freq, kind === 'clear' ? 0.25 : 0.15, kind === 'retry' ? 0.035 : 0.055,
+      this.playNote(freq, kind === 'clear' ? 0.25 : 0.15, (kind === 'retry' ? 0.055 : 0.08) * this.seVolume / 100,
         kind === 'retry' ? 'sine' : 'triangle', idx * delay));
   }
 }
