@@ -515,6 +515,16 @@ function exportSave(): void {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 gameAudio.configure(save.settings.sound, save.settings.bgm, save.settings.seVolume, save.settings.bgmVolume);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    stopTimers();
+    if (session) session.locked = false;
+  } else if (page === 'game' && session?.phase === 'solved') {
+    scheduleAdvance();
+  } else if (page === 'game' && session?.phase === 'answer') {
+    render();
+  }
+});
 app.addEventListener('input', event => {
   const target = event.target;
   if (!(target instanceof HTMLInputElement)) return;
