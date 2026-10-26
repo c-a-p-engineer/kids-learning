@@ -368,6 +368,9 @@ assert.equal(progress.skillNodes('add', personOne.completed)[0].opened, true);
 assert.equal(progress.skillNodes('add', personOne.completed)[1].opened, true);
 assert.equal(progress.skillNodes('add', personOne.completed)[2].opened, false);
 assert.equal(progress.skillNodes('add', personOne.completed)[2].requiredClears, 4);
+const progressCss = readFileSync(new URL('../src/progress.css', import.meta.url), 'utf8');
+assert(progressCss.includes('.progress-tabs button'), 'status/skills tab selector must match HTML');
+assert(!progressCss.includes('.growth-tabs button'), 'obsolete tab selector would leave native buttons');
 const renderedStatus = progressUi.statusHtml(personOne, 'きつね', new Date(2026, 9, 26));
 assert(renderedStatus.includes('7にちの ぼうけん'));
 assert(renderedStatus.includes('2026/10/26'));
@@ -411,6 +414,20 @@ for (let level = 1; level <= 5; level++) for (let i = 0; i < 80; i++) {
         assert.equal(Math.abs(Math.floor(prev / size) - Math.floor(next / size)) +
           Math.abs(prev % size - next % size), 1, q.id + ': disconnected route');
       }
+    }
+    if (gameId === 'maze') {
+      const edges = touchUi.mazeEdges(q), path = q.visual.numbers;
+      assert(edges.length > path.length - 1, q.id + ': must have a wrong turn');
+      const routeSet = new Set(path);
+      const offRoute = edges.filter(([a,b]) => !routeSet.has(a) || !routeSet.has(b));
+      assert(offRoute.length >= 1, q.id + ': no branch from solution');
+      for (let n = 1; n < path.length; n++)
+        assert(edges.some(([a,b]) => a === path[n-1] && b === path[n] ||
+          a === path[n] && b === path[n-1]), q.id + ': solution edge missing');
+      const markup = touchUi.touchHtml(q, state, false);
+      assert(markup.includes('maze-board'), 'maze board must be distinct from guide tracing');
+      assert(!markup.includes('points="' + pts.map(p => p.map(x => x.toFixed(1)).join(',')).join(' ') + '"'),
+        'maze must not draw solution polyline');
     }
     touchUi.traceRouteSample(q, state, 'down', pts[0]);
     for (let j = 1; j < pts.length; j++) touchUi.traceRouteSample(q, state, 'move', pts[j]);
@@ -475,6 +492,30 @@ assert.equal(storage.loadSlot(store, 2).xp, 123, 'failed write must not overwrit
 const sanitized = storage.normalizeSave({ ...saved, xp: 'not a number', daily: { '2026-10-26': { answered: 3 } } });
 assert.equal(sanitized.xp, 0);
 assert.equal(sanitized.daily['2026-10-26'].answered, 3);
+
+// A wrong turn can be traversed and backed out of without losing the gesture.
+const branching = engine.makeQuestion('maze', 0, 4);
+const branchingPath = branching.visual.numbers, branches = touchUi.mazeEdges(branching);
+const branchEdge = branches.find(([a,b]) => !branchingPath.includes(a) || !branchingPath.includes(b));
+assert(branchEdge, 'branching fixture must contain a dead-end');
+const side = branchingPath.includes(branchEdge[0]) ? branchEdge[1] : branchEdge[0];
+const junction = branchingPath.includes(branchEdge[0]) ? branchEdge[0] : branchEdge[1];
+const junctionIndex = branchingPath.indexOf(junction);
+const branchingState = touchUi.freshTouch(), branchingPoints = touchUi.routePoints(branching);
+const mazePoint = cell => [(cell % branching.visual.a + .5) * 300 / branching.visual.a,
+  (Math.floor(cell / branching.visual.a) + .5) * 300 / branching.visual.a];
+touchUi.traceRouteSample(branching, branchingState, 'down', branchingPoints[0]);
+for (let n = 1; n <= junctionIndex; n++)
+  touchUi.traceRouteSample(branching, branchingState, 'move', branchingPoints[n]);
+touchUi.traceRouteSample(branching, branchingState, 'move', mazePoint(side));
+assert.equal(branchingState.done.at(-1), side, 'wrong turn must be traversable');
+touchUi.traceRouteSample(branching, branchingState, 'move', mazePoint(junction));
+assert.equal(branchingState.done.at(-1), junction, 'backtracking restores the junction');
+for (let n = junctionIndex + 1; n < branchingPath.length; n++)
+  touchUi.traceRouteSample(branching, branchingState, 'move', branchingPoints[n]);
+const mazeSuccess = touchUi.traceRouteSample(branching, branchingState, 'up', branchingPoints.at(-1));
+assert.equal(mazeSuccess.finished, true, 'backtracking must allow completing the maze');
+console.log('PASS: exploratory maze branches, hidden answers, finger backtracking');
 console.log('PASS: direct comparisons, 800 continuous path traces, 400 hand rotations, keyboard alternatives, safe backups');
 
 
@@ -541,6 +582,21 @@ for (let lv = 1; lv <= 5; lv++) for (let i = 0; i < 80; i++) {
   for (const note of beat.visual.preview) result = workshopUi.workshopClick(beat, drums, 'beat', note === '🔵' ? 0 : 1);
   assert.equal(result.finished, true, beat.id);
 }
+// Tapping a placed coin removes that exact instance, even when values repeat.
+const shopUndo = engine.makeQuestion('shop', 0, 3), shopUndoState = workshopUi.freshWorkshop();
+workshopUi.workshopClick(shopUndo, shopUndoState, 'coin', 1);
+workshopUi.workshopClick(shopUndo, shopUndoState, 'coin', 5);
+workshopUi.workshopClick(shopUndo, shopUndoState, 'coin', 1);
+assert.deepEqual(shopUndoState.coins, [1, 5, 1]);
+assert(workshopUi.workshopHtml(shopUndo, shopUndoState, false).includes('data-workshop="remove-coin"'));
+assert(!workshopUi.workshopHtml(shopUndo, shopUndoState, false).includes('1こ もどす'));
+workshopUi.workshopClick(shopUndo, shopUndoState, 'remove-coin', 1);
+assert.deepEqual(shopUndoState.coins, [1, 1], 'removes tapped middle coin, not the last');
+workshopUi.workshopClick(shopUndo, shopUndoState, 'remove-coin', 99);
+assert.deepEqual(shopUndoState.coins, [1, 1], 'invalid coin position is ignored');
+const moneyHtml = workshopUi.workshopHtml(shopUndo, shopUndoState, false);
+assert(moneyHtml.includes('aria-label="1えんを もどす"'), 'coin removal has accessible labels');
+
 const rhythmQ = engine.makeQuestion('rhythm', 6, 3), rhythmState = workshopUi.freshWorkshop();
 const wrongBeat = rhythmQ.visual.preview[0] === '🔵' ? 1 : 0;
 assert.equal(workshopUi.workshopClick(rhythmQ, rhythmState, 'beat', wrongBeat).finished, false);
