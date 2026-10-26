@@ -287,6 +287,8 @@ function visualHtml(visual: Visual, preview: boolean): string {
     case 'memory': return preview ? '<div class="memory-preview">' + (visual.preview ?? []).map(x => '<span>' + safe(x) + '</span>').join('') + '</div>' :
       '<div class="memory-hidden">✨ ❔ ✨<small>おぼえた えを えらぼう！</small></div>';
   }
+  // Interaction-only visuals are rendered by activity-ui.ts, not by this choice renderer.
+  return '';
 }
 function gameHtml(): string {
   if (!session) return homeHtml();
