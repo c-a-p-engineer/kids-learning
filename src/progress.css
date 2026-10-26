@@ -13,10 +13,10 @@
 .growth-back{border:2px solid #d5e1f6;background:#f8faff;padding:10px 16px;border-radius:14px;
   min-height:49px;font-weight:900;color:#455b89}
 .growth-lead,.growth-help{line-height:1.7;color:#657595;font-weight:700;margin:12px 0}
-.growth-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:22px 0}
-.growth-tabs button{min-height:55px;border:2px solid #d9e2f5;border-radius:14px;
+.progress-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:22px 0}
+.progress-tabs button{min-height:55px;border:2px solid #d9e2f5;border-radius:14px;
   background:#f3f6fd;color:#4d618d;padding:11px 14px;font-weight:900;font-size:1.02rem}
-.growth-tabs button.active{background:linear-gradient(110deg,#e8f2ff,#f3faff);
+.progress-tabs button.active{background:linear-gradient(110deg,#e8f2ff,#f3faff);
   border-color:#8daee7;color:#2b58a8;box-shadow:0 4px 0 #cbdef5}
 .growth-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px}
 .growth-stat{min-width:0;background:#f2f6ff;border:2px solid #dce6fb;border-radius:17px;
@@ -170,4 +170,12 @@ button.skill-node:active{transform:translateY(2px)}
 }
 @media(prefers-reduced-motion:reduce){
   .growth-dashboard .history-rail>span,.daily-record-chevron{transition:none}
+}
+
+/* Navigation classes match the actual progress-ui HTML. */
+.progress-tabs button{font:inherit;font-size:1rem;font-weight:900;line-height:1.35;cursor:pointer}
+.progress-tabs button.active{font-weight:950}
+@media(max-width:390px){
+  .progress-tabs{gap:8px}
+  .progress-tabs button{font-size:.9rem;padding:10px 5px;min-height:56px}
 }
