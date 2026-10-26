@@ -1,0 +1,96 @@
+/* Growth screens intentionally isolated from activity and question CSS. */
+.growth-shortcuts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;margin:22px 0}
+.growth-shortcuts button{display:flex;align-items:center;gap:11px;text-align:left;flex-wrap:wrap;
+  border:2px solid #d8e2fb;border-bottom-width:6px;border-radius:19px;background:#fff;
+  padding:17px 20px;color:#334775;min-height:80px;box-shadow:0 4px 14px #dae4f455}
+.growth-shortcuts button span{font-size:2rem;line-height:1.2}
+.growth-shortcuts button strong{font-size:1.18rem}
+.growth-shortcuts button small{font-size:.85rem;color:#647595;flex-basis:100%}
+.growth-page{background:#fff;border-radius:25px;border:2px solid #dce5f7;box-shadow:0 8px 0 #dae4f6;
+  padding:clamp(16px,4vw,35px);margin:22px auto 38px;max-width:1050px;color:#33456b;overflow-wrap:anywhere}
+.growth-page h1{font-size:clamp(1.5rem,5vw,2.1rem);margin:13px 0;color:#2f3e74;line-height:1.4}
+.growth-page h2{font-size:clamp(1.15rem,3vw,1.5rem);margin:30px 0 13px;color:#394d8a}
+.growth-back{border:2px solid #d5e1f6;background:#f8faff;padding:10px 16px;border-radius:14px;
+  min-height:49px;font-weight:900;color:#455b89}
+.growth-lead,.growth-help{line-height:1.7;color:#657595;font-weight:700;margin:12px 0}
+.growth-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:22px 0}
+.growth-tabs button{min-height:55px;border:2px solid #d9e2f5;border-radius:14px;
+  background:#f3f6fd;color:#4d618d;padding:11px 14px;font-weight:900;font-size:1.02rem}
+.growth-tabs button.active{background:linear-gradient(110deg,#e8f2ff,#f3faff);
+  border-color:#8daee7;color:#2b58a8;box-shadow:0 4px 0 #cbdef5}
+.growth-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px}
+.growth-stat{min-width:0;background:#f2f6ff;border:2px solid #dce6fb;border-radius:17px;
+  padding:17px 8px;display:flex;flex-direction:column;align-items:center;gap:7px;text-align:center}
+.growth-stat strong{color:#344a90;font-size:clamp(1.27rem,4vw,1.8rem);font-variant-numeric:tabular-nums}
+.growth-stat span{color:#68789f;font-weight:850;font-size:.85rem;line-height:1.4}
+.history-chart{display:flex;align-items:stretch;gap:7px;background:#f4f8ff;border:2px solid #e2eaf8;
+  border-radius:19px;min-height:213px;padding:15px 8px 12px;overflow-x:auto}
+.history-day{display:flex;flex-direction:column;align-items:center;min-width:34px;flex:1;
+  color:#7384a9;font-variant-numeric:tabular-nums}
+.history-day.is-today{color:#255b9d;font-weight:900}
+.history-number{height:20px;line-height:20px;font-size:.74rem;font-weight:900}
+.history-rail{flex:1;width:min(100%,35px);display:flex;flex-direction:column;justify-content:flex-end;
+  background:#e1eafb;border-radius:9px 9px 3px 3px;overflow:hidden;min-height:130px}
+.history-rail>span{width:100%;background:linear-gradient(#67c5b5,#80a8e7);border-radius:8px 8px 0 0}
+.history-day.is-today .history-rail>span{background:linear-gradient(#f8cf70,#edac58)}
+.history-date{font-size:.76rem;margin-top:8px}
+.daily-table-wrap{max-width:100%;overflow-x:auto;border:2px solid #e0e8f7;border-radius:16px}
+.daily-table{width:100%;border-collapse:collapse;text-align:center;font-size:.91rem;font-variant-numeric:tabular-nums}
+.daily-table th,.daily-table td{padding:13px 9px;border-bottom:1px solid #e4ebf9;white-space:nowrap}
+.daily-table thead th{color:#455b87;background:#eff4ff}
+.daily-table tbody th{font-weight:850;text-align:left}
+.daily-table tbody tr:nth-child(even){background:#fafcff}
+.growth-note{margin:28px 0 5px;border-left:4px solid #a6b8dc;padding:12px 14px;
+  background:#f6f8fe;color:#667690;line-height:1.7;font-size:.87rem}
+.skill-summary{display:flex;align-items:center;gap:18px;flex-wrap:wrap;background:linear-gradient(110deg,#f6edff,#eff6ff);
+  border-radius:17px;border:2px solid #e0d7fa;padding:16px 20px;color:#495d91}
+.skill-summary strong{font-size:1.65rem}
+.skill-summary span{font-weight:800}
+.skill-filters{display:flex;flex-wrap:wrap;gap:9px;margin:17px 0 22px}
+.skill-category{min-height:46px;border:2px solid #dae4f5;border-radius:999px;
+  background:#f8faff;color:#48638c;padding:8px 13px;font-weight:900;font-size:.92rem}
+.skill-category.active{background:#5069bd;border-color:#5069bd;color:#fff}
+.skill-tree-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}
+.skill-branch{border:2px solid #dce5fa;border-radius:20px;background:#fcfdff;padding:17px;min-width:0}
+.skill-branch-header{display:flex;align-items:center;gap:12px}
+.skill-branch-icon{font-size:2.1rem;flex-shrink:0}
+.skill-branch h3{margin:0 0 3px;color:#3b5085;font-size:1.04rem}
+.skill-branch-header p{color:#6b7fa7;font-size:.8rem;font-weight:750;margin:0}
+.skill-path{display:flex;align-items:center;justify-content:space-between;gap:0;margin:20px 0 12px}
+.skill-node{border-radius:13px;min-width:39px;min-height:58px;padding:7px 4px;
+  border:2px solid #d6e0f1;background:#eff2f7;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:3px;flex-shrink:0}
+.skill-node.unlocked{background:#fff5d5;border-color:#f2d27c;color:#785220}
+.skill-node.current{outline:3px solid #8ccde8;outline-offset:2px}
+.skill-level{font-size:1.1rem;line-height:1}
+.skill-node small{font-size:.67rem;font-weight:900}
+.skill-connector{flex:1;height:5px;background:#dae3ef;min-width:3px}
+.skill-connector.unlocked{background:#f4cb6e}
+.skill-progress-copy{font-weight:900;color:#536b99;margin:0;font-size:.86rem}
+.growth-page button:focus-visible{outline:4px solid #f5b840;outline-offset:3px}
+@media(max-width:700px){
+  .skill-tree-grid{grid-template-columns:1fr}
+  .growth-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .growth-page{padding:15px;margin-top:12px}
+  .skill-filters{flex-wrap:nowrap;overflow-x:auto;padding-bottom:7px}
+  .skill-category{flex-shrink:0}
+}
+@media(max-width:390px){
+  .growth-shortcuts button{padding:13px 9px;gap:4px;flex-direction:column;text-align:center}
+  .growth-shortcuts button strong{font-size:.95rem}
+  .growth-shortcuts button small{font-size:.72rem}
+  .history-day{min-width:31px}
+  .skill-branch{padding:11px}
+  .skill-node{min-width:34px;min-height:54px;padding:5px 2px}
+}
+@media(prefers-reduced-motion:reduce){.growth-page *{transition:none!important}}
+
+/* Only unlocked nodes are interactive; keyboard focus and touch targets remain visible. */
+button.skill-node{font:inherit;color:#785220;cursor:pointer;min-width:44px;min-height:62px}
+button.skill-node:active{transform:translateY(2px)}
+.skill-node.locked{opacity:.68}
+@media(max-width:390px){button.skill-node{min-width:40px}}
+
+.today-games{display:flex;flex-wrap:wrap;gap:9px;margin:13px 0 4px}
+.today-game{border:2px solid #d4e3f8;background:#f5faff;color:#435c91;border-radius:999px;
+ padding:7px 13px;font-size:.89rem;font-weight:900;line-height:1.4}

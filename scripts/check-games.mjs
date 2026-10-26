@@ -8,16 +8,18 @@ import ts from 'typescript';
 
 // Transpile each dependency to a temporary ESM module: no extra runtime or test framework.
 const temp = mkdtempSync(join(tmpdir(), 'kids-learning-test-'));
-for (const moduleName of ['engine', 'activity-content', 'activity-ui']) {
+for (const moduleName of ['engine', 'activity-content', 'activity-ui', 'progression', 'progress-ui']) {
   const source = readFileSync(new URL('../src/' + moduleName + '.ts', import.meta.url), 'utf8');
   const js = ts.transpileModule(source, {
     compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.ESNext }
-  }).outputText.replaceAll("from './activity-content'", "from './activity-content.mjs'");
+  }).outputText.replace(/from '\.\/(activity-content|engine|progression)'/g, "from './$1.mjs'");
   writeFileSync(join(temp, moduleName + '.mjs'), js);
 }
 const engine = await import(pathToFileURL(join(temp, 'engine.mjs')).href);
 const activity = await import(pathToFileURL(join(temp, 'activity-content.mjs')).href);
 const activityUi = await import(pathToFileURL(join(temp, 'activity-ui.mjs')).href);
+const progress = await import(pathToFileURL(join(temp, 'progression.mjs')).href);
+const progressUi = await import(pathToFileURL(join(temp, 'progress-ui.mjs')).href);
 const now = Date.UTC(2026, 9, 26);
 
 assert.equal(engine.GAMES.length, 19);
@@ -246,5 +248,71 @@ const restResult = activityUi.activityClick(moveQ, activityUi.newActivityState(m
 assert.equal(restResult.kind, 'submit');
 assert.equal(restResult.skipped, true);
 console.log('PASS: tracing alternative, number block input, letter construction, seated movement and rest');
+
+
+// V2.6 daily records never retroactively fabricate dates for an old V2.5 save.
+const legacySave = engine.freshSave();
+delete legacySave.daily;
+const migrated = progress.readDaily(legacySave.daily);
+assert.deepEqual({ ...migrated }, {});
+const personOne = engine.freshSave(), personTwo = engine.freshSave();
+const localDay = new Date(2026, 9, 26, 23, 50);
+assert.equal(progress.dayKey(localDay), '2026-10-26');
+assert.equal(progress.dayKey(new Date(2026, 9, 27, 0, 5)), '2026-10-27');
+progress.recordDaily(personOne, localDay, 'add', 'mistake');
+progress.recordDaily(personOne, localDay, 'add', 'supported', 5);
+progress.recordDaily(personOne, localDay, 'train', 'independent', 10);
+progress.recordDaily(personOne, localDay, 'trace', 'practice', 5);
+progress.recordDaily(personOne, localDay, 'move', 'rest');
+progress.recordDaily(personOne, localDay, 'train', 'clear');
+const day = personOne.daily['2026-10-26'];
+assert.equal(day.answered, 4);
+assert.equal(day.independent, 1);
+assert.equal(day.supported, 1);
+assert.equal(day.practiced, 1);
+assert.equal(day.rested, 1);
+assert.equal(day.mistakes, 1);
+assert.equal(day.xp, 20);
+assert.equal(day.clears, 1);
+assert.equal(day.games.train, 1);
+assert.equal(personTwo.daily['2026-10-26'], undefined, 'profiles must not leak activity');
+const roundTrip = progress.readDaily(JSON.parse(JSON.stringify(personOne.daily)));
+assert.deepEqual(roundTrip['2026-10-26'], day);
+assert.deepEqual({ ...progress.readDaily({ '2026-02-30': { answered: 9 } }) }, {});
+const poisoned = progress.readDaily({
+  '2026-10-26': { answered: 'hacked', independent: -5, xp: Infinity, clears: 2.2,
+    games: { add: 3, hiddenGame: 5000 } }
+});
+assert.equal(poisoned['2026-10-26'].answered, 0);
+assert.equal(poisoned['2026-10-26'].independent, 0);
+assert.equal(poisoned['2026-10-26'].xp, 0);
+assert.equal(poisoned['2026-10-26'].clears, 0);
+assert.equal(poisoned['2026-10-26'].games.hiddenGame, undefined);
+assert.equal(progress.recentDays(personOne.daily, new Date(2026, 9, 26), 14).length, 14);
+const last7 = progress.recentSummary(personOne.daily, new Date(2026, 9, 26));
+assert.equal(last7.questions, 4);
+assert.equal(last7.xp, 20);
+assert.equal(last7.days, 1);
+assert.equal(progress.skillSummary(personOne).total, engine.GAMES.length * engine.MAX_LEVEL);
+personOne.completed['add'] = 3; // Level 2, 1/2 until next unlock
+assert.equal(progress.skillNodes('add', personOne.completed)[0].opened, true);
+assert.equal(progress.skillNodes('add', personOne.completed)[1].opened, true);
+assert.equal(progress.skillNodes('add', personOne.completed)[2].opened, false);
+assert.equal(progress.skillNodes('add', personOne.completed)[2].requiredClears, 4);
+const renderedStatus = progressUi.statusHtml(personOne, 'きつね', new Date(2026, 9, 26));
+assert(renderedStatus.includes('まいにちの きろく'));
+assert(renderedStatus.includes('2026/10/26'));
+const renderedSkills = progressUi.skillTreeHtml(personOne, 'きつね', 'math');
+assert(renderedSkills.includes('たしざんロケット'));
+assert(!renderedSkills.includes('ことばトレジャー'));
+assert(renderedSkills.includes('LV5'));
+assert(renderedSkills.includes('つぎの レベルまで'));
+assert(renderedSkills.includes('data-skill-play="add" data-level="1"'), 'unlocked level must be playable');
+assert(renderedSkills.includes('data-skill-play="add" data-level="2"'), 'second level must be playable');
+assert(!renderedSkills.includes('data-skill-play="add" data-level="3"'), 'locked level must remain inaccessible');
+assert(renderedSkills.includes('skill-node locked'), 'locked branches must stay visibly locked');
+assert(!renderedSkills.includes('data-skill-play="words"'), 'category filter must hide unrelated games');
+console.log('PASS: V2.6 per-profile calendar records, migrations, stats charts and unlock-based skill tree');
+
 rmSync(temp, { recursive: true, force: true });
 

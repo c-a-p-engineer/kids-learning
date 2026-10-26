@@ -3,7 +3,7 @@
 **年長向けの学習ゲーム19本を新規制作しました。** 数・言葉・図形・記憶・時計に加え、指なぞり・数ブロック・文字をつなぐ・体を動かす遊びを5問完結で学びます。
 
 - V2.5操作型ゲームプレビュー: https://c-a-p-engineer.github.io/kids-learning/feat-interactive-play-20261026/
-- 本番サイト（V2.4）: https://c-a-p-engineer.github.io/kids-learning/ 
+- 本番サイト（V2.5）: https://c-a-p-engineer.github.io/kids-learning/ 
 - V1旧版の全ソース: https://github.com/c-a-p-engineer/kids-learning/tree/archive/pre-dopagaki-20261026
 
 ## ゲーム
@@ -99,3 +99,13 @@ npm run typecheck
 運動・なぞりは能力の採点や医療的な療育効果を測るものではなく練習として記録し、学力定着の正答率に混ぜません。軌跡や映像は保存・送信しません。カメラ・マイクも使用しません。座ってできる動作と休む選択肢があります。
 
 [操作型4ゲームの仕様と安全上の制約](docs/renewal-2026/05-hands-on-games.md)。
+
+## V2.6: スキルツリー・ステータス・毎日の学習記録
+
+- ホームの「📊 ステータス」「🌳 スキルツリー」から移動できます。
+- 19ゲーム×5段階のスキルを一覧化。解放済みノードから好きなレベルを直接プレイ可能（未解放のレベルは選べない）。
+- ステータス: 累計XP、5問クエスト完了数、解放数、復習待ち、今日の取り組み、7日間の学習集計、14日グラフ、30日分の学習履歴。
+- 日別記録はV2.6以降の独力正答/ヒント後正答/なぞり・身体の練習/休憩/ミス/XP/クリアを匿名4キャラ別に保存。以前の日付を推測して補完はしません。
+- 既存のV2 save schema=2、V1記録は変更せず、同じ端末にのみ保存。保護者画面からの2段階リセットでは新しい日別履歴も対象になります。
+- 実装は `src/progression.ts`（純粋ロジック）、`src/progress-ui.ts`（画面）、`src/progress.css`（デザイン）に分離。
+- [V2.6の正式仕様](docs/renewal-2026/06-skill-tree-daily-records.md)。
