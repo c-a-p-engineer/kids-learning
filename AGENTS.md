@@ -1,10 +1,10 @@
 # AGENTS.md — KIDS LEARNING V2
 
 ## 目標
-年長向けの学習ゲーム10本。5問完結・自分で選べる・失敗から学べる。スマホ縦・タブレット・音なし・キーボード操作を維持する。
+年長向けの学習ゲーム15本。5問完結・自分で選べる・失敗から学べる。スマホ縦・タブレット・音なし・キーボード操作を維持する。
 
 ## 正本と退避
-- 現行V2: src/engine.ts、src/quest-main.ts、src/game.css、src/index.html
+- 現行V2: src/engine.ts、src/quest-main.ts、src/game-audio.ts、src/reward-effects.ts、src/game.css、src/index.html
 - 現行ドキュメント: docs/ゲーム仕様V2.md、docs/architecture.md
 - 旧11ゲームのソースと旧ルール: archive/pre-dopagaki-20261026
 - 旧版ドキュメント: docs/legacy/ （旧版ブランチにも存在）
