@@ -38,6 +38,9 @@ export function statusHtml(save: LearningSave, profileName: string, now: Date): 
   const thirty = recentDays(save.daily, now, 30).reverse();
   const max = Math.max(1, ...fourteen.map(x => x.log.answered));
   const today = fourteen[13];
+  const todayGames = GAMES.filter(g => today.log.games[g.id]).map(g =>
+    '<span class="today-game">' + g.icon + ' ' + escape(g.title) + ' ×' + today.log.games[g.id] +
+    '</span>').join('');
   const due = GAMES.reduce((n, g) => n + countDue(g.id, save, now.getTime()), 0);
   const skills = skillSummary(save);
   const bars = fourteen.map((day, index) => {
@@ -53,7 +56,9 @@ export function statusHtml(save: LearningSave, profileName: string, now: Date): 
   const rows = thirty.filter(day => day.log.answered || day.log.clears || day.log.mistakes).map(({ key, log }) =>
     '<tr><th scope="row">' + friendlyDay(key) + '</th><td>' + log.answered +
     '</td><td>' + log.independent + '</td><td>' + log.practiced +
-    '</td><td>' + log.clears + '</td><td>' + log.xp + '</td></tr>').join('');
+    '</td><td>' + log.clears + '</td><td>' + log.xp + '</td><td>' +
+    (GAMES.filter(g => log.games[g.id]).map(g => g.icon + ' ' + escape(g.title)).join('・') || '—') +
+    '</td></tr>').join('');
   return '<section class="growth-page"><button type="button" class="growth-back" data-action="home">← ホームへ</button>' +
     '<h1>📊 ' + escape(profileName) + 'の ステータス</h1>' +
     '<p class="growth-lead">がんばったことを たしかめよう。くらべるのは きのうの じぶん。</p>' +
@@ -66,6 +71,8 @@ export function statusHtml(save: LearningSave, profileName: string, now: Date): 
     stat(today.log.independent, 'ひとりで せいかい') +
     stat(today.log.practiced, 'からだ・なぞり') +
     stat(today.log.clears, 'クリア') + '</div>' +
+    '<div class="today-games" aria-label="きょうクリアしたゲーム">' +
+    (todayGames || '<span class="growth-help">まだ クリアきろくは ないよ。</span>') + '</div>' +
     '<h2>この 7にちかん</h2><div class="growth-stats">' +
     stat(seven.days + '/7', 'あそんだ ひ') +
     stat(seven.questions, 'とりくんだ かず') +
@@ -73,8 +80,8 @@ export function statusHtml(save: LearningSave, profileName: string, now: Date): 
     '</div><h2>まいにちの きろく</h2><p class="growth-help">さいきん14にちかん。ぼうグラフは こたえた・やってみた かず。</p>' +
     '<div class="history-chart" role="img" aria-label="最近14日間の学習数">' + bars + '</div>' +
     '<h2>さいきん30にちの きろく</h2><div class="daily-table-wrap"><table class="daily-table">' +
-    '<thead><tr><th>ひづけ</th><th>とりくみ</th><th>ひとりで</th><th>れんしゅう</th><th>クリア</th><th>XP</th></tr></thead>' +
-    '<tbody>' + (rows || '<tr><td colspan="6">まだ きろくが ないよ。クエストから はじめよう！</td></tr>') +
+    '<thead><tr><th>ひづけ</th><th>とりくみ</th><th>ひとりで</th><th>れんしゅう</th><th>クリア</th><th>XP</th><th>ゲーム</th></tr></thead>' +
+    '<tbody>' + (rows || '<tr><td colspan="7">まだ きろくが ないよ。クエストから はじめよう！</td></tr>') +
     '</tbody></table></div>' +
     '<p class="growth-note">※ この日別きろくは V2.6 からの分だけ。以前のXP・クリアは合計に残りますが、日付を後から推測しません。' +
     'きろくはこの端末の、選んだキャラだけ。なぞりや運動の完了は学力の正答とは別です。</p></section>';
