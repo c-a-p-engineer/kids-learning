@@ -8,11 +8,11 @@ import ts from 'typescript';
 
 // Transpile each dependency to a temporary ESM module: no extra runtime or test framework.
 const temp = mkdtempSync(join(tmpdir(), 'kids-learning-test-'));
-for (const moduleName of ['engine', 'activity-content', 'activity-ui', 'progression', 'progress-ui']) {
+for (const moduleName of ['engine', 'activity-content', 'activity-ui', 'progression', 'progress-ui', 'touch-content', 'touch-ui', 'storage']) {
   const source = readFileSync(new URL('../src/' + moduleName + '.ts', import.meta.url), 'utf8');
   const js = ts.transpileModule(source, {
     compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.ESNext }
-  }).outputText.replace(/from '\.\/(activity-content|engine|progression)'/g, "from './$1.mjs'");
+  }).outputText.replace(/from '\.\/(activity-content|engine|progression|touch-content)'/g, "from './$1.mjs'");
   writeFileSync(join(temp, moduleName + '.mjs'), js);
 }
 const engine = await import(pathToFileURL(join(temp, 'engine.mjs')).href);
@@ -20,9 +20,12 @@ const activity = await import(pathToFileURL(join(temp, 'activity-content.mjs')).
 const activityUi = await import(pathToFileURL(join(temp, 'activity-ui.mjs')).href);
 const progress = await import(pathToFileURL(join(temp, 'progression.mjs')).href);
 const progressUi = await import(pathToFileURL(join(temp, 'progress-ui.mjs')).href);
+const touch = await import(pathToFileURL(join(temp, 'touch-content.mjs')).href);
+const touchUi = await import(pathToFileURL(join(temp, 'touch-ui.mjs')).href);
+const storage = await import(pathToFileURL(join(temp, 'storage.mjs')).href);
 const now = Date.UTC(2026, 9, 26);
 
-assert.equal(engine.GAMES.length, 19);
+assert.equal(engine.GAMES.length, 22);
 // Audio settings are stored in the existing V2 profile object, never legacy keys.
 const defaults = engine.freshSave();
 assert.equal(defaults.schema, 2);
@@ -137,7 +140,7 @@ for (let c = 0; c <= 15; c++) {
   assert.equal(p.target, 2);
   if (!p.maxed) assert.equal(p.current, c % 2);
 }
-// All 19 games must generate five distinct items with a correct option at levels 2–5.
+// All 22 games must generate five distinct items with a correct option at levels 2–5.
 let advancedQuestions = 0;
 for (const game of engine.GAMES) {
   for (let level = 2; level <= 5; level++) {
@@ -181,7 +184,7 @@ for (const game of engine.GAMES) {
 }
 console.log('PASS: advanced levels ' + advancedQuestions + ' questions and earned unlock gates');
 
-console.log('PASS: 19 games × 80 cases, answer validity, arithmetic, finite rounds, recall scheduler');
+console.log('PASS: 22 games × 80 cases, answer validity, arithmetic, finite rounds, recall scheduler');
 
 /** Non-choice input regression tests: do not fall back to 3 answer buttons. */
 for (const gameId of ['trace', 'blocks', 'train', 'move']) {
@@ -313,6 +316,65 @@ assert(!renderedSkills.includes('data-skill-play="add" data-level="3"'), 'locked
 assert(renderedSkills.includes('skill-node locked'), 'locked branches must stay visibly locked');
 assert(!renderedSkills.includes('data-skill-play="words"'), 'category filter must hide unrelated games');
 console.log('PASS: V2.6 per-profile calendar records, migrations, stats charts and unlock-based skill tree');
+
+
+// Direct number-tap comparison: answer is the winning side; always two distinct numbers.
+for (let level = 1; level <= 5; level++) for (let i = 0; i < 80; i++) {
+  const q = engine.makeQuestion('compare', i, level);
+  assert.notEqual(q.visual.a, q.visual.b);
+  assert.equal(q.answer, q.visual.a > q.visual.b ? 'ひだり' : 'みぎ');
+  assert.deepEqual(q.choices, ['ひだり', 'みぎ']);
+  assert(engine.evaluate(q, q.answer));
+}
+for (let level = 1; level <= 5; level++) for (let i = 0; i < 80; i++) {
+  const link = engine.makeQuestion('connect', i, level);
+  const state = touchUi.freshTouch();
+  let last;
+  for (let n = 1; n <= link.visual.a; n++) last = touchUi.touchClick(link, state, 'connect', n);
+  assert.equal(last.finished, true);
+  assert.equal(last.value, link.answer);
+  const maze = engine.makeQuestion('maze', i, level);
+  const path = maze.visual.numbers;
+  const size = maze.visual.a;
+  assert(new Set(path).size === path.length);
+  for (let step = 1; step < path.length; step++) {
+    const a = path[step - 1], b = path[step];
+    assert.equal(Math.abs(Math.floor(a / size) - Math.floor(b / size)) +
+      Math.abs(a % size - b % size), 1, maze.id + ': unreachable');
+  }
+  const mazeState = touchUi.freshTouch();
+  let finished;
+  for (let n = 1; n < path.length; n++) finished = touchUi.touchClick(maze, mazeState, 'maze', path[n]);
+  assert.equal(finished.finished, true, maze.id);
+  const time = engine.makeQuestion('clockhands', i, level);
+  const clock = touchUi.freshTouch();
+  while (clock.hour !== time.visual.hour) touchUi.touchClick(time, clock, 'hour-plus');
+  while (clock.minute !== time.visual.minute) touchUi.touchClick(time, clock, 'minute-plus');
+  const checked = touchUi.touchClick(time, clock, 'clock-check');
+  assert.equal(checked.finished, true);
+}
+const saved = engine.freshSave();
+saved.xp = 123; saved.completed.add = 5;
+const memory = new Map();
+const store = { getItem: key => memory.get(key) ?? null, setItem: (key, val) => memory.set(key, val) };
+storage.persistSlot(store, 2, saved);
+assert.equal(storage.loadSlot(store, 2).xp, 123);
+assert.equal(storage.loadSlot(store, 1).xp, 0);
+const payload = storage.backupText(2, saved);
+const read = storage.parseBackup(payload, 2);
+assert.equal(read.data.xp, 123);
+assert.equal(storage.backupDelta(engine.freshSave(), read.data).xp[1], 123);
+assert.throws(() => storage.parseBackup(payload, 1));
+assert.throws(() => storage.parseBackup('oops', 2));
+assert.throws(() => storage.parseBackup('x'.repeat(4 * 1024 * 1024), 2));
+assert.throws(() => storage.parseBackup(JSON.stringify({ exportedAt: '2026-10-26T00:00:00Z', slot: 2, data: { schema: 1 } }), 2));
+const blocked = { setItem: () => { throw new Error('QuotaExceededError'); } };
+assert.throws(() => storage.persistSlot(blocked, 2, saved));
+assert.equal(storage.loadSlot(store, 2).xp, 123, 'failed write must not overwrite existing save');
+const sanitized = storage.normalizeSave({ ...saved, xp: 'not a number', daily: { '2026-10-26': { answered: 3 } } });
+assert.equal(sanitized.xp, 0);
+assert.equal(sanitized.daily['2026-10-26'].answered, 3);
+console.log('PASS: direct comparison, 3 tap-only activities, 1200 new input simulations, safe per-profile backups');
 
 rmSync(temp, { recursive: true, force: true });
 
