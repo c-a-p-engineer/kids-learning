@@ -612,8 +612,8 @@ console.log('PASS: immutable persistence candidates protect XP, daily logs, unlo
 
 // Optional tactile feedback: disabled or unsupported devices are strictly no-op.
 assert.equal(engine.freshSave().settings.haptics, true);
-const migrated = storage.normalizeSave({ schema: 2, settings: { sound: true, bgm: true } });
-assert.equal(migrated.settings.haptics, true, 'existing V2 records must keep working');
+const migratedHaptics = storage.normalizeSave({ schema: 2, settings: { sound: true, bgm: true } });
+assert.equal(migratedHaptics.settings.haptics, true, 'existing V2 records must keep working');
 assert.equal(storage.normalizeSave({
   schema: 2, settings: { haptics: false }
 }).settings.haptics, false, 'haptic preference must persist after reload');
