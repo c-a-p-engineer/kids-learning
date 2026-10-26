@@ -1,7 +1,7 @@
 import './game.css';
 import { gameAudio } from './game-audio';
 import { burst, dismissEffects } from './reward-effects';
-import { GAMES, STORAGE_KEY, chooseRound, countDue, evaluate, freshSave, isGameId, nextReview } from './engine';
+import { GAMES, STORAGE_KEY, clampVolume, chooseRound, countDue, evaluate, freshSave, isGameId, nextReview } from './engine';
 import type { GameId, LearningSave, Question, Visual } from './engine';
 
 const app = document.getElementById('app');
@@ -21,17 +21,19 @@ interface Session {
   feedback: string;
   committed: Set<string>;
 }
-let page: 'home' | 'game' | 'result' | 'parent' = 'home';
+type AppPage = 'home' | 'game' | 'result' | 'parent' | 'options';
+let page: AppPage = 'home';
+let beforeOptions: Exclude<AppPage, 'options'> = 'home';
 let session: Session | null = null;
 let slot = getSlot();
 let storageWarning = '';
 let save = loadSave();
 const HOME_TITLE = 'まなびクエスト';
 const PROFILES = [
-  { id: 1, name: 'ほしのこ', icon: '🦊', color: '#ffe3a2' },
-  { id: 2, name: 'にじのこ', icon: '🐰', color: '#f8d9f5' },
-  { id: 3, name: 'そらのこ', icon: '🐻', color: '#d8e6ff' },
-  { id: 4, name: 'はなのこ', icon: '🐼', color: '#d8f5df' }
+  { id: 1, name: 'きつね', icon: '🦊', color: '#ffe3a2' },
+  { id: 2, name: 'うさぎ', icon: '🐰', color: '#f8d9f5' },
+  { id: 3, name: 'くま', icon: '🐻', color: '#d8e6ff' },
+  { id: 4, name: 'ぱんだ', icon: '🐼', color: '#d8f5df' }
 ] as const;
 const activeProfile = () => PROFILES.find(p => p.id === slot)!;
 const safe = (s: string): string => s.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] || char);
@@ -64,6 +66,8 @@ function loadSave(): LearningSave {
       data.settings.quiet = obj.settings.quiet === true;
       data.settings.sound = typeof obj.settings.sound === 'boolean' ? obj.settings.sound : true;
       data.settings.bgm = obj.settings.bgm !== false;
+      data.settings.bgmVolume = clampVolume(obj.settings.bgmVolume, 75);
+      data.settings.seVolume = clampVolume(obj.settings.seVolume, 65);
     }
     if (obj.reviews && typeof obj.reviews === 'object') {
       for (const [key, value] of Object.entries(obj.reviews)) {
@@ -110,7 +114,7 @@ function setSlot(next: number): void {
   slot = next;
   try { localStorage.setItem('kids_learning_active_slot_v2', String(slot)); } catch { /* in-memory only */ }
   save = loadSave();
-  gameAudio.configure(save.settings.sound, save.settings.bgm);
+  gameAudio.configure(save.settings.sound, save.settings.bgm, save.settings.seVolume, save.settings.bgmVolume);
   session = null;
   page = 'home';
   render();
@@ -120,15 +124,11 @@ function layout(body: string, parent = false): string {
     '<header class="topbar"><button type="button" class="brand" data-action="home" aria-label="ホームへ もどる">' +
     '<span class="brand-icon">⭐</span><span>' + HOME_TITLE + '</span></button>' +
     '<div class="top-actions"><span class="pill level-pill" aria-label="けいけんち">✨ ' + save.xp + ' XP</span>' +
-    '<button type="button" class="icon-btn music-toggle" data-action="bgm" aria-label="BGMをきりかえる" aria-pressed="' + save.settings.bgm + '" title="BGM">' +
-    (save.settings.bgm ? '🎵' : '🎼') + '</button>' +
-    '<button type="button" class="icon-btn" data-action="quiet" aria-pressed="' + save.settings.quiet + '" title="えんしゅつを きりかえ">' +
-    (save.settings.quiet ? '🌙' : '🌟') + '</button>' +
-    '<button type="button" class="icon-btn" data-action="sound" aria-pressed="' + save.settings.sound + '" title="こうかおん" aria-label="こうかおんをきりかえる">' +
-    (save.settings.sound ? '🔊' : '🔇') + '</button></div></header>' +
+    '<button type="button" class="icon-btn settings-open" data-action="options" aria-label="おと と えんしゅつの せってい" title="オプション">' +
+    '⚙️</button></div></header>' +
     '<main id="main-content">' + (storageWarning ? '<div class="warning" role="status">' + safe(storageWarning) + '</div>' : '') + body + '</main>' +
     '<footer class="footer"><span>広告なし・アカウントなし・きろくは このたんまつ</span>' +
-    '<button type="button" data-action="' + (parent ? 'home' : 'parent') + '">' + (parent ? 'あそびに もどる' : '⚙ ほごしゃ') + '</button></footer></div>';
+    '<button type="button" data-action="' + (parent ? 'home' : 'parent') + '">' + (parent ? 'あそびに もどる' : '👪 ほごしゃ') + '</button></footer></div>';
 }
 function homeHtml(): string {
   const due = GAMES.reduce((n, game) => n + countDue(game.id, save, Date.now()), 0);
@@ -151,7 +151,7 @@ function homeHtml(): string {
     '<p>15この ぼうけん！ こたえて、ひらめいて、<strong>できた！</strong>を あつめよう。</p>' +
     '<div class="hero-stats"><span>🏆 ' + save.sessions + 'かいクリア</span><span>✨ ' + save.xp + ' XP</span>' +
     (due ? '<span>🔁 ふくしゅう ' + due + 'こ</span>' : '<span>🌈 きょうも いっぽ！</span>') + '</div></div>' +
-    '<div class="hero-mascot" aria-hidden="true">🦊<span>⭐</span></div></section>' +
+    '<div class="hero-mascot" aria-hidden="true">' + activeProfile().icon + '<span>⭐</span></div></section>' +
     '<section class="select-profile" aria-label="ぼうけんの なかまを えらぶ"><strong>ぼうけんの なかまを えらぼう！</strong><div class="profile-row">' +
     profiles + '</div></section>' +
     '<section class="quests"><div class="section-header"><h2>クエストを えらぼう</h2><p>すきなものから はじめていいよ！</p></div>' +
@@ -216,9 +216,10 @@ function gameHtml(): string {
   const memoryPreview = q.visual.kind === 'memory' && session.phase === 'preview';
   const solved = session.phase === 'solved';
   const options = memoryPreview ? '<button type="button" class="primary-btn" data-action="remember">おぼえた！ こたえる ➜</button>' :
-    '<div class="answer-grid">' + q.choices.map((choice, i) => '<button type="button" class="answer-btn" data-answer="' + safe(choice) +
-      '"' + (solved ? ' disabled' : '') + '><span class="answer-letter">' + (i + 1) + '</span><span>' +
-      safe(choice) + '</span></button>').join('') + '</div>';
+    '<div class="answer-instruction">こたえを ひとつ えらんでね</div><div class="answer-grid">' +
+    q.choices.map(choice => '<button type="button" class="answer-btn" aria-label="こたえ ' + safe(choice) +
+      '" data-answer="' + safe(choice) + '"' + (solved ? ' disabled' : '') +
+      '><span class="answer-choice">' + safe(choice) + '</span></button>').join('') + '</div>';
   const hint = !memoryPreview && !solved ? '<button type="button" class="hint-btn" data-action="hint">💡 ヒントを みる</button>' : '';
   const feedback = session.feedback ? '<div class="feedback ' + (solved ? 'feedback-good' : 'feedback-try') +
     '" role="status">' + safe(session.feedback) + '</div>' : '';
@@ -249,6 +250,36 @@ function resultHtml(): string {
     '<button type="button" class="primary-btn" data-action="home">ほかの クエストへ ➜</button>' +
     '<button type="button" class="secondary-btn" data-action="replay">もういちど あそぶ</button></section>');
 }
+function optionsHtml(): string {
+  const settings = save.settings;
+  return layout('<section class="options-panel">' +
+    '<p class="eyebrow">SETTINGS</p><h1>⚙️ おと と えんしゅつ</h1>' +
+    '<p class="options-lead">すきな おおきさに してね。おんがく と こうかおんは べつべつに かえられるよ。</p>' +
+    '<div class="options-group"><div class="options-heading"><div><strong>🎵 BGM（おんがく）</strong>' +
+    '<small>ゲームの あいだに ながれる おんがく</small></div>' +
+    '<button type="button" class="toggle-btn" data-action="bgm" aria-pressed="' + settings.bgm +
+    '">' + (settings.bgm ? 'ON 🔊' : 'OFF 🔇') + '</button></div>' +
+    '<div class="volume-heading"><label for="bgm-volume">BGMの おおきさ</label><output id="bgm-output" for="bgm-volume">' + settings.bgmVolume + '%</output></div>' +
+    '<input type="range" class="volume-slider" id="bgm-volume" data-volume="bgm" min="0" max="100" step="5" value="' +
+    settings.bgmVolume + '" aria-label="BGMの おおきさ" />' +
+    '<div class="volume-ends"><span>ちいさい</span><span>おおきい</span></div></div>' +
+    '<div class="options-group"><div class="options-heading"><div><strong>✨ SE（こうかおん）</strong>' +
+    '<small>せいかい・タップ・クリアの おと</small></div>' +
+    '<button type="button" class="toggle-btn" data-action="sound" aria-pressed="' + settings.sound +
+    '">' + (settings.sound ? 'ON 🔊' : 'OFF 🔇') + '</button></div>' +
+    '<div class="volume-heading"><label for="se-volume">こうかおんの おおきさ</label><output id="se-output" for="se-volume">' + settings.seVolume + '%</output></div>' +
+    '<input type="range" class="volume-slider" id="se-volume" data-volume="se" min="0" max="100" step="5" value="' +
+    settings.seVolume + '" aria-label="こうかおんの おおきさ" />' +
+    '<div class="volume-ends"><span>ちいさい</span><span>おおきい</span></div>' +
+    '<button type="button" class="sample-sound" data-action="test-se">🔔 こうかおんを ためす</button></div>' +
+    '<div class="options-group"><div class="options-heading"><div><strong>🌟 ひかる えんしゅつ</strong>' +
+    '<small>キラキラ・かみふぶきを へらせるよ</small></div>' +
+    '<button type="button" class="toggle-btn" data-action="quiet" aria-pressed="' + !settings.quiet +
+    '">' + (settings.quiet ? 'OFF 🌙' : 'ON ✨') + '</button></div></div>' +
+    '<p class="options-footnote">おとが でないときは、たんまつの おんりょう・マナーモードも かくにんしてね。</p>' +
+    '<button type="button" class="primary-btn options-back" data-action="back-options">← ゲームに もどる</button>' +
+    '</section>');
+}
 function parentHtml(): string {
   const due = GAMES.reduce((n, game) => n + countDue(game.id, save, Date.now()), 0);
   const mastered = Object.values(save.reviews).filter(r => r.stage >= 1 && r.correct).length;
@@ -271,6 +302,7 @@ function render(): void {
   if (page === 'game') app.innerHTML = gameHtml();
   else if (page === 'result') app.innerHTML = resultHtml();
   else if (page === 'parent') app.innerHTML = parentHtml();
+  else if (page === 'options') app.innerHTML = optionsHtml();
   else app.innerHTML = homeHtml();
   document.body.classList.toggle('quiet-mode', save.settings.quiet);
   gameAudio.setScene(page);
@@ -371,7 +403,20 @@ function exportSave(): void {
   document.body.appendChild(a); a.click(); a.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-gameAudio.configure(save.settings.sound, save.settings.bgm);
+gameAudio.configure(save.settings.sound, save.settings.bgm, save.settings.seVolume, save.settings.bgmVolume);
+app.addEventListener('input', event => {
+  const target = event.target;
+  if (!(target instanceof HTMLInputElement)) return;
+  const type = target.dataset.volume;
+  if (page !== 'options' || (type !== 'bgm' && type !== 'se')) return;
+  const value = clampVolume(Number(target.value), type === 'bgm' ? 75 : 65);
+  if (type === 'bgm') save.settings.bgmVolume = value;
+  else save.settings.seVolume = value;
+  gameAudio.configure(save.settings.sound, save.settings.bgm, save.settings.seVolume, save.settings.bgmVolume);
+  const output = document.getElementById(type + '-output');
+  if (output) output.textContent = value + '%';
+  saveNow();
+});
 app.addEventListener('click', event => {
   const target = event.target;
   if (!(target instanceof Element)) return;
@@ -385,14 +430,17 @@ app.addEventListener('click', event => {
   const action = target.closest<HTMLElement>('[data-action]')?.dataset.action;
   if (action === 'home') { window.speechSynthesis?.cancel(); dismissEffects(); page = 'home'; session = null; render(); }
   else if (action === 'parent') { dismissEffects(); page = 'parent'; session = null; render(); }
+  else if (action === 'options') { dismissEffects(); beforeOptions = page === 'options' ? 'home' : page; page = 'options'; render(); }
+  else if (action === 'back-options') { page = beforeOptions; render(); }
   else if (action === 'replay' && session) startGame(session.gameId);
   else if (action === 'next') next();
   else if (action === 'hint') hint();
   else if (action === 'remember' && session?.phase === 'preview') { session.phase = 'answer'; render(); }
   else if (action === 'speak') speak();
   else if (action === 'quiet') { save.settings.quiet = !save.settings.quiet; dismissEffects(); saveNow(); render(); }
-  else if (action === 'sound') { save.settings.sound = !save.settings.sound; gameAudio.configure(save.settings.sound, save.settings.bgm); saveNow(); render(); }
-  else if (action === 'bgm') { save.settings.bgm = !save.settings.bgm; gameAudio.configure(save.settings.sound, save.settings.bgm); saveNow(); render(); }
+  else if (action === 'sound') { save.settings.sound = !save.settings.sound; gameAudio.configure(save.settings.sound, save.settings.bgm, save.settings.seVolume, save.settings.bgmVolume); saveNow(); render(); }
+  else if (action === 'bgm') { save.settings.bgm = !save.settings.bgm; gameAudio.configure(save.settings.sound, save.settings.bgm, save.settings.seVolume, save.settings.bgmVolume); saveNow(); render(); }
+  else if (action === 'test-se') gameAudio.effect('correct');
   else if (action === 'export') exportSave();
 });
 render();
