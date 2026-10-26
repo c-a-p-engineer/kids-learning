@@ -300,9 +300,13 @@ function gameHtml(): string {
     (memoryPreview ? '<p class="memory-note">じかんは きにしなくて いいよ。おぼえたら ボタンを おしてね。</p>' : '') +
     '<button type="button" class="read-btn" data-action="speak">🔊 もんだいを きく</button>' +
     '<div class="answers">' + options + '</div>' + feedback + hint +
-    (solved ? '<div class="auto-next" role="status">✨ じどうで つぎへ すすむよ…</div>' +
+    (solved ? '<div class="auto-next" role="status">' +
+      (storageWarning.startsWith('ほぞんできません') ? '⚠️ きろくが ほぞんされていないよ' :
+        '✨ じどうで つぎへ すすむよ…') + '</div>' +
       '<button type="button" class="primary-btn next-btn" data-action="next">' +
-      (number === session.deck.length ? '🎉 けっかを みる' : 'つぎの もんだい ➜') + '</button>' : '') +
+      (storageWarning.startsWith('ほぞんできません') ? '🔄 もういちど ほぞんする' :
+        number === session.deck.length ? '🎉 けっかを みる' : 'つぎの もんだい ➜') +
+      '</button>' : '') +
     '</section><p class="play-note">まちがえても だいじょうぶ。なんかいでも かんがえられるよ。</p>');
 }
 function resultHtml(): string {
