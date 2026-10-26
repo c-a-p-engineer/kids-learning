@@ -130,7 +130,7 @@ function moveHtml(q: Question, disabled: boolean): string {
 }
 export function activityHtml(q: Question, state: ActivityState, disabled = false): string {
   if (!isActivity(q.gameId)) return '';
-  const content = q.gameId === 'trace' || q.gameId === 'lines' ? traceHtml(q, state, disabled) :
+  const content = q.gameId === 'trace' || q.gameId === 'lines' || q.gameId === 'digits' ? traceHtml(q, state, disabled) :
     q.gameId === 'blocks' ? blocksHtml(q, state, disabled) :
     q.gameId === 'train' ? trainHtml(q, state, disabled) : moveHtml(q, disabled);
   return content + (state.feedback ? '<p class="activity-message" role="status">' + esc(state.feedback) + '</p>' : '');
@@ -213,7 +213,7 @@ function rejectCurrentStroke(state: ActivityState): ActivityResult {
 /** Pure, geometry-based input; only ordered waypoints within the path corridor count. */
 export function traceSample(q: Question, state: ActivityState,
   phase: 'down' | 'move' | 'up' | 'cancel', pos: Point): ActivityResult {
-  if (q.gameId !== 'trace' && q.gameId !== 'lines') return { kind: 'progress' };
+  if (q.gameId !== 'trace' && q.gameId !== 'lines' && q.gameId !== 'digits') return { kind: 'progress' };
   const stroke = TRACE_GUIDES[q.visual.symbol ?? '']?.strokes[state.traceIndex];
   if (!stroke) return { kind: 'progress' };
   if (phase === 'cancel') return rejectCurrentStroke(state);
@@ -260,7 +260,7 @@ export function traceSample(q: Question, state: ActivityState,
 /** The SVG coordinate adapter owns DOM only, while geometry and order are unit-testable. */
 export function tracePointer(q: Question, state: ActivityState,
   phase: 'down' | 'move' | 'up' | 'cancel', event: PointerEvent, svg: SVGSVGElement): ActivityResult {
-  if (q.gameId !== 'trace' && q.gameId !== 'lines') return { kind: 'progress' };
+  if (q.gameId !== 'trace' && q.gameId !== 'lines' && q.gameId !== 'digits') return { kind: 'progress' };
   if (phase === 'down') {
     if (state.drawing) return { kind: 'progress' };
     state.pointerId = event.pointerId;
