@@ -382,32 +382,61 @@ for (let level = 1; level <= 5; level++) for (let i = 0; i < 80; i++) {
   assert.deepEqual(q.choices, ['ひだり', 'みぎ']);
   assert(engine.evaluate(q, q.answer));
 }
+// Both paths must be traced with one continuous gesture, not solved by tapping tiles.
 for (let level = 1; level <= 5; level++) for (let i = 0; i < 80; i++) {
-  const link = engine.makeQuestion('connect', i, level);
-  const state = touchUi.freshTouch();
-  let last;
-  for (let n = 1; n <= link.visual.a; n++) last = touchUi.touchClick(link, state, 'connect', n);
-  assert.equal(last.finished, true);
-  assert.equal(last.value, link.answer);
-  const maze = engine.makeQuestion('maze', i, level);
-  const path = maze.visual.numbers;
-  const size = maze.visual.a;
-  assert(new Set(path).size === path.length);
-  for (let step = 1; step < path.length; step++) {
-    const a = path[step - 1], b = path[step];
-    assert.equal(Math.abs(Math.floor(a / size) - Math.floor(b / size)) +
-      Math.abs(a % size - b % size), 1, maze.id + ': unreachable');
+  for (const gameId of ['connect', 'maze']) {
+    const q = engine.makeQuestion(gameId, i, level), pts = touchUi.routePoints(q);
+    const state = touchUi.freshTouch();
+    assert(touchUi.touchHtml(q, state, false).includes('data-touch-trace'));
+    assert(!touchUi.touchHtml(q, state, false).includes('data-touch="connect"'));
+    assert(pts.length >= 3);
+    if (gameId === 'maze') {
+      const cells = q.visual.numbers, size = q.visual.a;
+      assert(new Set(cells).size === cells.length);
+      for (let step = 1; step < cells.length; step++) {
+        const prev = cells[step - 1], next = cells[step];
+        assert.equal(Math.abs(Math.floor(prev / size) - Math.floor(next / size)) +
+          Math.abs(prev % size - next % size), 1, q.id + ': disconnected route');
+      }
+    }
+    touchUi.traceRouteSample(q, state, 'down', pts[0]);
+    for (let j = 1; j < pts.length; j++) touchUi.traceRouteSample(q, state, 'move', pts[j]);
+    const completed = touchUi.traceRouteSample(q, state, 'up', pts[pts.length - 1]);
+    assert.equal(completed.finished, true, q.id + ': trace failed');
+    assert.equal(completed.value, q.answer);
+    assert.equal(completed.practice, true);
+    const out = touchUi.freshTouch();
+    touchUi.traceRouteSample(q, out, 'down', pts[0]);
+    const escaped = touchUi.traceRouteSample(q, out, 'move', [0, 0]);
+    assert.equal(escaped.finished, false);
+    assert.equal(out.drawing, false, 'going off the route must reset without a penalty');
+    // Accessible numbered fallback still completes the same question.
+    const accessible = touchUi.freshTouch();
+    let last;
+    for (let n = 0; n < pts.length; n++) last = touchUi.touchClick(q, accessible, 'path-step');
+    assert.equal(last.finished, true);
+    assert.equal(last.value, q.answer);
   }
-  const mazeState = touchUi.freshTouch();
-  let finished;
-  for (let n = 1; n < path.length; n++) finished = touchUi.touchClick(maze, mazeState, 'maze', path[n]);
-  assert.equal(finished.finished, true, maze.id);
-  const time = engine.makeQuestion('clockhands', i, level);
+  const q = engine.makeQuestion('clockhands', i, level);
   const clock = touchUi.freshTouch();
-  while (clock.hour !== time.visual.hour) touchUi.touchClick(time, clock, 'hour-plus');
-  while (clock.minute !== time.visual.minute) touchUi.touchClick(time, clock, 'minute-plus');
-  const checked = touchUi.touchClick(time, clock, 'clock-check');
+  assert(touchUi.touchHtml(q, clock, false).includes('data-clock-hand="minute"'));
+  assert(touchUi.touchHtml(q, clock, false).includes('data-clock-hand="hour"'));
+  // Set minutes, then the hour hand including its minute-dependent fractional angle.
+  const tip = (degrees, length) => [
+    100 + Math.sin(degrees * Math.PI / 180) * length,
+    100 - Math.cos(degrees * Math.PI / 180) * length
+  ];
+  touchUi.rotateClockHand(q, clock, 'minute', tip(q.visual.minute * 6, 70));
+  const hourAngle = ((q.visual.hour % 12) + q.visual.minute / 60) * 30;
+  touchUi.rotateClockHand(q, clock, 'hour', tip(hourAngle, 47));
+  assert.equal(clock.hour, q.visual.hour, q.id + ': hour drag snap');
+  assert.equal(clock.minute, q.visual.minute, q.id + ': minute drag snap');
+  const checked = touchUi.touchClick(q, clock, 'clock-check');
   assert.equal(checked.finished, true);
+  const fallback = touchUi.freshTouch();
+  while (fallback.hour !== q.visual.hour) touchUi.touchClick(q, fallback, 'hour-plus');
+  while (fallback.minute !== q.visual.minute) touchUi.touchClick(q, fallback, 'minute-plus');
+  assert.equal(touchUi.touchClick(q, fallback, 'clock-check').finished, true);
 }
 const saved = engine.freshSave();
 saved.xp = 123; saved.completed.add = 5;
@@ -431,7 +460,7 @@ assert.equal(storage.loadSlot(store, 2).xp, 123, 'failed write must not overwrit
 const sanitized = storage.normalizeSave({ ...saved, xp: 'not a number', daily: { '2026-10-26': { answered: 3 } } });
 assert.equal(sanitized.xp, 0);
 assert.equal(sanitized.daily['2026-10-26'].answered, 3);
-console.log('PASS: direct comparison, 3 tap-only activities, 1200 new input simulations, safe per-profile backups');
+console.log('PASS: direct comparisons, 800 continuous path traces, 400 hand rotations, keyboard alternatives, safe backups');
 
 
 const deck = engine.chooseRound('add', engine.freshSave(), now, 5);
