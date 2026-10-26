@@ -307,6 +307,11 @@ assert(renderedSkills.includes('たしざんロケット'));
 assert(!renderedSkills.includes('ことばトレジャー'));
 assert(renderedSkills.includes('LV5'));
 assert(renderedSkills.includes('つぎの レベルまで'));
+assert(renderedSkills.includes('data-skill-play="add" data-level="1"'), 'unlocked level must be playable');
+assert(renderedSkills.includes('data-skill-play="add" data-level="2"'), 'second level must be playable');
+assert(!renderedSkills.includes('data-skill-play="add" data-level="3"'), 'locked level must remain inaccessible');
+assert(renderedSkills.includes('skill-node locked'), 'locked branches must stay visibly locked');
+assert(!renderedSkills.includes('data-skill-play="words"'), 'category filter must hide unrelated games');
 console.log('PASS: V2.6 per-profile calendar records, migrations, stats charts and unlock-based skill tree');
 
 rmSync(temp, { recursive: true, force: true });
