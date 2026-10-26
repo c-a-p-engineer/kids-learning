@@ -8,11 +8,11 @@ import ts from 'typescript';
 
 // Transpile each dependency to a temporary ESM module: no extra runtime or test framework.
 const temp = mkdtempSync(join(tmpdir(), 'kids-learning-test-'));
-for (const moduleName of ['engine', 'activity-content', 'activity-ui', 'progression', 'progress-ui', 'touch-content', 'touch-ui', 'storage', 'trace-guides', 'session']) {
+for (const moduleName of ['engine', 'activity-content', 'activity-ui', 'progression', 'progress-ui', 'touch-content', 'touch-ui', 'storage', 'trace-guides', 'session', 'workshop-content', 'workshop-ui', 'growth-world', 'parent-report']) {
   const source = readFileSync(new URL('../src/' + moduleName + '.ts', import.meta.url), 'utf8');
   const js = ts.transpileModule(source, {
     compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.ESNext }
-  }).outputText.replace(/from '\.\/(activity-content|engine|progression|touch-content|trace-guides)'/g, "from './$1.mjs'");
+  }).outputText.replace(/from '\.\/(activity-content|engine|progression|touch-content|trace-guides|workshop-content)'/g, "from './$1.mjs'");
   writeFileSync(join(temp, moduleName + '.mjs'), js);
 }
 const engine = await import(pathToFileURL(join(temp, 'engine.mjs')).href);
@@ -24,9 +24,13 @@ const touch = await import(pathToFileURL(join(temp, 'touch-content.mjs')).href);
 const touchUi = await import(pathToFileURL(join(temp, 'touch-ui.mjs')).href);
 const storage = await import(pathToFileURL(join(temp, 'storage.mjs')).href);
 const session = await import(pathToFileURL(join(temp, 'session.mjs')).href);
+const workshop = await import(pathToFileURL(join(temp, 'workshop-content.mjs')).href);
+const workshopUi = await import(pathToFileURL(join(temp, 'workshop-ui.mjs')).href);
+const world = await import(pathToFileURL(join(temp, 'growth-world.mjs')).href);
+const reporting = await import(pathToFileURL(join(temp, 'parent-report.mjs')).href);
 const now = Date.UTC(2026, 9, 26);
 
-assert.equal(engine.GAMES.length, 23);
+assert.equal(engine.GAMES.length, 27);
 // Audio settings are stored in the existing V2 profile object, never legacy keys.
 const defaults = engine.freshSave();
 assert.equal(defaults.schema, 2);
@@ -141,7 +145,7 @@ for (let c = 0; c <= 15; c++) {
   assert.equal(p.target, 2);
   if (!p.maxed) assert.equal(p.current, c % 2);
 }
-// All 23 games must generate five distinct items with a correct option at levels 2–5.
+// All 27 games must generate five distinct items with a correct option at levels 2–5.
 let advancedQuestions = 0;
 for (const game of engine.GAMES) {
   for (let level = 2; level <= 5; level++) {
@@ -185,7 +189,7 @@ for (const game of engine.GAMES) {
 }
 console.log('PASS: advanced levels ' + advancedQuestions + ' questions and earned unlock gates');
 
-console.log('PASS: 23 games × 80 cases, answer validity, arithmetic, finite rounds, recall scheduler');
+console.log('PASS: 27 games × 80 cases, answer validity, arithmetic, finite rounds, recall scheduler');
 
 /** Non-choice input regression tests: do not fall back to 3 answer buttons. */
 for (const gameId of ['trace', 'blocks', 'train', 'move']) {
@@ -501,6 +505,60 @@ for (const [clears, nextLevel] of [[0, 1], [1, 1], [2, 2], [3, 2],
 console.log('PASS: replay follows latest unlocked level after clearing 2/4/6/8 quests');
 
 console.log('PASS: pure session transitions and scoring; old saves and recovery checks');
+
+
+/** Direct hands-on interactions: every item requires actual input, not a free completion. */
+for (let lv = 1; lv <= 5; lv++) for (let i = 0; i < 80; i++) {
+  const shop = engine.makeQuestion('shop', i, lv), coins = workshopUi.freshWorkshop();
+  assert(workshopUi.workshopHtml(shop, coins, false).includes('data-workshop="coin"'));
+  let result;
+  while (coins.coins.reduce((n, x) => n + x, 0) < Number(shop.answer)) {
+    const left = Number(shop.answer) - coins.coins.reduce((n, x) => n + x, 0);
+    result = workshopUi.workshopClick(shop, coins, 'coin', left >= 10 ? 10 : left >= 5 ? 5 : 1);
+  }
+  assert.equal(result.finished, true, shop.id);
+  const routine = engine.makeQuestion('routine', i, lv), order = workshopUi.freshWorkshop();
+  assert(routine.visual.preview?.length >= 3);
+  for (const label of routine.answer.split('|')) {
+    const index = routine.visual.preview.indexOf(label);
+    assert(index >= 0);
+    result = workshopUi.workshopClick(routine, order, 'routine', index);
+  }
+  assert.equal(result.finished, true, routine.id);
+  const split = engine.makeQuestion('split', i, lv), baskets = workshopUi.freshWorkshop();
+  for (let j = 0; j < split.visual.a; j++) result = workshopUi.workshopClick(split, baskets, 'left');
+  for (let j = 0; j < split.visual.b; j++) result = workshopUi.workshopClick(split, baskets, 'right');
+  assert.equal(result.finished, true, split.id);
+  const beat = engine.makeQuestion('rhythm', i, lv), drums = workshopUi.freshWorkshop();
+  for (const note of beat.visual.preview) result = workshopUi.workshopClick(beat, drums, 'beat', note === '🔵' ? 0 : 1);
+  assert.equal(result.finished, true, beat.id);
+}
+const rhythmQ = engine.makeQuestion('rhythm', 6, 3), rhythmState = workshopUi.freshWorkshop();
+const wrongBeat = rhythmQ.visual.preview[0] === '🔵' ? 1 : 0;
+assert.equal(workshopUi.workshopClick(rhythmQ, rhythmState, 'beat', wrongBeat).finished, false);
+assert.equal(rhythmState.beats.length, 0);
+const sampleSave = engine.freshSave();
+sampleSave.completed.add = 5;
+sampleSave.completed.shop = 2;
+const wp = world.worldProgress(sampleSave);
+assert.equal(wp.clears, 7);
+assert.equal(wp.unlocked, 3);
+assert(world.worldHtml(sampleSave).includes('みどりの こうえん'));
+const reportDay = new Date(2026, 9, 26, 14, 0);
+progress.recordDaily(sampleSave, reportDay, 'shop', 'independent', 10);
+progress.recordDaily(sampleSave, reportDay, 'shop', 'clear');
+const r7 = reporting.parentPeriod(sampleSave, reportDay, 7);
+assert.equal(r7.days, 1);
+assert.equal(r7.independent, 1);
+const csv = reporting.learningCsv(sampleSave, reportDay);
+assert(csv.startsWith('\ufeff'));
+assert(csv.includes('"独力正答"'));
+assert(csv.includes('"おかいもの ごっこ"'));
+assert(csv.includes('"2026-10-26"'));
+const treeWithStarts = progressUi.skillTreeHtml(sampleSave, 'きつね', 'math');
+assert(treeWithStarts.includes('data-game="shop"'));
+assert(treeWithStarts.includes('data-skill-play="shop"'));
+console.log('PASS: four direct-manipulation games, 1600 workshop input simulations, station unlocks and parent CSV');
 
 rmSync(temp, { recursive: true, force: true });
 
