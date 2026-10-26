@@ -84,3 +84,9 @@
   .skill-node{min-width:34px;min-height:54px;padding:5px 2px}
 }
 @media(prefers-reduced-motion:reduce){.growth-page *{transition:none!important}}
+
+/* Only unlocked nodes are interactive; keyboard focus and touch targets remain visible. */
+button.skill-node{font:inherit;color:#785220;cursor:pointer;min-width:44px;min-height:62px}
+button.skill-node:active{transform:translateY(2px)}
+.skill-node.locked{opacity:.68}
+@media(max-width:390px){button.skill-node{min-width:40px}}
