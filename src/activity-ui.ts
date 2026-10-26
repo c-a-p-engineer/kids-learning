@@ -1,5 +1,6 @@
-import { TRACE_GUIDES, MOVE_CARDS, isActivity } from './activity-content';
-import type { TraceGlyph } from './activity-content';
+import { MOVE_CARDS, isActivity } from './activity-content';
+import { TRACE_GUIDES, strokePath, distanceToStroke, CORRIDOR_RADIUS, START_RADIUS, END_RADIUS } from './trace-guides';
+import type { TraceGlyph, Point } from './trace-guides';
 import type { Question } from './engine';
 
 /** The only mutable runtime for non-choice games. No storage, scoring, timers or audio here. */
@@ -17,12 +18,14 @@ export interface ActivityState {
   assisted: boolean;
   altIndex: number;
   altOpen: boolean;
+  traceIndex: number;
+  waypointIndex: number;
   feedback: string;
 }
-export type ActivityResult = { kind: 'progress' | 'submit'; value?: string; assisted?: boolean; skipped?: boolean };
+export type ActivityResult = { kind: 'progress' | 'submit'; value?: string; assisted?: boolean; skipped?: boolean; refresh?: boolean };
 export function newActivityState(q: Question): ActivityState {
   return { id: q.id, count: 0, usedTiles: [], visited: new Set(), strokes: [], stroke: [],
-    drawing: false, pointerId: null, lastPoint: null, distance: 0, assisted: false, altIndex: 0, altOpen: false, feedback: '' };
+    drawing: false, pointerId: null, lastPoint: null, distance: 0, assisted: false, altIndex: 0, altOpen: false, traceIndex: 0, waypointIndex: 0, feedback: '' };
 }
 const esc = (s: string): string => s.replace(/[&<>"']/g, c =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] ?? c);
@@ -40,30 +43,47 @@ function fiveFrame(total: number, filled: number): string {
 function traceHtml(q: Question, state: ActivityState, disabled: boolean): string {
   const symbol = q.visual.symbol as TraceGlyph;
   const guide = TRACE_GUIDES[symbol];
-  if (!guide) return '<p>なぞる もじが みつかりません。</p>';
-  const path = state.strokes.map(points => '<polyline points="' + points +
-    '" fill="none" stroke="#4db89f" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>').join('');
-  const nodes = guide.points.map(([x, y], i) =>
-    '<circle cx="' + x + '" cy="' + y + '" r="7" fill="' + (state.visited.has(i) ? '#2ead99' : '#f5b548') +
+  if (!guide) return '<p>ガイドが みつかりません。</p>';
+  const activeStroke = guide.strokes[Math.min(state.traceIndex, guide.strokes.length - 1)];
+  const current = state.traceIndex + 1, total = guide.strokes.length;
+  const paths = guide.strokes.map((points, i) => {
+    const color = i < state.traceIndex ? '#7bd7b4' : i === state.traceIndex ? '#e8bb70' : '#c8dafa';
+    const start = points[0];
+    return '<path d="' + strokePath(points) + '" fill="none" stroke="' + color +
+      '" stroke-width="44" stroke-linecap="round" stroke-linejoin="round"/>' +
+      '<path d="' + strokePath(points) + '" fill="none" stroke="#fff" stroke-width="10" stroke-dasharray="3 16"' +
+      ' stroke-linecap="round" stroke-linejoin="round"/>' +
+      '<g class="stroke-number" aria-hidden="true"><circle cx="' + start[0] + '" cy="' + start[1] +
+      '" r="16" fill="#5073b8" stroke="#fff" stroke-width="2"/>' +
+      '<text x="' + start[0] + '" y="' + (start[1] + 5) + '" text-anchor="middle" font-size="16" fill="#fff" font-weight="bold">' +
+      (i + 1) + '</text></g>';
+  }).join('');
+  const ink = state.strokes.map(points =>
+    '<polyline points="' + points + '" fill="none" stroke="#38a993" stroke-width="16" ' +
+    'stroke-linecap="round" stroke-linejoin="round"/>').join('');
+  const nodes = activeStroke.map(([x, y], i) =>
+    '<circle cx="' + x + '" cy="' + y + '" r="' + (i === state.waypointIndex ? 10 : 6) +
+    '" fill="' + (i < state.waypointIndex ? '#32ac8e' : '#f5b548') +
     '" stroke="#fff" stroke-width="2"/>').join('');
-  const total = guide.points.length;
-  const reached = state.visited.size;
-  const alt = guide.points.map((_, i) =>
-    '<button type="button" data-activity="trace-point" data-index="' + i + '"' + (disabled ? ' disabled' : '') +
+  const alt = activeStroke.map((_, i) =>
+    '<button type="button" data-activity="trace-point" data-index="' + i + '"' +
+    (disabled || i !== state.altIndex ? ' disabled' : '') +
     ' aria-label="' + (i + 1) + 'ばんめの てんを たどる" class="trace-step' +
-    (state.visited.has(i) ? ' reached' : '') + '">' + (i + 1) + '</button>').join('');
-  return '<div class="interactive trace-interactive"><p class="activity-instructions">みちを ゆびで なぞろう。' +
-    'きれいに かけなくても だいじょうぶ！</p>' +
-    '<div class="trace-board"><svg data-trace-board viewBox="0 0 240 240" aria-label="' + esc(symbol) +
-    'の なぞりがき。ゆびで きいろの てんを つなごう" role="img">' +
-    '<path d="' + guide.path + '" fill="none" stroke="#c8dafa" stroke-width="37" stroke-linecap="round" stroke-linejoin="round"/>' +
-    '<path d="' + guide.path + '" fill="none" stroke="#fff" stroke-width="13" stroke-dasharray="3 18" stroke-linecap="round"/>' +
-    '<g data-ink>' + path + '</g><g data-guide-nodes>' + nodes + '</g></svg></div>' +
-    '<p class="activity-counter" role="status">てんを たどったよ：' + reached + '/' + total + '</p>' +
-    '<button type="button" class="activity-undo" data-activity="trace-reset"' + (disabled ? ' disabled' : '') +
-    '>↻ もういちど なぞる</button>' +
-    '<details class="trace-access"' + (state.altOpen ? ' open' : '') + '><summary>ゆびで かくのが むずかしいとき</summary>' +
-    '<p>てんを ばんごうじゅんに おしても れんしゅうできるよ。</p>' +
+    (i < state.altIndex ? ' reached' : '') + '">' + (i + 1) + '</button>').join('');
+  return '<div class="interactive trace-interactive"><p class="activity-instructions">' +
+    (q.gameId === 'lines' ? 'まずは せんを なぞる れんしゅう！' : 'かく じゅんばんに ゆびで なぞろう！') +
+    '</p><div class="trace-stroke-count" role="status"><strong>' + guide.label +
+    '</strong><span>' + total + 'かく　｜　いま ' + current + 'かくめ</span></div>' +
+    '<div class="trace-board"><svg data-trace-board viewBox="0 0 240 240" aria-label="' + esc(guide.label) +
+    'は ' + total + 'かく。' + current + 'かくめの きいろい みちを なぞろう" role="img">' +
+    paths + '<g data-ink>' + ink + '</g><g data-guide-nodes>' + nodes + '</g></svg></div>' +
+    '<p class="activity-counter">つぎの てん：' + Math.min(activeStroke.length, state.waypointIndex + 1) +
+    '/' + activeStroke.length + '</p>' +
+    '<p class="trace-rule">きいろい わくから でたら、いまの 1かくだけ やりなおしだよ。</p>' +
+    '<button type="button" class="activity-undo" data-activity="trace-reset"' +
+    (disabled ? ' disabled' : '') + '>↻ はじめから</button>' +
+    '<details class="trace-access"' + (state.altOpen ? ' open' : '') + '><summary>ゆびで なぞるのが むずかしいとき</summary>' +
+    '<p>てんを 1から じゅんばんに おしても いいよ。</p>' +
     '<div class="trace-steps">' + alt + '</div></details></div>';
 }
 function blocksHtml(q: Question, state: ActivityState, disabled: boolean): string {
@@ -110,7 +130,7 @@ function moveHtml(q: Question, disabled: boolean): string {
 }
 export function activityHtml(q: Question, state: ActivityState, disabled = false): string {
   if (!isActivity(q.gameId)) return '';
-  const content = q.gameId === 'trace' ? traceHtml(q, state, disabled) :
+  const content = q.gameId === 'trace' || q.gameId === 'lines' ? traceHtml(q, state, disabled) :
     q.gameId === 'blocks' ? blocksHtml(q, state, disabled) :
     q.gameId === 'train' ? trainHtml(q, state, disabled) : moveHtml(q, disabled);
   return content + (state.feedback ? '<p class="activity-message" role="status">' + esc(state.feedback) + '</p>' : '');
@@ -145,19 +165,24 @@ export function activityClick(q: Question, state: ActivityState, action: string,
       state.feedback = '';
     }
     if (action === 'train-back') { state.usedTiles.pop(); state.feedback = ''; }
-  } else if (q.gameId === 'trace') {
+  } else if (q.gameId === 'trace' || q.gameId === 'lines') {
+    const guide = TRACE_GUIDES[q.visual.symbol ?? ''];
+    if (!guide) return { kind: 'progress' };
     if (action === 'trace-reset') {
+      state.traceIndex = 0; state.waypointIndex = 0; state.altIndex = 0;
       state.visited.clear(); state.strokes = []; state.stroke = []; state.distance = 0;
-      state.assisted = false; state.altIndex = 0; state.altOpen = false; state.feedback = '';
+      state.drawing = false; state.pointerId = null; state.lastPoint = null;
+      state.altOpen = false; state.assisted = false; state.feedback = '';
     } else if (action === 'trace-point') {
-      const symbol = q.visual.symbol as TraceGlyph;
-      const guide = TRACE_GUIDES[symbol];
-      if (guide && index === state.altIndex) {
-        state.visited.add(index); state.altIndex++; state.altOpen = true; state.assisted = true;
-        state.feedback = 'てんを じゅんばんに たどろう！';
-        if (state.altIndex === guide.points.length)
-          return { kind: 'submit', value: q.answer, assisted: true };
-      }
+      const stroke = guide.strokes[state.traceIndex];
+      if (stroke && index === state.altIndex) {
+        state.altOpen = true; state.assisted = true; state.altIndex++; state.waypointIndex = state.altIndex;
+        state.feedback = '';
+        if (state.altIndex === stroke.length) {
+          const result = finishTraceStroke(q, state);
+          if (result.kind === 'submit') return result;
+        }
+      } else state.feedback = '1から じゅんばんに てんを おそう。';
     }
   } else if (q.gameId === 'move') {
     if (action === 'move-done') return { kind: 'submit', value: q.answer, assisted: true };
@@ -166,37 +191,87 @@ export function activityClick(q: Question, state: ActivityState, action: string,
   return { kind: 'progress' };
 }
 
-/** A stroke is sampled in SVG coordinates. Nearby waypoints (not exact calligraphy) count as practice. */
-export function tracePointer(q: Question, state: ActivityState, phase: string, event: PointerEvent,
-                             svg: SVGSVGElement): ActivityResult {
-  if (q.gameId !== 'trace' || !TRACE_GUIDES[q.visual.symbol as TraceGlyph]) return { kind: 'progress' };
-  const guide = TRACE_GUIDES[q.visual.symbol as TraceGlyph];
+/** Completing a stroke advances to the next stroke; no guessing-based score. */
+function finishTraceStroke(q: Question, state: ActivityState): ActivityResult {
+  const guide = TRACE_GUIDES[q.visual.symbol ?? ''];
+  if (!guide) return { kind: 'progress' };
+  if (state.stroke.length > 1) state.strokes.push(state.stroke.join(' '));
+  state.stroke = []; state.drawing = false; state.pointerId = null; state.lastPoint = null;
+  state.traceIndex++; state.waypointIndex = 0; state.altIndex = 0;
+  state.visited.clear();
+  if (state.traceIndex === guide.strokes.length)
+    return { kind: 'submit', value: q.answer, assisted: true };
+  state.feedback = 'いいね！ つぎは ' + (state.traceIndex + 1) + 'かくめ！';
+  return { kind: 'progress', refresh: true };
+}
+function rejectCurrentStroke(state: ActivityState): ActivityResult {
+  state.stroke = []; state.drawing = false; state.pointerId = null; state.lastPoint = null;
+  state.waypointIndex = 0; state.altIndex = 0; state.visited.clear();
+  state.feedback = 'わくから でちゃった！ この 1かくだけ もういちど。';
+  return { kind: 'progress', refresh: true };
+}
+/** Pure, geometry-based input; only ordered waypoints within the path corridor count. */
+export function traceSample(q: Question, state: ActivityState,
+  phase: 'down' | 'move' | 'up' | 'cancel', pos: Point): ActivityResult {
+  if (q.gameId !== 'trace' && q.gameId !== 'lines') return { kind: 'progress' };
+  const stroke = TRACE_GUIDES[q.visual.symbol ?? '']?.strokes[state.traceIndex];
+  if (!stroke) return { kind: 'progress' };
+  if (phase === 'cancel') return rejectCurrentStroke(state);
   if (phase === 'down') {
     if (state.drawing) return { kind: 'progress' };
-    state.drawing = true; state.pointerId = event.pointerId; state.lastPoint = null;
-    state.stroke = [];
-    try { svg.setPointerCapture(event.pointerId); } catch { /* optional */ }
+    if (Math.hypot(pos[0] - stroke[0][0], pos[1] - stroke[0][1]) > START_RADIUS) {
+      state.feedback = 'あおい 1ばんの まるから スタートしてね！';
+      return { kind: 'progress', refresh: true };
+    }
+    state.drawing = true; state.stroke = []; state.waypointIndex = 0;
+    state.visited.clear(); state.lastPoint = pos; state.feedback = '';
   }
-  if (!state.drawing || state.pointerId !== event.pointerId) return { kind: 'progress' };
-  const rect = svg.getBoundingClientRect();
-  const pos: [number, number] = [
-    Math.max(0, Math.min(240, (event.clientX - rect.left) * 240 / rect.width)),
-    Math.max(0, Math.min(240, (event.clientY - rect.top) * 240 / rect.height))
-  ];
+  if (!state.drawing) return { kind: 'progress' };
   const old = state.lastPoint ?? pos;
   const distance = Math.hypot(pos[0] - old[0], pos[1] - old[1]);
-  if (phase !== 'cancel' && state.stroke.length < 420) {
-    const hops = Math.max(1, Math.ceil(distance / 8));
-    for (let step = 1; step <= hops; step++) {
-      const x = old[0] + (pos[0] - old[0]) * step / hops;
-      const y = old[1] + (pos[1] - old[1]) * step / hops;
-      guide.points.forEach(([px, py], i) => {
-        if (Math.hypot(px - x, py - y) <= 27) state.visited.add(i);
-      });
+  const hops = Math.max(1, Math.ceil(distance / 5));
+  for (let step = 0; step <= hops; step++) {
+    const point: Point = [old[0] + (pos[0] - old[0]) * step / hops,
+      old[1] + (pos[1] - old[1]) * step / hops];
+    if (!Number.isFinite(point[0]) || !Number.isFinite(point[1]) ||
+      distanceToStroke(point, stroke) > CORRIDOR_RADIUS)
+      return rejectCurrentStroke(state);
+    const next = stroke[state.waypointIndex];
+    if (next && Math.hypot(next[0] - point[0], next[1] - point[1]) <= START_RADIUS) {
+      state.visited.add(state.waypointIndex); state.waypointIndex++;
     }
-    state.stroke.push(pos.map(x => x.toFixed(1)).join(','));
-    state.distance += Math.min(distance, 40);
-    state.lastPoint = pos;
+  }
+  state.stroke.push(pos.map(x => x.toFixed(1)).join(','));
+  state.lastPoint = pos;
+  state.distance += Math.min(distance, 50);
+  if (phase === 'up') {
+    const end = stroke[stroke.length - 1];
+    if (state.waypointIndex === stroke.length &&
+      Math.hypot(end[0] - pos[0], end[1] - pos[1]) <= END_RADIUS) {
+      return finishTraceStroke(q, state);
+    }
+    state.stroke = []; state.drawing = false; state.pointerId = null; state.lastPoint = null;
+    state.waypointIndex = 0; state.visited.clear();
+    state.feedback = 'おしい！ さいごまで ひとふでで なぞってみよう。';
+    return { kind: 'progress', refresh: true };
+  }
+  return { kind: 'progress' };
+}
+/** The SVG coordinate adapter owns DOM only, while geometry and order are unit-testable. */
+export function tracePointer(q: Question, state: ActivityState,
+  phase: 'down' | 'move' | 'up' | 'cancel', event: PointerEvent, svg: SVGSVGElement): ActivityResult {
+  if (q.gameId !== 'trace' && q.gameId !== 'lines') return { kind: 'progress' };
+  if (phase === 'down') {
+    if (state.drawing) return { kind: 'progress' };
+    state.pointerId = event.pointerId;
+    try { svg.setPointerCapture(event.pointerId); } catch { /* optional */ }
+  } else if (state.pointerId !== event.pointerId) return { kind: 'progress' };
+  const rect = svg.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return { kind: 'progress' };
+  const position: Point = [(event.clientX - rect.left) * 240 / rect.width,
+    (event.clientY - rect.top) * 240 / rect.height];
+  const result = traceSample(q, state, phase, position);
+  if ((phase === 'down' || phase === 'move') && state.drawing) {
     const ink = svg.querySelector<SVGGElement>('[data-ink]');
     if (ink) {
       let current = ink.querySelector<SVGPolylineElement>('[data-current]');
@@ -204,8 +279,8 @@ export function tracePointer(q: Question, state: ActivityState, phase: string, e
         current = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
         current.setAttribute('data-current', '');
         current.setAttribute('fill', 'none');
-        current.setAttribute('stroke', '#4db89f');
-        current.setAttribute('stroke-width', '15');
+        current.setAttribute('stroke', '#38a993');
+        current.setAttribute('stroke-width', '16');
         current.setAttribute('stroke-linecap', 'round');
         current.setAttribute('stroke-linejoin', 'round');
         ink.appendChild(current);
@@ -213,13 +288,5 @@ export function tracePointer(q: Question, state: ActivityState, phase: string, e
       current.setAttribute('points', state.stroke.join(' '));
     }
   }
-  if (phase === 'up' || phase === 'cancel') {
-    state.drawing = false; state.pointerId = null; state.lastPoint = null;
-    if (phase === 'up' && state.stroke.length > 1) state.strokes.push(state.stroke.join(' '));
-    state.stroke = [];
-    if (state.visited.size >= Math.ceil(guide.points.length * 0.75) && state.distance >= 70)
-      return { kind: 'submit', value: q.answer, assisted: true };
-    state.feedback = 'いいかんじ！ きいろの てんを もっと なぞろう。';
-  }
-  return { kind: 'progress' };
+  return result;
 }
