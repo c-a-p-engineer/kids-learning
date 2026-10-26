@@ -8,7 +8,7 @@ import { freshWorkshop, workshopHtml, workshopClick } from './workshop-ui';
 import type { WorkshopState } from './workshop-ui';
 import { worldHtml, worldProgress } from './growth-world';
 import { parentPeriod, learningCsv } from './parent-report';
-import { prepareAnswer, prepareClear } from './learning-commit';
+import { prepareAnswer, prepareClear, prepareMistake } from './learning-commit';
 import { createSession, advanceSession, attemptOutcome } from './session';
 import type { Session, AnswerMode } from './session';
 import { isTouchGame } from './touch-content';
@@ -489,9 +489,19 @@ function answer(choice: string, mode?: AnswerMode): void {
   if (!isActivity(q.gameId) && !isTouchGame(q.gameId) && !isWorkshop(q.gameId) && !q.choices.includes(choice)) return;
   session.attempts++;
   if (!evaluate(q, choice)) {
+    const prepared = prepareMistake(save, q, new Date());
+    try {
+      persistSlot(localStorage, slot, prepared);
+      save = prepared;
+      if (storageWarning.startsWith('ほぞんできません')) storageWarning = '';
+    } catch {
+      session.attempts = Math.max(0, session.attempts - 1);
+      session.feedback = 'きろくを ほぞんできません。ほごしゃに つたえてね。';
+      storageWarning = 'ほぞんできません。あきようりょうを かくにんしてください。';
+      render();
+      return;
+    }
     session.wrong++;
-    recordDaily(save, new Date(), q.gameId, 'mistake');
-    saveNow();
     session.locked = true;
     // Anti-guess: brief, bounded cooldown with a thinking cue, never removes earned XP.
     const extra = session.wrong >= 2 ? ' 💡 ' + makeHint(q) : '';
