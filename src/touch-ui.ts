@@ -41,43 +41,68 @@ export function routePoints(q: Question): Point[] {
     (Math.floor(cell / size) + .5) * VIEW / size
   ] as Point);
 }
+/** Edge list is the actual maze network, not a displayed shortest path. */
+export function mazeEdges(q: Question): [number, number][] {
+  const size = q.visual.a ?? 3;
+  if (q.gameId !== 'maze') return [];
+  return (q.visual.preview ?? []).map(edge => edge.split(':').map(Number))
+    .filter(edge => edge.length === 2 && edge.every(cell =>
+      Number.isInteger(cell) && cell >= 0 && cell < size * size))
+    .map(edge => [edge[0], edge[1]] as [number, number]);
+}
+const mazeCenter = (cell: number, size: number): Point =>
+  [(cell % size + .5) * VIEW / size, (Math.floor(cell / size) + .5) * VIEW / size];
 const pointString = (p: Point): string => p.map(v => v.toFixed(1)).join(',');
 function routeHtml(q: Question, state: TouchState, disabled: boolean): string {
+  const maze = q.gameId === 'maze';
   const points = routePoints(q);
-  const maze = q.gameId === 'maze', path = points.map(pointString).join(' ');
-  const bg = maze ? Array.from({ length: (q.visual.a ?? 3) ** 2 }, (_, n) => {
-    const size = q.visual.a ?? 3, width = VIEW / size;
-    const open = (q.visual.numbers ?? []).includes(n);
-    const x = (n % size) * width, y = Math.floor(n / size) * width;
-    return '<rect x="' + (x + 2) + '" y="' + (y + 2) +
-      '" width="' + (width - 4) + '" height="' + (width - 4) +
-      '" rx="10" fill="' + (open ? '#fff6da' : '#7fa4bf') + '"/>';
-  }).join('') : '';
+  const path = points.map(pointString).join(' ');
+  const drawn = state.ink.map(pointString).join(' ');
+  if (maze) {
+    const size = q.visual.a ?? 3;
+    const width = size === 3 ? 43 : 34;
+    const roads = mazeEdges(q).map(([a, b]) => {
+      const start = mazeCenter(a, size), end = mazeCenter(b, size);
+      return '<line x1="' + start[0] + '" y1="' + start[1] +
+        '" x2="' + end[0] + '" y2="' + end[1] +
+        '" stroke="#fff4d4" stroke-width="' + width +
+        '" stroke-linecap="round"/>';
+    }).join('');
+    const start = points[0], finish = points[points.length - 1];
+    return '<div class="touch-activity maze-activity">' +
+      '<div class="path-trace-board maze-board"><svg data-touch-trace viewBox="0 0 300 300" role="img" ' +
+      'aria-label="でんしゃから ほしまでの めいろ。ゆびで みちを さがそう">' +
+      '<rect width="300" height="300" rx="16" fill="#6e91af"/>' +
+      roads + '<polyline data-touch-ink points="' + drawn +
+      '" fill="none" stroke="#2ca48d" stroke-width="15" stroke-linecap="round" ' +
+      'stroke-linejoin="round"/>' +
+      '<circle cx="' + start[0] + '" cy="' + start[1] + '" r="22" fill="#ffefb7"/>' +
+      '<text x="' + start[0] + '" y="' + (start[1] + 9) +
+      '" text-anchor="middle" font-size="27">🚂</text>' +
+      '<circle cx="' + finish[0] + '" cy="' + finish[1] + '" r="22" fill="#ffefb7"/>' +
+      '<text x="' + finish[0] + '" y="' + (finish[1] + 10) +
+      '" text-anchor="middle" font-size="30">⭐</text></svg></div>' +
+      (state.message ? '<p class="touch-tip" role="status">' + escape(state.message) + '</p>' : '') +
+      '<button type="button" class="touch-reset" data-touch="restart"' +
+      (disabled ? ' disabled' : '') + '>↻ もういちど</button></div>';
+  }
   const dots = points.map(([x, y], i) =>
-    '<g aria-hidden="true"><circle cx="' + x + '" cy="' + y + '" r="' +
-    (maze ? 14 : 20) + '" fill="' + (i < state.done.length ? '#82d7b7' : '#fff4cd') +
-    '" stroke="' + (i < state.done.length ? '#31a586' : '#dcaf51') + '" stroke-width="3"/>' +
-    '<text x="' + x + '" y="' + (y + 6) + '" text-anchor="middle" font-size="' +
-    (maze ? 17 : 18) + '" font-weight="900" fill="#4c5881">' +
-    (maze ? i === 0 ? '🚂' : i === points.length - 1 ? '★' : '·' : i + 1) +
-    '</text></g>').join('');
-  const ink = state.ink.map(pointString).join(' ');
-  return '<div class="touch-activity"><p class="touch-tip">' +
-    (maze ? '🚂 から ★ まで ゆびで みちを なぞろう' :
-      '1から じゅんに ゆびで せんを なぞろう') + '</p>' +
-    '<div class="path-trace-board"><svg data-touch-trace viewBox="0 0 300 300" role="img" aria-label="' +
-    (maze ? 'でんしゃから ほしまでの みちを なぞる' : '1から ' + points.length + ' まで せんを なぞる') +
-    '">' + bg +
-    '<polyline points="' + path + '" fill="none" stroke="' + (maze ? '#fbe6ad' : '#ddeaff') +
-    '" stroke-width="' + (maze ? '42' : '35') +
-    '" stroke-linejoin="round" stroke-linecap="round"/>' +
+    '<g aria-hidden="true"><circle cx="' + x + '" cy="' + y + '" r="20" fill="' +
+    (i < state.done.length ? '#82d7b7' : '#fff4cd') +
+    '" stroke="#dcaf51" stroke-width="3"/>' +
+    '<text x="' + x + '" y="' + (y + 6) + '" text-anchor="middle" font-size="18" ' +
+    'font-weight="900" fill="#4c5881">' + (i + 1) + '</text></g>').join('');
+  return '<div class="touch-activity"><div class="path-trace-board"><svg data-touch-trace viewBox="0 0 300 300" ' +
+    'role="img" aria-label="1から ' + points.length + 'まで なぞろう">' +
+    '<polyline points="' + path + '" fill="none" stroke="#ddeaff" stroke-width="35" ' +
+    'stroke-linejoin="round" stroke-linecap="round"/>' +
     '<polyline points="' + path + '" fill="none" stroke="#fff" stroke-width="4" stroke-dasharray="4 13"/>' +
-    '<polyline data-touch-ink points="' + ink +
+    '<polyline data-touch-ink points="' + drawn +
     '" fill="none" stroke="#39a9a1" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>' +
     dots + '</svg></div>' +
-    '<p class="touch-tip" role="status">' + (state.message || 'はじめの まるから さいごまで、ゆびを はなさずに！') + '</p>' +
+    (state.message ? '<p class="touch-tip" role="status">' + escape(state.message) + '</p>' : '') +
     '<button type="button" class="touch-reset" data-touch="restart"' + (disabled ? ' disabled' : '') +
-    '>↻ やりなおす</button></div>';
+    '>↻ もういちど</button></div>';
 }
 function clockAngle(hour: number, minute: number): number { return ((hour % 12) + minute / 60) * 30; }
 function clockSvg(hour: number, minute: number): string {
@@ -155,10 +180,61 @@ function segmentDistance(p: Point, a: Point, b: Point): number {
     Math.max(1, dx * dx + dy * dy)));
   return dist(p, [a[0] + dx * t, a[1] + dy * t]);
 }
+/** Branching maze: stay on an open road, choose turns, and backtrack along a dead end. */
+export function traceMazeSample(q: Question, state: TouchState,
+  phase: 'down' | 'move' | 'up' | 'cancel', position: Point): TouchResult {
+  if (q.gameId !== 'maze') return { finished: false };
+  const path = q.visual.numbers ?? [];
+  if (!path.length) return { finished: false };
+  const size = q.visual.a ?? 3, roads = mazeEdges(q);
+  const start = path[0], goal = path[path.length - 1];
+  if (phase === 'cancel') return resetRoute(state);
+  if (phase === 'down') {
+    if (dist(position, mazeCenter(start, size)) > DOT_RADIUS) return { finished: false };
+    state.drawing = true; state.done = [start]; state.ink = [position];
+    state.last = position; state.message = '';
+    return { finished: false };
+  }
+  if (!state.drawing || !state.last) return { finished: false };
+  const distance = dist(position, state.last);
+  for (let i = 1, steps = Math.max(1, Math.ceil(distance / 6)); i <= steps; i++) {
+    const p: Point = [
+      state.last[0] + (position[0] - state.last[0]) * i / steps,
+      state.last[1] + (position[1] - state.last[1]) * i / steps
+    ];
+    const cell = state.done[state.done.length - 1];
+    const neighbors = roads.flatMap(([a, b]) => a === cell ? [b] : b === cell ? [a] : []);
+    const touching = neighbors.find(next => dist(p, mazeCenter(next, size)) <= DOT_RADIUS);
+    if (touching !== undefined) {
+      if (state.done.length > 1 && touching === state.done[state.done.length - 2])
+        state.done.pop();
+      else state.done.push(touching);
+    }
+    const at = state.done[state.done.length - 1];
+    const openNeighbors = roads.flatMap(([a, b]) => a === at ? [b] : b === at ? [a] : []);
+    if (!Number.isFinite(p[0]) || !Number.isFinite(p[1]) ||
+        (dist(p, mazeCenter(at, size)) > ROAD_RADIUS &&
+        !openNeighbors.some(next =>
+          segmentDistance(p, mazeCenter(at, size), mazeCenter(next, size)) <= ROAD_RADIUS)))
+      return resetRoute(state, 'みちを さがしてみよう！');
+  }
+  state.last = position;
+  if (state.ink.length < 750) state.ink.push(position);
+  if (phase === 'up') {
+    if (state.done[state.done.length - 1] === goal &&
+        dist(position, mazeCenter(goal, size)) <= DOT_RADIUS) {
+      state.drawing = false; state.pointerId = null;
+      return { finished: true, value: q.answer, practice: true };
+    }
+    return resetRoute(state, 'もういちど いってみよう！');
+  }
+  return { finished: false };
+}
 /** Pure path-trace policy. A swipe across scattered buttons cannot bypass the continuous route. */
 export function traceRouteSample(q: Question, state: TouchState,
   phase: 'down' | 'move' | 'up' | 'cancel', position: Point): TouchResult {
   if (q.gameId !== 'connect' && q.gameId !== 'maze') return { finished: false };
+  if (q.gameId === 'maze') return traceMazeSample(q, state, phase, position);
   const points = routePoints(q);
   if (!points.length) return { finished: false };
   if (phase === 'cancel') return resetRoute(state);
