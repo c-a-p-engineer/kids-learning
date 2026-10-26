@@ -8,11 +8,11 @@ import ts from 'typescript';
 
 // Transpile each dependency to a temporary ESM module: no extra runtime or test framework.
 const temp = mkdtempSync(join(tmpdir(), 'kids-learning-test-'));
-for (const moduleName of ['engine', 'activity-content', 'activity-ui', 'progression', 'progress-ui', 'touch-content', 'touch-ui', 'storage']) {
+for (const moduleName of ['engine', 'activity-content', 'activity-ui', 'progression', 'progress-ui', 'touch-content', 'touch-ui', 'storage', 'trace-guides']) {
   const source = readFileSync(new URL('../src/' + moduleName + '.ts', import.meta.url), 'utf8');
   const js = ts.transpileModule(source, {
     compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.ESNext }
-  }).outputText.replace(/from '\.\/(activity-content|engine|progression|touch-content)'/g, "from './$1.mjs'");
+  }).outputText.replace(/from '\.\/(activity-content|engine|progression|touch-content|trace-guides)'/g, "from './$1.mjs'");
   writeFileSync(join(temp, moduleName + '.mjs'), js);
 }
 const engine = await import(pathToFileURL(join(temp, 'engine.mjs')).href);
@@ -25,7 +25,7 @@ const touchUi = await import(pathToFileURL(join(temp, 'touch-ui.mjs')).href);
 const storage = await import(pathToFileURL(join(temp, 'storage.mjs')).href);
 const now = Date.UTC(2026, 9, 26);
 
-assert.equal(engine.GAMES.length, 22);
+assert.equal(engine.GAMES.length, 23);
 // Audio settings are stored in the existing V2 profile object, never legacy keys.
 const defaults = engine.freshSave();
 assert.equal(defaults.schema, 2);
@@ -231,18 +231,46 @@ assert.equal(blockState.count, 5);
 const noExtra = activityUi.activityClick(blockQ, blockState, 'block-five', -1);
 assert.equal(noExtra.kind, 'progress'); // cannot earn another answer by tapping more
 assert.equal(blockState.count, 5);
-const traceQ = engine.makeQuestion('trace', 0);
-const traceState = activityUi.newActivityState(traceQ);
-const guide = activity.TRACE_GUIDES[traceQ.answer];
-assert(guide.points.length >= 7);
-for (let i = 0; i < guide.points.length; i++) {
-  const result = activityUi.activityClick(traceQ, traceState, 'trace-point', i);
-  if (i < guide.points.length - 1) assert.equal(result.kind, 'progress');
-  else {
-    assert.equal(result.kind, 'submit');
-    assert.equal(result.assisted, true);
+// Both line warmups and hiragana show exact stroke count and advance in stroke order.
+for (const gameId of ['lines', 'trace']) {
+  for (let i = 0; i < 40; i++) {
+    const q = engine.makeQuestion(gameId, i);
+    const guide = activity.TRACE_GUIDES[q.answer];
+    assert(guide?.strokes.length >= 1);
+    const state = activityUi.newActivityState(q);
+    let last;
+    for (const stroke of guide.strokes) {
+      for (let index = 0; index < stroke.length; index++) {
+        last = activityUi.activityClick(q, state, 'trace-point', index);
+      }
+    }
+    assert.equal(last.kind, 'submit', q.id);
+    assert.equal(last.assisted, true);
   }
 }
+const noGuide = activity.TRACE_GUIDES['の'];
+assert.equal(noGuide.strokes.length, 1, 'の is written in a single continuous stroke');
+assert(noGuide.strokes[0].length >= 12);
+const twoStroke = activity.TRACE_GUIDES['こ'];
+assert.equal(twoStroke.strokes.length, 2, 'こ requires two distinct strokes');
+const curveQuestion = engine.makeQuestion('lines', 2);
+const curveGuide = activity.TRACE_GUIDES[curveQuestion.answer];
+const curveState = activityUi.newActivityState(curveQuestion);
+const pathPoints = curveGuide.strokes[0];
+let geomResult = activityUi.traceSample(curveQuestion, curveState, 'down', pathPoints[0]);
+for (let j = 1; j < pathPoints.length; j++) {
+  geomResult = activityUi.traceSample(curveQuestion, curveState,
+    j === pathPoints.length - 1 ? 'up' : 'move', pathPoints[j]);
+}
+assert.equal(geomResult.kind, 'submit', 'following guide corridor should complete the line');
+const offState = activityUi.newActivityState(curveQuestion);
+activityUi.traceSample(curveQuestion, offState, 'down', pathPoints[0]);
+const reject = activityUi.traceSample(curveQuestion, offState, 'move', [0, 0]);
+assert.equal(reject.kind, 'progress');
+assert.equal(reject.refresh, true, 'leaving the corridor must immediately reset the stroke');
+assert.equal(offState.traceIndex, 0);
+assert.equal(offState.waypointIndex, 0);
+assert.equal(offState.drawing, false);
 const moveQ = engine.makeQuestion('move', 0);
 const moveResult = activityUi.activityClick(moveQ, activityUi.newActivityState(moveQ), 'move-done', -1);
 assert.equal(moveResult.kind, 'submit');
@@ -250,7 +278,7 @@ assert.equal(moveResult.assisted, true);
 const restResult = activityUi.activityClick(moveQ, activityUi.newActivityState(moveQ), 'move-skip', -1);
 assert.equal(restResult.kind, 'submit');
 assert.equal(restResult.skipped, true);
-console.log('PASS: tracing alternative, number block input, letter construction, seated movement and rest');
+console.log('PASS: stroke-aware tracing and warmup, number block input, letter construction, seated movement and rest');
 
 
 // V2.6 daily records never retroactively fabricate dates for an old V2.5 save.
