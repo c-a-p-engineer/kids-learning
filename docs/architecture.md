@@ -1,139 +1,70 @@
-# アーキテクチャ
+# KIDS LEARNING V2 のアーキテクチャ
 
-## 1. 概要
+2026-10-26 時点の現行コードを正とする。Preactは初期検討候補だったが、本実装では新しい依存を増やさずVanilla TypeScriptで15ゲームを構築した。
 
-`kids-learning` は、ViteとTypeScriptで構成されたクライアントサイドの学習アプリです。バックエンドやユーザーアカウントを持たず、GitHub Pagesから静的ファイルとして配布します。
+## 実行構成
 
-## 2. 実行構成
+~~~text
+GitHub Pages (public/ を公開)
+  ↑ scripts/build.sh → npm test + Vite build
+src/index.html → src/quest-main.ts → src/engine.ts
+                      │
+                      ├── src/game.css
+                      ├── ブラウザ読み上げ・効果音
+                      └── localStorage（匿名プレイヤー別）
+~~~
 
-```text
-GitHub Pages
-  └─ public/
-      ├─ index.html
-      ├─ assets/
-      └─ 404.html
-           ↑
-      ./scripts/build.sh
-           ↑
-Vite build (root: src/)
-           ↑
-src/
-  ├─ index.html
-  ├─ main.ts
-  ├─ app/
-  ├─ contents/
-  ├─ styles/
-  └─ public/404.html
-```
+- src/engine.ts: GAMES、makeQuestion、evaluate、nextReview、chooseRound、countDue。画面・ブラウザAPIから独立した問題生成・採点・復習。
+- src/quest-main.ts: ホーム、ゲーム、結果、保護者画面とイベント委譲。Sessionで5問の進行を管理。採点を確定してからXPと復習予定を保存する。
+- src/game-audio.ts: ユーザーの操作後にWeb Audio APIでBGM/SEを合成。画面と可視状態に応じて停止。
+- src/reward-effects.ts: 学習判定と独立した短い星・XP・紙吹雪（動き軽減対応）。
+- src/game.css: 360px級スマホ、タブレット、focus-visible、reduced-motion。
+- src/public/404.html: GitHub Pagesの旧深いURLに対するSPA入口復帰。
+- scripts/check-games.mjs: 15ゲーム×80ケースと復習期間を検証。
 
-## 3. 主要モジュール
+## 保存キー
 
-| 場所 | 責務 |
-|---|---|
-| `src/index.html` | ポータル、かきとり、保護者画面、共通DOM |
-| `src/main.ts` | 初期化、コンテンツ一覧、テーマ、ルーティング、かきとり機能の統合 |
-| `src/app/router.ts` | URLと画面表示の対応 |
-| `src/app/dom.ts` | DOM要素の取得と型付け |
-| `src/app/store.ts` | かきとり関連の状態読み書き |
-| `src/app/audio.ts` | 読み上げと効果音の共通処理 |
-| `src/app/canvas.ts` | かきとりキャンバスの描画処理 |
-| `src/contents/index.ts` | 公開コンテンツの登録一覧 |
-| `src/contents/*-game.ts` | 各ゲームの画面、状態、イベント、履歴 |
-| `src/styles/main.scss` | 既存の共通・コンテンツ別スタイル |
-| `src/styles/accessibility.css` | 視認性、タッチ領域、スマホ・タブレット対応の補強 |
+- kids_learning_active_slot_v2: 現在の匿名プレイヤー番号
+- kids_learning_dopagaki_v2_player_1..4: schema=2, xp, sessions, completed, reviews, settings
+- V1のキーは一切変更しない。旧データのV2移行は未実装。
+- データは端末ブラウザ内のみ。アカウントやサーバー同期なし。
 
-## 4. ルーティング
+## ゲーム進行
 
-基本規則:
+home → 5問中の1問 → （記憶ならpreview）→ answer → solved → 次の問 → result。正解時に保存、セッション終了時に完了回数保存。失敗時はヒント/再選択で回復可能。問題単位のcommitted Setとphaseガードで二重確定を防ぐ。
 
-```text
-/                         ポータル
-/<contentId>              コンテンツの開始画面
-/<contentId>/home         コンテンツの開始画面
-/<contentId>/play         学習・ゲーム画面
-/<contentId>/parent       保護者画面（対応コンテンツのみ）
-```
+復習は既習問題から期限到来を最大2問選び、新問題と合わせて5問。1・3・7・14日の間隔は初期パラメータであり、個々の学習者に対する最適値を保証しない。
 
-GitHub Pagesは任意パスのHTMLを直接返せないため、`src/public/404.html` がクエリへ元のパスを退避し、アプリ起動時に `history.replaceState` で復元します。
+## 旧版
 
-## 5. コンテンツ登録
+https://github.com/c-a-p-engineer/kids-learning/tree/archive/pre-dopagaki-20261026
 
-各コンテンツは `LearningContent` として次を持ちます。
+旧版の11ゲーム関連ソース52ファイルは現行ブランチから退役済み。復旧は退避ブランチまたは旧コミットで行う。
 
-- `id`
-- `title`
-- `description`
-- `tags`
 
-`src/contents/index.ts` の `LEARNING_CONTENTS` に登録された順でポータルに表示されます。
+## 2026-10-26 設定と表示の改善
 
-## 6. 保存
+- src/game-audio.ts: WebAudioでBGM/効果音を合成。画面遷移・表示状態・利用者操作に連動して開始停止。独立音量を反映し、回答時やスライダー操作時には楽曲ループを再始動しない。
+- 設定画面（options）: BGM/SEのON/OFF、音量、演出ON/OFF。画面遷移前のクエスト状態を保持して戻る。音量値はV2既存データへのoptionalフィールド追加で、clampVolumeによる不正値補正を実施。
 
-- 保存先: ブラウザの `localStorage`
-- サーバー同期: なし
-- アカウント: なし
-- 端末間共有: なし
 
-各ゲームは固有の保存キーを使用します。保存形式と保持件数は各仕様書を正とします。
+## V2.3 追記
 
-注意事項:
+- engine.ts: MAX_LEVEL=5、CLEARS_PER_LEVEL=2、unlockedLevel、progressForを追加。問題生成は第3引数のlevelで難易度分岐。
+- レベル1のIDは従来維持。レベル2以降は gameId:L{level}:{index} に名前空間を分離し、保存済みの問題を読み戻す際にlevelを復元。
+- chooseRoundは第5引数levelを受け取り、そのレベルの新しい問題を生成。復習の期限到来は2問まで従来どおり混合。
+- quest-main.ts: 回答正解→自動進行タイマーを管理。途中退出・オプション移動・キャラ切替でタイマーを解除。複数クリックで加点・クリアが重複しない。
+- 誤答は最大2秒の入力待ちを設ける。2回目以降は非正解ヒントを追加。
+- ホームのカテゴリはクライアント状態、学習記録とは無関係。
+- 記録リセットはキャラクター1枠のV2学習データだけで、他キャラ・V1保存領域にアクセスしない。設定はコピーして維持。
+- 仕様の詳細: docs/renewal-2026/04-level-progress-and-ux.md
 
-- ブラウザデータを削除すると履歴も失われる
-- プライベートブラウズでは保存されない、または終了時に消える場合がある
-- 容量制限はブラウザごとに異なる
-- 保存形式変更時は既存データを考慮する
 
-## 7. 外部依存
+## V2.4 文字サイズの保存・反映
 
-- Vite: 開発とビルド
-- TypeScript: 型チェック
-- Sass: `main.scss` の処理
-- Phaser: CDN参照
-- animCJK: かきとりの書き順SVG取得
-- Web Speech API / Web Audio API: 読み上げ・効果音
+- engine.ts: settings.textSize（整数パーセント、標準100%）とclampTextSizeで80..160を10単位に丸める。
+- quest-main.ts: loadSave時に既存schema=2へ補完。inputの変更イベントで保存・CSS変数を更新し、ゲーム状態を再生成せず即時反映。
+- game.css: htmlのfont-sizeを --learning-font-percent（%）で可変化。remベースのUIを拡大し、長い回答はモバイルで縦並び、130%以上の文字設定では小画面カードを1列に。
+- 説明文を読む時間に配慮し、正解後の自動進行を文字サイズに比例して1.75〜2.8秒にする。
+- 学習データ・復習・XPは不変。既存4キャラそれぞれ独立して記録。
 
-外部通信や端末APIが使えない場合でも、可能な範囲で学習を続行できる構造を維持します。
-
-## 8. ビルド
-
-```bash
-npm ci
-npm run typecheck
-./scripts/build.sh
-```
-
-`vite.config.js` の設定:
-
-- root: `src`
-- base: `./`
-- outDir: `public`
-
-`build.sh` は、GitHub Actionsの起動確認用にハッシュ付きJSを `public/assets/main.js` へ複製します。
-
-## 9. デプロイ
-
-- `master` へのpush: GitHub Pages本番へデプロイ
-- その他のブランチへのpush: ブランチ別プレビューへデプロイ
-- ブランチ削除: 対応するプレビューを削除
-
-## 10. 変更時の境界
-
-コンテンツ固有の変更:
-
-- `src/contents/`
-- 対応する仕様書
-
-共通UIの変更:
-
-- `src/index.html`
-- `src/styles/`
-- `src/app/dom.ts` または `src/main.ts`
-- `docs/トップ画面.md`
-- `docs/design/`
-
-保存形式の変更:
-
-- 実装
-- 移行処理
-- 個別仕様書
-- 会話・意思決定記録
