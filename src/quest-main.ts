@@ -1,7 +1,7 @@
 import './game.css';
 import './activity.css';
 import { gameAudio } from './game-audio';
-import { isActivity } from './activity-content';
+import { isActivity, MOVE_CARDS } from './activity-content';
 import { activityHtml, activityClick, newActivityState, tracePointer } from './activity-ui';
 import type { ActivityResult, ActivityState } from './activity-ui';
 import { burst, dismissEffects } from './reward-effects';
@@ -565,7 +565,10 @@ function speak(): void {
   if (!('speechSynthesis' in window)) return;
   const q = session.deck[session.index];
   window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(session.phase === 'preview' ? 'えを よく みて、おぼえよう。' : q.prompt);
+  const movement = q.gameId === 'move' ? MOVE_CARDS[q.visual.a ?? 0] : undefined;
+  const spoken = movement ? movement.instruction + '。' + movement.seated :
+    session.phase === 'preview' ? 'えを よく みて、おぼえよう。' : q.prompt;
+  const u = new SpeechSynthesisUtterance(spoken);
   u.lang = 'ja-JP'; u.rate = 0.83;
   window.speechSynthesis.speak(u);
 }
