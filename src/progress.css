@@ -90,3 +90,7 @@ button.skill-node{font:inherit;color:#785220;cursor:pointer;min-width:44px;min-h
 button.skill-node:active{transform:translateY(2px)}
 .skill-node.locked{opacity:.68}
 @media(max-width:390px){button.skill-node{min-width:40px}}
+
+.today-games{display:flex;flex-wrap:wrap;gap:9px;margin:13px 0 4px}
+.today-game{border:2px solid #d4e3f8;background:#f5faff;color:#435c91;border-radius:999px;
+ padding:7px 13px;font-size:.89rem;font-weight:900;line-height:1.4}
