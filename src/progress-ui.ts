@@ -37,7 +37,7 @@ export function statusHtml(save: LearningSave, profileName: string, now: Date): 
   const fourteen = recentDays(save.daily, now, 14);
   const thirty = recentDays(save.daily, now, 30).reverse();
   const max = Math.max(1, ...fourteen.map(x => x.log.answered));
-  const today = fourteen[thirteen()];
+  const today = fourteen[13];
   const due = GAMES.reduce((n, g) => n + countDue(g.id, save, now.getTime()), 0);
   const skills = skillSummary(save);
   const bars = fourteen.map((day, index) => {
@@ -79,7 +79,6 @@ export function statusHtml(save: LearningSave, profileName: string, now: Date): 
     '<p class="growth-note">※ この日別きろくは V2.6 からの分だけ。以前のXP・クリアは合計に残りますが、日付を後から推測しません。' +
     'きろくはこの端末の、選んだキャラだけ。なぞりや運動の完了は学力の正答とは別です。</p></section>';
 }
-function thirteen() { return 13; }
 export function skillTreeHtml(save: LearningSave, profileName: string, selected: ProgressCategory): string {
   const summary = skillSummary(save);
   const filter = PROGRESS_CATEGORIES.some(cat => cat.id === selected) ? selected : 'all';
@@ -92,13 +91,19 @@ export function skillTreeHtml(save: LearningSave, profileName: string, selected:
     const clears = save.completed[game.id] ?? 0;
     const info = progressFor(clears);
     const nodes = skillNodes(game.id, save.completed);
-    const tree = nodes.map((node, i) =>
-      '<span class="skill-node' + (node.opened ? ' unlocked' : ' locked') +
-      (node.level === info.level ? ' current' : '') + '" title="レベル ' + node.level +
-      (node.opened ? ' ひらいた' : ' ' + node.requiredClears + 'かいクリアでかいほう') + '">' +
-      '<span class="skill-level">' + (node.opened ? '⭐' : '🔒') + '</span><small>LV' + node.level +
-      '</small></span>' + (i < MAX_LEVEL - 1 ? '<span class="skill-connector' +
-      (nodes[i + 1].opened ? ' unlocked' : '') + '"></span>' : '')).join('');
+    const tree = nodes.map((node, i) => {
+      const tag = node.opened ? 'button' : 'span';
+      const attrs = node.opened ? ' type="button" data-skill-play="' + game.id +
+        '" data-level="' + node.level + '" aria-label="' + escape(game.title) +
+        ' レベル ' + node.level + 'を あそぶ"' : ' aria-label="レベル ' + node.level +
+        ' まだ ひらいていません"';
+      return '<' + tag + attrs + ' class="skill-node' + (node.opened ? ' unlocked' : ' locked') +
+        (node.level === info.level ? ' current' : '') + '" title="レベル ' + node.level +
+        (node.opened ? ' をあそぶ' : ' ' + node.requiredClears + 'かいクリアでかいほう') + '">' +
+        '<span class="skill-level">' + (node.opened ? '⭐' : '🔒') + '</span><small>LV' + node.level +
+        '</small></' + tag + '>' + (i < MAX_LEVEL - 1 ? '<span class="skill-connector' +
+        (nodes[i + 1].opened ? ' unlocked' : '') + '"></span>' : '');
+    }).join('');
     const next = info.maxed ? 'ぜんレベル かいほう！' :
       'つぎの レベルまで ' + info.current + '/' + info.target + ' クリア';
     return '<article class="skill-branch"><div class="skill-branch-header"><span class="skill-branch-icon">' +
@@ -113,7 +118,7 @@ export function skillTreeHtml(save: LearningSave, profileName: string, selected:
     buttons('skills') +
     '<div class="skill-summary"><strong>⭐ ' + summary.unlocked + '/' + summary.total +
     '</strong><span>ひらいた レベル　🏆 ' + summary.maxed + 'ゲーム ぜんかいほう</span></div>' +
-    '<p class="growth-help">ひとつの ゲームを 2かいクリアすると つぎの LV が ひらくよ。</p>' +
+    '<p class="growth-help">ひとつの ゲームを 2かいクリアすると つぎの LV が ひらくよ。⭐のレベルを おすと あそべるよ。</p>' +
     '<nav class="skill-filters" aria-label="スキルの ぶんや">' + tabs + '</nav>' +
     '<div class="skill-tree-grid">' + trees + '</div>' +
     '<p class="growth-note">※ スキルツリーの解放は「挑戦できるレベル」です。能力検査や発達・療育の評価ではありません。' +
