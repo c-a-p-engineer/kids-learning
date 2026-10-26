@@ -25,13 +25,17 @@ export function workshopHtml(q: Question, state: WorkshopState, disabled: boolea
   const message = '<p class="workshop-message" aria-live="polite">' + escape(state.message) + '</p>';
   if (q.gameId === 'shop') {
     const target = q.visual.a ?? 0, current = money(state.coins);
-    const coins = [1, 5, 10].map(v => btn('coin', v + 'えん', disabled || current + v > target, v)).join('');
-    return '<div class="workshop"><div class="workshop-target">' + (q.visual.symbol ?? '🛍️') +
-      '　<strong>' + target + 'えん</strong></div><div class="shop-money">いま ' + current +
-      'えん / ' + target + 'えん</div><div class="shop-coins">' +
-      (state.coins.map(v => '<span class="coin-token">' + v + '</span>').join('') || '🪙 ここに おかねを いれよう') +
-      '</div><div class="workshop-actions">' + coins + '</div>' +
-      btn('undo', '↩ 1こ もどす', disabled || !state.coins.length) + message + '</div>';
+    const coins = [1, 5, 10].map(v =>
+      btn('coin', v + 'えん', disabled || current + v > target, v)).join('');
+    const placed = state.coins.map((v, index) =>
+      '<button type="button" class="coin-token" data-workshop="remove-coin" data-index="' + index +
+      '" aria-label="' + v + 'えんを もどす"' + (disabled ? ' disabled' : '') +
+      '>' + v + '<small>えん</small></button>').join('');
+    return '<div class="workshop workshop-shop">' +
+      '<div class="shop-money" role="status">あと <strong>' + (target - current) + '</strong> えん</div>' +
+      '<div class="shop-coins" role="group" aria-label="いれた おかね。おすと もどる">' +
+      (placed || '<span class="shop-empty">ここに おかねを いれよう</span>') + '</div>' +
+      '<div class="workshop-actions">' + coins + '</div>' + message + '</div>';
   }
   if (q.gameId === 'routine') {
     const labels = q.visual.preview ?? [];
@@ -70,21 +74,26 @@ export function workshopHtml(q: Question, state: WorkshopState, disabled: boolea
 /** Only successful construction submits an answer; random taps do not award progress. */
 export function workshopClick(q: Question, state: WorkshopState, action: string, index = -1): WorkshopResult {
   if (!isWorkshop(q.gameId)) return { finished: false };
-  if (action === 'undo') {
-    if (q.gameId === 'shop') state.coins.pop();
-    if (q.gameId === 'routine') state.sequence.pop();
-    state.message = '';
-    return { finished: false };
-  }
   if (q.gameId === 'shop') {
+    if (action === 'remove-coin') {
+      if (index >= 0 && index < state.coins.length && Number.isInteger(index)) {
+        state.coins.splice(index, 1);
+        state.message = '';
+      }
+      return { finished: false };
+    }
     const target = q.visual.a ?? 0;
     if (action !== 'coin' || ![1, 5, 10].includes(index)) return { finished: false };
     const current = money(state.coins);
-    if (current + index > target) {
-      state.message = 'おおすぎるよ。べつの おかねで やってみよう！'; return { finished: false };
-    }
+    if (current + index > target) return { finished: false };
     state.coins.push(index);
+    state.message = '';
     return money(state.coins) === target ? { finished: true, value: q.answer } : { finished: false };
+  }
+  if (action === 'undo' && q.gameId === 'routine') {
+    state.sequence.pop();
+    state.message = '';
+    return { finished: false };
   }
   if (q.gameId === 'routine') {
     const labels = q.visual.preview ?? [];
