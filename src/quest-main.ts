@@ -3,6 +3,7 @@ import './activity.css';
 import './progress.css';
 import './touch.css';
 import './v28.css';
+import { haptic } from './haptics';
 import { isWorkshop } from './workshop-content';
 import { freshWorkshop, workshopHtml, workshopClick } from './workshop-ui';
 import type { WorkshopState } from './workshop-ui';
@@ -341,7 +342,7 @@ function optionsHtml(): string {
   const settings = save.settings;
   return layout('<section class="options-panel">' +
     '<p class="eyebrow">SETTINGS</p><h1>⚙️ せってい</h1>' +
-    '<p class="options-lead">もじの おおきさ と おとを すきな ように かえてね。</p>' +
+    '<p class="options-lead">もじの おおきさ・おと・バイブを すきな ように かえてね。</p>' +
     '<div class="options-group text-size-options">' +
     '<div class="options-heading"><div><strong>🔤 もじの おおきさ</strong>' +
     '<small>もんだい・こたえ・ヒントの もじを かえられるよ</small></div></div>' +
@@ -372,6 +373,11 @@ function optionsHtml(): string {
     settings.seVolume + '" aria-label="こうかおんの おおきさ" />' +
     '<div class="volume-ends"><span>ちいさい</span><span>おおきい</span></div>' +
     '<button type="button" class="sample-sound" data-action="test-se">🔔 こうかおんを ためす</button></div>' +
+    '<div class="options-group"><div class="options-heading"><div><strong>📳 バイブ（しんどう）</strong>' +
+    '<small>せいかい・ざんねん・クリアで ちいさく ふるえるよ。たいおう たんまつだけ。</small></div>' +
+    '<button type="button" class="toggle-btn" data-action="haptics" aria-pressed="' + settings.haptics +
+    '">' + (settings.haptics ? 'ON 📳' : 'OFF 🌙') + '</button></div>' +
+    '<button type="button" class="sample-sound" data-action="test-haptics">📳 バイブを ためす</button></div>' +
     '<div class="options-group"><div class="options-heading"><div><strong>🌟 ひかる えんしゅつ</strong>' +
     '<small>キラキラ・かみふぶきを へらせるよ</small></div>' +
     '<button type="button" class="toggle-btn" data-action="quiet" aria-pressed="' + !settings.quiet +
@@ -512,6 +518,7 @@ function answer(choice: string, mode?: AnswerMode): void {
     if (session.wrong >= 2) session.hints++;
     session.feedback = 'おしい！ ちょっと かんがえてから もういちど。' + extra;
     gameAudio.effect('retry');
+    haptic('retry', save.settings);
     render();
     const thisSession = session, questionIndex = session.index;
     unlockAnswerTimer = window.setTimeout(() => {
@@ -551,6 +558,7 @@ function answer(choice: string, mode?: AnswerMode): void {
     (practice ? '✨ やってみたね！ ' : independent ? '✨ せいかい！ じぶんで できた！ ' :
     '🌱 できた！ かんがえなおせたね！ ') + q.explanation;
   gameAudio.effect(recalled && independent ? 'review' : 'correct');
+  if (mode !== 'skip') haptic('correct', save.settings);
   render();
   if (mode !== 'skip') burst(recalled && independent ? 'review' : 'correct', earned);
   scheduleAdvance();
@@ -572,6 +580,8 @@ function next(): void {
     }
     page = 'result';
     gameAudio.effect('clear');
+    const nextLevel = unlockedLevel(save.completed[session.gameId] ?? 0);
+    haptic(nextLevel > session.level ? 'level' : 'clear', save.settings);
   } else {
     session = advanceSession(session);
     activityState = isActivity(session.gameId) ? newActivityState(session.deck[session.index]) : null;
@@ -824,6 +834,13 @@ app.addEventListener('click', event => {
   else if (action === 'remember' && session?.phase === 'preview') { session.phase = 'answer'; render(); }
   else if (action === 'speak') speak();
   else if (action === 'quiet') { save.settings.quiet = !save.settings.quiet; dismissEffects(); saveNow(); render(); }
+  else if (action === 'haptics' && page === 'options') {
+    save.settings.haptics = !save.settings.haptics;
+    saveNow();
+    if (save.settings.haptics) haptic('correct', save.settings);
+    render();
+  }
+  else if (action === 'test-haptics' && page === 'options') haptic('clear', save.settings);
   else if (action === 'sound') { save.settings.sound = !save.settings.sound; gameAudio.configure(save.settings.sound, save.settings.bgm, save.settings.seVolume, save.settings.bgmVolume); saveNow(); render(); }
   else if (action === 'bgm') { save.settings.bgm = !save.settings.bgm; gameAudio.configure(save.settings.sound, save.settings.bgm, save.settings.seVolume, save.settings.bgmVolume); saveNow(); render(); }
   else if (action === 'test-se') gameAudio.effect('correct');
