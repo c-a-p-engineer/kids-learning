@@ -1,4 +1,5 @@
 import './game.css';
+import './activity.css';
 import { gameAudio } from './game-audio';
 import { isActivity } from './activity-content';
 import { activityHtml, activityClick, newActivityState, tracePointer } from './activity-ui';
