@@ -214,7 +214,7 @@ function homeHtml(): string {
   }).join('');
   return layout('<section class="hero"><div class="hero-content"><p class="eyebrow">HELLO, LITTLE HERO!</p>' +
     '<h1>きょうの <span>ぼうけん</span>に<br>しゅっぱつ！</h1>' +
-    '<p>' + GAMES.length + 'この ぼうけん！ さわって、うごいて、<strong>できた！</strong>を あつめよう.</p>' +
+    '<p>すきな ゲームで あそぼう！</p>' +
     '<div class="hero-stats"><span>🏆 ' + save.sessions + 'かいクリア</span><span>✨ ' + save.xp + ' XP</span>' +
     (due ? '<span>🔁 ふくしゅう ' + due + 'こ</span>' : '<span>🌈 きょうも いっぽ！</span>') + '</div></div>' +
     '<div class="hero-mascot" aria-hidden="true">' + activeProfile().icon + '<span>⭐</span></div></section>' +
@@ -224,7 +224,7 @@ function homeHtml(): string {
     '<button type="button" data-action="world"><span>🚂</span><strong>まなびの えき</strong><small>クリアで まちが そだつ</small></button></div>' +
     '<section class="select-profile" aria-label="ぼうけんの なかまを えらぶ"><strong>ぼうけんの なかまを えらぼう！</strong><div class="profile-row">' +
     profiles + '</div></section>' +
-    '<section class="quests"><div class="section-header"><h2>クエストを えらぼう</h2><p>すきなものから はじめていいよ！</p></div>' +
+    '<section class="quests"><div class="section-header"><h2>クエストを えらぼう</h2></div>' +
     '<nav class="category-tabs" aria-label="がくしゅう ぶんや">' + categories + '</nav>' +
     '<div class="quest-grid">' + cards + '</div></section>' +
     '<div class="home-bottom">⏱ 1ゲーム 5もんで おしまい。いつでも おわって いいよ。</div>');
@@ -319,7 +319,7 @@ function gameHtml(): string {
     isActivity(q.gameId) && activityState
     ? activityHtml(q, activityState, solved || locked) :
     memoryPreview ? '<button type="button" class="primary-btn" data-action="remember">おぼえた！ こたえる ➜</button>' :
-    '<div class="answer-instruction">こたえを ひとつ えらんでね</div><div class="answer-grid' + (longChoices ? ' long-choices' : '') + '">' +
+    '<div class="answer-grid' + (longChoices ? ' long-choices' : '') + '">' +
     q.choices.map(choice => '<button type="button" class="answer-btn" aria-label="こたえ ' + safe(choice) +
       '" data-answer="' + safe(choice) + '"' + (solved || locked ? ' disabled' : '') +
       '><span class="answer-choice">' + safe(choice) + '</span></button>').join('') + '</div>';
@@ -334,7 +334,6 @@ function gameHtml(): string {
     '<section class="challenge" style="--accent:' + game.color + '"><div class="challenge-tag">' + game.icon + ' ' + number + 'もんめ</div>' +
     '<h1>' + safe(memoryPreview ? 'まずは えを おぼえよう！' : q.prompt) + '</h1>' +
     (isActivity(q.gameId) || isTouchGame(q.gameId) || isWorkshop(q.gameId) || q.gameId === 'compare' || q.gameId === 'odd' ? '' : '<div class="visual-stage">' + visualHtml(q.visual, memoryPreview) + '</div>') +
-    (memoryPreview ? '<p class="memory-note">じかんは きにしなくて いいよ。おぼえたら ボタンを おしてね。</p>' : '') +
     '<button type="button" class="read-btn" data-action="speak">🔊 もんだいを きく</button>' +
     '<div class="answers">' + options + '</div>' + feedback + hint +
     (solved ? '<div class="auto-next" role="status">' +
@@ -555,6 +554,7 @@ function answer(choice: string, mode?: AnswerMode): void {
       save = prepared;
       if (storageWarning.startsWith('ほぞんできません')) storageWarning = '';
     } catch {
+      if (slotStale) { render(); return; }
       session.attempts = Math.max(0, session.attempts - 1);
       session.feedback = 'きろくを ほぞんできません。ほごしゃに つたえてね。';
       storageWarning = 'ほぞんできません。あきようりょうを かくにんしてください。';
@@ -590,6 +590,7 @@ function answer(choice: string, mode?: AnswerMode): void {
     save = prepared.data;
     if (storageWarning.startsWith('ほぞんできません')) storageWarning = '';
   } catch {
+    if (slotStale) { render(); return; }
     // No XP/review/daily count is committed when persistence fails.
     session.attempts = Math.max(0, session.attempts - 1);
     session.feedback = 'きろくを ほぞんできなかったよ。ほごしゃに つたえてね。';
@@ -623,6 +624,7 @@ function next(): void {
       save = prepared;
       if (storageWarning.startsWith('ほぞんできません')) storageWarning = '';
     } catch {
+      if (slotStale) { render(); return; }
       session.feedback = 'クリアきろくを ほぞんできなかったよ。ほごしゃに つたえてね。';
       storageWarning = 'ほぞんできません。クリアは まだ ほぞんされていません。';
       render();
