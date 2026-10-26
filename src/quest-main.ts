@@ -115,11 +115,15 @@ function loadSave(): LearningSave {
           typeof question.prompt !== 'string' || typeof question.explanation !== 'string' ||
           !question.visual || typeof question.visual !== 'object' ||
           !Number.isFinite(review.dueAt) || !Number.isFinite(review.lastAnsweredAt)) continue;
-        const index = Number(question.id.split(':').pop());
-        if (!Number.isInteger(index) || index < 0 || index > 200 || question.id !== question.gameId + ':' + index) continue;
+        const suffix = question.id.slice(question.gameId.length + 1);
+        const parts = suffix.match(/^(?:L([2-5]):)?(\d{1,3})$/);
+        if (!question.id.startsWith(question.gameId + ':') || !parts) continue;
+        const level = parts[1] ? Number(parts[1]) : 1;
+        const index = Number(parts[2]);
+        if (!Number.isInteger(index) || index < 0 || index > 200) continue;
         if (key !== question.id) continue;
-        // Rebuild from the trusted generator, not a persisted DOM payload.
-        const canonical = chooseCanonical(question.gameId, index);
+        // Rebuild canonical questions for the matching difficulty level, not from persisted DOM data.
+        const canonical = chooseCanonical(question.gameId, index, level);
         data.reviews[key] = {
           question: canonical, stage: Math.max(0, Math.min(3, Math.floor(Number(review.stage) || 0))),
           dueAt: Number(review.dueAt), lastAnsweredAt: Number(review.lastAnsweredAt), correct: review.correct === true
@@ -132,9 +136,9 @@ function loadSave(): LearningSave {
     return freshSave();
   }
 }
-function chooseCanonical(gameId: GameId, index: number): Question {
+function chooseCanonical(gameId: GameId, index: number, level = 1): Question {
   // The import is deliberately in engine rather than trusting records on localStorage.
-  return generate(gameId, index);
+  return generate(gameId, index, level);
 }
 import { makeQuestion as generate } from './engine';
 
@@ -409,15 +413,27 @@ function makeHint(q: Question): string {
   }
 }
 function answer(choice: string): void {
-  if (!session || session.phase !== 'answer') return;
+  if (!session || session.phase !== 'answer' || session.locked || page !== 'game') return;
   const q = session.deck[session.index];
   if (!q.choices.includes(choice)) return;
   session.attempts++;
   if (!evaluate(q, choice)) {
     session.wrong++;
-    session.feedback = 'おしい！ もういちど かんがえてみよう。ヒントも つかえるよ。';
+    session.locked = true;
+    // Anti-guess: brief, bounded cooldown with a thinking cue, never removes earned XP.
+    const extra = session.wrong >= 2 ? ' 💡 ' + makeHint(q) : '';
+    if (session.wrong >= 2) session.hints++;
+    session.feedback = 'おしい！ ちょっと かんがえてから もういちど。' + extra;
     gameAudio.effect('retry');
     render();
+    const thisSession = session, questionIndex = session.index;
+    unlockAnswerTimer = window.setTimeout(() => {
+      unlockAnswerTimer = undefined;
+      if (page !== 'game' || session !== thisSession || thisSession.index !== questionIndex ||
+          thisSession.phase !== 'answer') return;
+      thisSession.locked = false;
+      render();
+    }, Math.min(2000, 850 + session.wrong * 350));
     return;
   }
   const event = q.id + '|' + session.index;
@@ -434,9 +450,11 @@ function answer(choice: string): void {
   gameAudio.effect(recalled && independent ? 'review' : 'correct');
   render();
   burst(recalled && independent ? 'review' : 'correct', independent ? 10 : 5);
+  scheduleAdvance();
 }
 function next(): void {
-  if (!session || session.phase !== 'solved') return;
+  if (!session || session.phase !== 'solved' || page !== 'game') return;
+  stopTimers();
   if (session.index === session.deck.length - 1) {
     save.sessions++;
     save.completed[session.gameId] = (save.completed[session.gameId] ?? 0) + 1;
@@ -445,7 +463,7 @@ function next(): void {
     gameAudio.effect('clear');
   } else {
     session.index++;
-    session.attempts = 0; session.hints = 0; session.feedback = '';
+    session.attempts = 0; session.hints = 0; session.feedback = ''; session.locked = false;
     session.phase = session.deck[session.index].visual.kind === 'memory' ? 'preview' : 'answer';
   }
   render();
@@ -453,11 +471,31 @@ function next(): void {
   window.scrollTo({ top: 0, behavior: 'auto' });
 }
 function hint(): void {
-  if (!session || session.phase !== 'answer') return;
+  if (!session || session.phase !== 'answer' || page !== 'game') return;
   session.hints++;
   const q = session.deck[session.index];
   session.feedback = '💡 ' + makeHint(q);
   gameAudio.effect('hint');
+  render();
+}
+function resetCurrentLearning(): void {
+  if (page !== 'parent' || !resetArmed) return;
+  const old = save;
+  const nextSave = freshSave();
+  nextSave.settings = { ...old.settings };
+  try {
+    localStorage.setItem(storeKey(), JSON.stringify(nextSave));
+  } catch {
+    storageWarning = 'リセットできませんでした。ブラウザのほぞんを かくにんしてください。';
+    resetArmed = false;
+    render();
+    return;
+  }
+  stopTimers();
+  save = nextSave;
+  session = null;
+  resetArmed = false;
+  storageWarning = 'がくしゅうきろくを リセットしました。ほかのキャラのきろくは そのままです。';
   render();
 }
 function speak(): void {
@@ -496,15 +534,25 @@ app.addEventListener('click', event => {
   gameAudio.unlock();
   const answerBtn = target.closest<HTMLButtonElement>('[data-answer]');
   if (answerBtn) { answer(answerBtn.dataset.answer ?? ''); return; }
+  const categoryBtn = target.closest<HTMLButtonElement>('[data-category]');
+  if (page === 'home' && categoryBtn && CATEGORIES.some(x => x.id === categoryBtn.dataset.category)) {
+    categoryFilter = categoryBtn.dataset.category ?? 'all';
+    gameAudio.effect('tap');
+    render();
+    return;
+  }
   const gameBtn = target.closest<HTMLButtonElement>('[data-game]');
   if (gameBtn && isGameId(gameBtn.dataset.game ?? '')) { startGame(gameBtn.dataset.game as GameId); return; }
   const slotBtn = target.closest<HTMLButtonElement>('[data-slot]');
   if (slotBtn) { setSlot(Number(slotBtn.dataset.slot)); return; }
   const action = target.closest<HTMLElement>('[data-action]')?.dataset.action;
-  if (action === 'home') { window.speechSynthesis?.cancel(); dismissEffects(); page = 'home'; session = null; render(); }
-  else if (action === 'parent') { dismissEffects(); page = 'parent'; session = null; render(); }
-  else if (action === 'options') { dismissEffects(); beforeOptions = page === 'options' ? 'home' : page; page = 'options'; render(); }
-  else if (action === 'back-options') { page = beforeOptions; render(); }
+  if (action === 'home') { window.speechSynthesis?.cancel(); dismissEffects(); stopTimers();
+    page = 'home'; session = null; resetArmed = false; render(); }
+  else if (action === 'parent') { dismissEffects(); stopTimers(); page = 'parent';
+    session = null; resetArmed = false; render(); }
+  else if (action === 'options') { dismissEffects(); stopTimers(); if (session) session.locked = false;
+    beforeOptions = page === 'options' ? 'home' : page; page = 'options'; render(); }
+  else if (action === 'back-options') { page = beforeOptions; render(); scheduleAdvance(); }
   else if (action === 'replay' && session) startGame(session.gameId);
   else if (action === 'next') next();
   else if (action === 'hint') hint();
@@ -515,5 +563,8 @@ app.addEventListener('click', event => {
   else if (action === 'bgm') { save.settings.bgm = !save.settings.bgm; gameAudio.configure(save.settings.sound, save.settings.bgm, save.settings.seVolume, save.settings.bgmVolume); saveNow(); render(); }
   else if (action === 'test-se') gameAudio.effect('correct');
   else if (action === 'export') exportSave();
+  else if (action === 'reset-open' && page === 'parent') { resetArmed = true; render(); }
+  else if (action === 'reset-cancel' && page === 'parent') { resetArmed = false; render(); }
+  else if (action === 'reset-now') resetCurrentLearning();
 });
 render();
