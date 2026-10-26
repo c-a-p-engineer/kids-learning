@@ -1,7 +1,7 @@
 import './game.css';
 import { gameAudio } from './game-audio';
 import { burst, dismissEffects } from './reward-effects';
-import { GAMES, STORAGE_KEY, MAX_LEVEL, CLEARS_PER_LEVEL, progressFor, unlockedLevel, clampVolume, chooseRound, countDue, evaluate, freshSave, isGameId, nextReview } from './engine';
+import { GAMES, STORAGE_KEY, MAX_LEVEL, CLEARS_PER_LEVEL, progressFor, unlockedLevel, clampTextSize, clampVolume, chooseRound, countDue, evaluate, freshSave, isGameId, nextReview } from './engine';
 import type { GameId, LearningSave, Question, Visual } from './engine';
 
 const app = document.getElementById('app');
@@ -80,6 +80,13 @@ function getSlot(): number {
   } catch { return 1; }
 }
 function storeKey(): string { return STORAGE_KEY + '_player_' + slot; }
+/** No reload or session reset: font changes take effect on every game screen immediately. */
+function applyTextSize(): void {
+  const size = clampTextSize(save.settings.textSize);
+  document.documentElement.style.setProperty('--learning-text-scale', String(size / 100));
+  document.body.classList.toggle('learning-text-large', size >= 130);
+}
+
 function loadSave(): LearningSave {
   try {
     const raw = localStorage.getItem(storeKey());
@@ -103,6 +110,7 @@ function loadSave(): LearningSave {
       data.settings.bgm = obj.settings.bgm !== false;
       data.settings.bgmVolume = clampVolume(obj.settings.bgmVolume, 75);
       data.settings.seVolume = clampVolume(obj.settings.seVolume, 65);
+      data.settings.textSize = clampTextSize(obj.settings.textSize);
     }
     if (obj.reviews && typeof obj.reviews === 'object') {
       for (const [key, value] of Object.entries(obj.reviews)) {
@@ -156,6 +164,7 @@ function setSlot(next: number): void {
   try { localStorage.setItem('kids_learning_active_slot_v2', String(slot)); } catch { /* in-memory only */ }
   save = loadSave();
   gameAudio.configure(save.settings.sound, save.settings.bgm, save.settings.seVolume, save.settings.bgmVolume);
+  applyTextSize();
   session = null;
   page = 'home';
   render();
@@ -277,8 +286,9 @@ function gameHtml(): string {
   const memoryPreview = q.visual.kind === 'memory' && session.phase === 'preview';
   const solved = session.phase === 'solved';
   const locked = session.locked;
+  const longChoices = q.choices.some(choice => Array.from(choice).length >= 3);
   const options = memoryPreview ? '<button type="button" class="primary-btn" data-action="remember">おぼえた！ こたえる ➜</button>' :
-    '<div class="answer-instruction">こたえを ひとつ えらんでね</div><div class="answer-grid">' +
+    '<div class="answer-instruction">こたえを ひとつ えらんでね</div><div class="answer-grid' + (longChoices ? ' long-choices' : '') + '">' +
     q.choices.map(choice => '<button type="button" class="answer-btn" aria-label="こたえ ' + safe(choice) +
       '" data-answer="' + safe(choice) + '"' + (solved || locked ? ' disabled' : '') +
       '><span class="answer-choice">' + safe(choice) + '</span></button>').join('') + '</div>';
@@ -321,8 +331,21 @@ function resultHtml(): string {
 function optionsHtml(): string {
   const settings = save.settings;
   return layout('<section class="options-panel">' +
-    '<p class="eyebrow">SETTINGS</p><h1>⚙️ おと と えんしゅつ</h1>' +
-    '<p class="options-lead">すきな おおきさに してね。おんがく と こうかおんは べつべつに かえられるよ。</p>' +
+    '<p class="eyebrow">SETTINGS</p><h1>⚙️ せってい</h1>' +
+    '<p class="options-lead">もじの おおきさ と おとを すきな ように かえてね。</p>' +
+    '<div class="options-group text-size-options">' +
+    '<div class="options-heading"><div><strong>🔤 もじの おおきさ</strong>' +
+    '<small>もんだい・こたえ・ヒントの もじを かえられるよ</small></div></div>' +
+    '<div class="volume-heading"><label for="text-size">もじの サイズ</label><output id="text-size-output" for="text-size">' +
+    settings.textSize + '%</output></div>' +
+    '<input type="range" class="volume-slider text-size-slider" id="text-size" data-text-size ' +
+    'min="80" max="160" step="10" value="' + settings.textSize +
+    '" aria-label="もじの おおきさ" aria-valuetext="' + settings.textSize + 'パーセント" />' +
+    '<div class="volume-ends"><span>ちいさく</span><span>おおきく</span></div>' +
+    '<div class="text-size-preview" aria-label="もじの サイズ みほん"><span>もんだい：3 ＋ 2 ＝ ❓</span>' +
+    '<strong>こたえ：5　どうぶつ</strong><small>ヒント：まるを かぞえてみよう</small></div>' +
+    '<button type="button" class="sample-sound" data-action="text-default">100%に もどす</button>' +
+    '</div>' +
     '<div class="options-group"><div class="options-heading"><div><strong>🎵 BGM（おんがく）</strong>' +
     '<small>ゲームの あいだに ながれる おんがく</small></div>' +
     '<button type="button" class="toggle-btn" data-action="bgm" aria-pressed="' + settings.bgm +
@@ -380,6 +403,7 @@ function render(): void {
   else if (page === 'options') app.innerHTML = optionsHtml();
   else app.innerHTML = homeHtml();
   document.body.classList.toggle('quiet-mode', save.settings.quiet);
+  applyTextSize();
   gameAudio.setScene(page);
 }
 function startGame(id: GameId): void {
@@ -515,6 +539,7 @@ function exportSave(): void {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 gameAudio.configure(save.settings.sound, save.settings.bgm, save.settings.seVolume, save.settings.bgmVolume);
+applyTextSize();
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     stopTimers();
@@ -528,6 +553,16 @@ document.addEventListener('visibilitychange', () => {
 app.addEventListener('input', event => {
   const target = event.target;
   if (!(target instanceof HTMLInputElement)) return;
+  if (page === 'options' && target.hasAttribute('data-text-size')) {
+    const size = clampTextSize(Number(target.value));
+    save.settings.textSize = size;
+    target.setAttribute('aria-valuetext', size + 'パーセント');
+    const output = document.getElementById('text-size-output');
+    if (output) output.textContent = size + '%';
+    applyTextSize();
+    saveNow();
+    return;
+  }
   const type = target.dataset.volume;
   if (page !== 'options' || (type !== 'bgm' && type !== 'se')) return;
   const value = clampVolume(Number(target.value), type === 'bgm' ? 75 : 65);
@@ -572,6 +607,18 @@ app.addEventListener('click', event => {
   else if (action === 'sound') { save.settings.sound = !save.settings.sound; gameAudio.configure(save.settings.sound, save.settings.bgm, save.settings.seVolume, save.settings.bgmVolume); saveNow(); render(); }
   else if (action === 'bgm') { save.settings.bgm = !save.settings.bgm; gameAudio.configure(save.settings.sound, save.settings.bgm, save.settings.seVolume, save.settings.bgmVolume); saveNow(); render(); }
   else if (action === 'test-se') gameAudio.effect('correct');
+  else if (action === 'text-default' && page === 'options') {
+    save.settings.textSize = 100;
+    applyTextSize();
+    saveNow();
+    const input = document.getElementById('text-size');
+    if (input instanceof HTMLInputElement) {
+      input.value = '100';
+      input.setAttribute('aria-valuetext', '100パーセント');
+    }
+    const output = document.getElementById('text-size-output');
+    if (output) output.textContent = '100%';
+  }
   else if (action === 'export') exportSave();
   else if (action === 'reset-open' && page === 'parent') { resetArmed = true; render(); }
   else if (action === 'reset-cancel' && page === 'parent') { resetArmed = false; render(); }
