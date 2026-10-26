@@ -307,7 +307,7 @@ function gameHtml(): string {
 function resultHtml(): string {
   if (!session) return homeHtml();
   const game = GAMES.find(g => g.id === session?.gameId)!;
-  const practice = session.gameId === 'trace' || session.gameId === 'lines' || session.gameId === 'move' || session.gameId === 'connect' || session.gameId === 'maze' || session.gameId === 'routine' || session.gameId === 'rhythm';
+  const practice = session.gameId === 'trace' || session.gameId === 'lines' || session.gameId === 'digits' || session.gameId === 'move' || session.gameId === 'connect' || session.gameId === 'maze' || session.gameId === 'routine' || session.gameId === 'rhythm';
   const progress = progressFor(save.completed[game.id] ?? 0);
   const advance = progress.level > session.level;
   const replayLabel = advance ? '🌟 レベル ' + progress.level + ' へ すすむ' :
@@ -469,6 +469,7 @@ function makeHint(q: Question): string {
     case 'colors': return 'まわりに おなじ いろの ものは あるかな？';
     case 'trace': return 'あおい スタートから、きいろの わくの なかを ひとふでで なぞろう。';
     case 'lines': return 'まず まっすぐな せんから、ゆっくり なぞってみよう。';
+    case 'digits': return 'すうじの あおい スタートから、きいろい みちを なぞろう。';
     case 'blocks': return '5こずつ まとめて かぞえてみよう。';
     case 'train': return 'えの なまえを ゆっくり こえに だしてみよう。';
     case 'move': return 'できる ところだけ まねしてみよう。むりしなくて いいよ。';
@@ -660,7 +661,7 @@ function onTouchPointer(event: PointerEvent, phase: 'down' | 'move' | 'up' | 'ca
   else if (result.refresh || phase === 'up' || phase === 'cancel') render();
 }
 function onTracePointer(event: PointerEvent, phase: 'down' | 'move' | 'up' | 'cancel'): void {
-  if (page !== 'game' || (session?.gameId !== 'trace' && session?.gameId !== 'lines') || session?.phase !== 'answer' ||
+  if (page !== 'game' || (session?.gameId !== 'trace' && session?.gameId !== 'lines' && session?.gameId !== 'digits') || session?.phase !== 'answer' ||
       session.locked || !activityState) return;
   const svg = event.target instanceof Element ? event.target.closest<SVGSVGElement>('[data-trace-board]') : null;
   if (!svg) return;
