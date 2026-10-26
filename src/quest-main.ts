@@ -1,5 +1,9 @@
 import './game.css';
 import './activity.css';
+import './progress.css';
+import { readDaily, recordDaily } from './progression';
+import { statusHtml, skillTreeHtml, PROGRESS_CATEGORIES } from './progress-ui';
+import type { ProgressCategory } from './progress-ui';
 import { gameAudio } from './game-audio';
 import { isActivity, MOVE_CARDS } from './activity-content';
 import { activityHtml, activityClick, newActivityState, tracePointer } from './activity-ui';
@@ -29,12 +33,13 @@ interface Session {
   locked: boolean;
   committed: Set<string>;
 }
-type AppPage = 'home' | 'game' | 'result' | 'parent' | 'options';
+type AppPage = 'home' | 'game' | 'result' | 'parent' | 'options' | 'stats' | 'skills';
 let page: AppPage = 'home';
 let beforeOptions: Exclude<AppPage, 'options'> = 'home';
 let session: Session | null = null;
 let activityState: ActivityState | null = null;
 let categoryFilter = 'all';
+let skillCategory: ProgressCategory = 'all';
 let resetArmed = false;
 let autoAdvanceTimer: number | undefined;
 let unlockAnswerTimer: number | undefined;
@@ -121,6 +126,7 @@ function loadSave(): LearningSave {
       data.settings.seVolume = clampVolume(obj.settings.seVolume, 65);
       data.settings.textSize = clampTextSize(obj.settings.textSize);
     }
+    data.daily = readDaily(obj.daily);
     if (obj.reviews && typeof obj.reviews === 'object') {
       for (const [key, value] of Object.entries(obj.reviews)) {
         if (!value || typeof value !== 'object') continue;
@@ -224,6 +230,9 @@ function homeHtml(): string {
     '<div class="hero-stats"><span>🏆 ' + save.sessions + 'かいクリア</span><span>✨ ' + save.xp + ' XP</span>' +
     (due ? '<span>🔁 ふくしゅう ' + due + 'こ</span>' : '<span>🌈 きょうも いっぽ！</span>') + '</div></div>' +
     '<div class="hero-mascot" aria-hidden="true">' + activeProfile().icon + '<span>⭐</span></div></section>' +
+    '<div class="growth-shortcuts" aria-label="せいちょうの きろく">' +
+    '<button type="button" data-action="stats"><span>📊</span><strong>ステータス</strong><small>まいにちの きろく</small></button>' +
+    '<button type="button" data-action="skills"><span>🌳</span><strong>スキルツリー</strong><small>レベルを みよう</small></button></div>' +
     '<section class="select-profile" aria-label="ぼうけんの なかまを えらぶ"><strong>ぼうけんの なかまを えらぼう！</strong><div class="profile-row">' +
     profiles + '</div></section>' +
     '<section class="quests"><div class="section-header"><h2>クエストを えらぼう</h2><p>すきなものから はじめていいよ！</p></div>' +
@@ -421,11 +430,13 @@ function render(): void {
   if (page === 'game') app.innerHTML = gameHtml();
   else if (page === 'result') app.innerHTML = resultHtml();
   else if (page === 'parent') app.innerHTML = parentHtml();
+  else if (page === 'stats') app.innerHTML = layout(statusHtml(save, activeProfile().name, new Date()));
+  else if (page === 'skills') app.innerHTML = layout(skillTreeHtml(save, activeProfile().name, skillCategory));
   else if (page === 'options') app.innerHTML = optionsHtml();
   else app.innerHTML = homeHtml();
   document.body.classList.toggle('quiet-mode', save.settings.quiet);
   applyTextSize();
-  gameAudio.setScene(page);
+  gameAudio.setScene(page === 'stats' || page === 'skills' ? 'home' : page);
 }
 function startGame(id: GameId): void {
   stopTimers();
@@ -469,6 +480,8 @@ function answer(choice: string, mode?: 'practice' | 'skip'): void {
   session.attempts++;
   if (!evaluate(q, choice)) {
     session.wrong++;
+    recordDaily(save, new Date(), q.gameId, 'mistake');
+    saveNow();
     session.locked = true;
     // Anti-guess: brief, bounded cooldown with a thinking cue, never removes earned XP.
     const extra = session.wrong >= 2 ? ' 💡 ' + makeHint(q) : '';
@@ -500,6 +513,9 @@ function answer(choice: string, mode?: 'practice' | 'skip'): void {
   if (!practice) save.reviews[q.id] = nextReview(save.reviews[q.id], q, independent, Date.now());
   const earned = mode === 'skip' ? 0 : practice ? 5 : independent ? 10 : 5;
   save.xp += earned;
+  recordDaily(save, new Date(), q.gameId,
+    mode === 'skip' ? 'rest' : practice ? 'practice' :
+    independent ? 'independent' : 'supported', earned);
   saveNow();
   session.phase = 'solved';
   session.feedback = mode === 'skip' ? '🌱 みてくれて ありがとう。つぎへ いこう！' :
@@ -515,6 +531,7 @@ function next(): void {
   stopTimers();
   if (session.index === session.deck.length - 1) {
     save.sessions++;
+    recordDaily(save, new Date(), session.gameId, 'clear');
     // Rest-only movement sessions are welcome, but do not unlock harder levels.
     if (session.gameId !== 'move' || session.practiced > 0)
       save.completed[session.gameId] = (save.completed[session.gameId] ?? 0) + 1;
@@ -652,6 +669,14 @@ app.addEventListener('click', event => {
   }
   const answerBtn = target.closest<HTMLButtonElement>('[data-answer]');
   if (answerBtn) { answer(answerBtn.dataset.answer ?? ''); return; }
+  const skillButton = target.closest<HTMLButtonElement>('[data-skill-category]');
+  if (page === 'skills' && skillButton &&
+      PROGRESS_CATEGORIES.some(x => x.id === skillButton.dataset.skillCategory)) {
+    skillCategory = skillButton.dataset.skillCategory as ProgressCategory;
+    gameAudio.effect('tap');
+    render();
+    return;
+  }
   const categoryBtn = target.closest<HTMLButtonElement>('[data-category]');
   if (page === 'home' && categoryBtn && CATEGORIES.some(x => x.id === categoryBtn.dataset.category)) {
     categoryFilter = categoryBtn.dataset.category ?? 'all';
@@ -666,6 +691,10 @@ app.addEventListener('click', event => {
   const action = target.closest<HTMLElement>('[data-action]')?.dataset.action;
   if (action === 'home') { window.speechSynthesis?.cancel(); dismissEffects(); stopTimers();
     page = 'home'; session = null; activityState = null; resetArmed = false; render(); }
+  else if (action === 'stats' || action === 'skills') {
+    dismissEffects(); stopTimers(); gameAudio.effect('tap');
+    page = action; render(); window.scrollTo({ top: 0, behavior: 'auto' });
+  }
   else if (action === 'parent') { dismissEffects(); stopTimers(); page = 'parent';
     session = null; activityState = null; resetArmed = false; render(); }
   else if (action === 'options') { dismissEffects(); stopTimers(); if (session) session.locked = false;
