@@ -1,5 +1,6 @@
 import { isActivity, makeActivityQuestion } from './activity-content';
 import { isTouchGame, makeTouchQuestion } from './touch-content';
+import { isWorkshop, makeWorkshopQuestion } from './workshop-content';
 
 export const GAMES = [
   { id: 'count', title: 'かずシールド', icon: '🛡️', subject: 'さんすう', description: 'ドットを かぞえて シールドを こわそう', color: '#19b69e' },
@@ -18,13 +19,18 @@ export const GAMES = [
   { id: 'odd', title: 'ちがいを はっけん', icon: '🔍', subject: 'かんがえる', description: 'ひとつだけ ちがう ものを さがそう', color: '#e57eb3' },
   { id: 'colors', title: 'いろの まほう', icon: '🎨', subject: 'せいかつ', description: 'いろの なまえを おぼえよう', color: '#59a6e5' },
   { id: 'lines', title: 'せんと カーブ', icon: '〰️', subject: 'うんぴつ', description: 'まずは せんや カーブを なぞろう', color: '#6dbae1' },
+  { id: 'digits', title: 'すうじを なぞろう', icon: '🔟', subject: 'うんぴつ', description: '0から9の かたちを ゆびで かこう', color: '#66acb5' },
   { id: 'trace', title: 'ゆびで ひらがな', icon: '✍️', subject: 'うんぴつ', description: 'ゆびで みちを なぞって もじを かこう', color: '#f28f98' },
   { id: 'blocks', title: 'かずの ブロックこうじょう', icon: '🧱', subject: 'さんすう', description: 'ブロックを いれて かずを つくろう', color: '#56bd9f' },
   { id: 'train', title: 'ことば れっしゃ', icon: '🚃', subject: 'こくご', description: 'もじの しゃりょうを じゅんに つなごう', color: '#779de6' },
   { id: 'move', title: 'からだ まねっこ', icon: '🙌', subject: 'うんどう', description: 'おててや あしを ゆっくり うごかそう', color: '#d38ddc' },
   { id: 'connect', title: 'てんを つなごう', icon: '🖊️', subject: 'うんぴつ', description: '1から じゅんに ゆびで せんを なぞろう', color: '#e99975' },
   { id: 'maze', title: 'でんしゃの めいろ', icon: '🚂', subject: 'かんがえる', description: 'でんしゃを ゆびで なぞって ゴールへ', color: '#7cbdb3' },
-  { id: 'clockhands', title: 'とけいを つくろう', icon: '🕰️', subject: 'せいかつ', description: 'とけいの はりを つかんで うごかそう', color: '#7f9bdc' }
+  { id: 'clockhands', title: 'とけいを つくろう', icon: '🕰️', subject: 'せいかつ', description: 'とけいの はりを つかんで うごかそう', color: '#7f9bdc' },
+  { id: 'shop', title: 'おかいもの ごっこ', icon: '🛒', subject: 'さんすう', description: '1・5・10えんで おかねを つくろう', color: '#efa368' },
+  { id: 'routine', title: 'じゅんばん めいじん', icon: '🧼', subject: 'せいかつ', description: 'おでかけや てあらいの じゅんばん', color: '#89c9b5' },
+  { id: 'split', title: 'かずの はこわけ', icon: '🧺', subject: 'さんすう', description: 'いしを 2つの はこに わけよう', color: '#d7a56c' },
+  { id: 'rhythm', title: 'リズム たいこ', icon: '🥁', subject: 'うんどう', description: 'いろを みて たいこを たたこう', color: '#d18bd9' }
 ] as const;
 
 export const MAX_LEVEL = 5;
@@ -41,7 +47,7 @@ export function progressFor(clears: number): { level: number; current: number; t
 
 export type GameId = (typeof GAMES)[number]['id'];
 export type Visual = {
-  kind: 'dots' | 'add' | 'subtract' | 'sequence' | 'compare' | 'picture' | 'shape' | 'clock' | 'memory' | 'bond' | 'pattern' | 'category' | 'odd' | 'color' | 'trace' | 'lines' | 'blocks' | 'train' | 'move' | 'connect' | 'maze' | 'clockhands';
+  kind: 'dots' | 'add' | 'subtract' | 'sequence' | 'compare' | 'picture' | 'shape' | 'clock' | 'memory' | 'bond' | 'pattern' | 'category' | 'odd' | 'color' | 'trace' | 'lines' | 'blocks' | 'train' | 'move' | 'connect' | 'maze' | 'clockhands' | 'shop' | 'routine' | 'split' | 'rhythm';
   a?: number; b?: number; step?: number; numbers?: number[];
   symbol?: string; hour?: number; minute?: number; preview?: string[]; answerIndex?: number;
 };
@@ -70,11 +76,11 @@ export interface LearningSave {
   completed: Record<string, number>;
   reviews: Record<string, ReviewRecord>;
   daily: Record<string, DailyLog>;
-  settings: { quiet: boolean; sound: boolean; bgm: boolean; bgmVolume: number; seVolume: number; textSize: number };
+  settings: { quiet: boolean; sound: boolean; bgm: boolean; haptics: boolean; bgmVolume: number; seVolume: number; textSize: number };
 }
 export const STORAGE_KEY = 'kids_learning_dopagaki_v2';
 export function freshSave(): LearningSave {
-  return { schema: 2, xp: 0, sessions: 0, completed: {}, reviews: {}, daily: {}, settings: { quiet: false, sound: true, bgm: true, bgmVolume: 75, seVolume: 65, textSize: 100 } };
+  return { schema: 2, xp: 0, sessions: 0, completed: {}, reviews: {}, daily: {}, settings: { quiet: false, sound: true, bgm: true, haptics: true, bgmVolume: 75, seVolume: 65, textSize: 100 } };
 }
 /** 保存データの不正な値を無害化する。V2旧データに音量がなければ初期値を使用。 */
 export function clampVolume(value: unknown, fallback: number): number {
@@ -125,6 +131,7 @@ export function makeQuestion(gameId: GameId, index: number, level = 1): Question
   const id = gameId + (lv > 1 ? ':L' + lv : '') + ':' + i;
   if (isActivity(gameId)) return makeActivityQuestion(gameId, i, lv);
   if (isTouchGame(gameId)) return makeTouchQuestion(gameId, i, lv);
+  if (isWorkshop(gameId)) return makeWorkshopQuestion(gameId, i, lv);
   if (gameId === 'count') {
     const a = lv === 1 ? (i % 10) + 1 :
       lv === 2 ? (i % 15) + 1 :
@@ -165,19 +172,19 @@ export function makeQuestion(gameId: GameId, index: number, level = 1): Question
   if (gameId === 'kana') {
     const item = ITEMS[i % ITEMS.length];
     const other = [...new Set(ITEMS.map(x => x.first).filter(x => x !== item.first))];
-    const choices = rotated([item.first, ...rotated(other, i).slice(0, Math.min(5, lv + 1))], i);
+    const choices = rotated([item.first, ...rotated(other, i).slice(0, Math.min(3, lv + 1))], i);
     return { id, gameId, prompt: 'この えの なまえ。はじめの もじは？', visual: { kind: 'picture', symbol: item.emoji }, choices, answer: item.first, explanation: '「' + item.word + '」の はじめは 「' + item.first + '」！' };
   }
   if (gameId === 'words') {
     const item = ITEMS[i % ITEMS.length];
     const distractors = ITEMS.filter(x => x.word !== item.word).map(x => x.word);
-    const choices = rotated([item.word, ...rotated(distractors, i).slice(0, Math.min(5, lv + 1))], i);
+    const choices = rotated([item.word, ...rotated(distractors, i).slice(0, Math.min(3, lv + 1))], i);
     return { id, gameId, prompt: 'この えと おなじ ことばは？', visual: { kind: 'picture', symbol: item.emoji }, choices, answer: item.word, explanation: item.emoji + 'は 「' + item.word + '」だね！' };
   }
   if (gameId === 'shapes') {
     const symbol = SHAPES[i % SHAPES.length];
     const distractors = SHAPES.filter(s => s !== symbol);
-    const choices = rotated([symbol, ...rotated(distractors, i).slice(0, Math.min(5, lv + 1))], i);
+    const choices = rotated([symbol, ...rotated(distractors, i).slice(0, Math.min(3, lv + 1))], i);
     return { id, gameId, prompt: 'おなじ かたちは どれ？', visual: { kind: 'shape', symbol }, choices, answer: symbol, explanation: 'この かたちが ぴったり！' };
   }
   if (gameId === 'memory') {
@@ -185,7 +192,7 @@ export function makeQuestion(gameId: GameId, index: number, level = 1): Question
     const span = lv <= 2 ? 3 : lv === 3 ? 4 : 5;
     const preview = Array.from({ length: span }, (_, j) => MEMORY[(at + j) % MEMORY.length]);
     const answer = preview[(i + Math.floor(i / 12)) % span];
-    const choices = rotated([answer, ...MEMORY.filter(x => !preview.includes(x)).slice(0, Math.min(5, lv + 1))], i);
+    const choices = rotated([answer, ...MEMORY.filter(x => !preview.includes(x)).slice(0, Math.min(3, lv + 1))], i);
     return { id, gameId, prompt: 'さっき あった えは どれ？', visual: { kind: 'memory', preview }, choices, answer, explanation: 'よく おぼえていたね！ ' + answer + 'が あったよ。' };
   }
   if (gameId === 'clock') {
@@ -216,7 +223,7 @@ export function makeQuestion(gameId: GameId, index: number, level = 1): Question
     const prefix = Array.from({ length: lv === 5 ? 7 : lv >= 3 ? 5 : (i % 2 === 0 ? 3 : 4) },
       (_, j) => series[j % series.length]);
     const answer = series[prefix.length % series.length];
-    const choices = rotated([answer, ...symbols.filter(x => !series.includes(x)).slice(0, Math.min(5, lv + 1))], i);
+    const choices = rotated([answer, ...symbols.filter(x => !series.includes(x)).slice(0, Math.min(3, lv + 1))], i);
     return { id, gameId, prompt: 'ならびかたを みて、つぎは？',
       visual: { kind: 'pattern', preview: prefix }, choices, answer,
       explanation: 'おなじ ならびが くりかえされているね！ ' + answer + 'が つぎ！' };
@@ -241,7 +248,7 @@ export function makeQuestion(gameId: GameId, index: number, level = 1): Question
     const answerIndex = (i * 3 + Math.floor(i / 4)) % count;
     const preview = Array.from({ length: count }, (_, pos) => pos === answerIndex ? b : a);
     const answer = String(answerIndex + 1);
-    return { id, gameId, prompt: 'ひとつだけ ちがうのは なんばん？',
+    return { id, gameId, prompt: 'ひとつだけ ちがう えを タップ！',
       visual: { kind: 'odd', preview, answerIndex }, choices: rotated(Array.from({ length: count }, (_, j) => String(j + 1)), i),
       answer, explanation: answer + 'ばん だけ ちがう えだね！' };
   }
@@ -252,7 +259,7 @@ export function makeQuestion(gameId: GameId, index: number, level = 1): Question
       { name:'むらさき', color:'#9c65ce' }, { name:'オレンジ', color:'#f28a37' }
     ];
     const chosen = swatches[i % swatches.length];
-    const choices = rotated([chosen.name, ...swatches.filter(x => x.name !== chosen.name).slice(0, Math.min(5, lv + 1)).map(x => x.name)], i);
+    const choices = rotated([chosen.name, ...swatches.filter(x => x.name !== chosen.name).slice(0, Math.min(3, lv + 1)).map(x => x.name)], i);
     return { id, gameId, prompt: 'この いろの なまえは？',
       visual: { kind: 'color', symbol: chosen.color }, choices, answer: chosen.name,
       explanation: 'この いろは 「' + chosen.name + '」！' };

@@ -8,11 +8,11 @@ import ts from 'typescript';
 
 // Transpile each dependency to a temporary ESM module: no extra runtime or test framework.
 const temp = mkdtempSync(join(tmpdir(), 'kids-learning-test-'));
-for (const moduleName of ['engine', 'activity-content', 'activity-ui', 'progression', 'progress-ui', 'touch-content', 'touch-ui', 'storage', 'trace-guides', 'session']) {
+for (const moduleName of ['engine', 'activity-content', 'activity-ui', 'progression', 'progress-ui', 'touch-content', 'touch-ui', 'storage', 'trace-guides', 'session', 'workshop-content', 'workshop-ui', 'growth-world', 'parent-report', 'learning-commit', 'haptics']) {
   const source = readFileSync(new URL('../src/' + moduleName + '.ts', import.meta.url), 'utf8');
   const js = ts.transpileModule(source, {
     compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.ESNext }
-  }).outputText.replace(/from '\.\/(activity-content|engine|progression|touch-content|trace-guides)'/g, "from './$1.mjs'");
+  }).outputText.replace(/from '\.\/(activity-content|engine|progression|touch-content|trace-guides|workshop-content)'/g, "from './$1.mjs'");
   writeFileSync(join(temp, moduleName + '.mjs'), js);
 }
 const engine = await import(pathToFileURL(join(temp, 'engine.mjs')).href);
@@ -24,9 +24,15 @@ const touch = await import(pathToFileURL(join(temp, 'touch-content.mjs')).href);
 const touchUi = await import(pathToFileURL(join(temp, 'touch-ui.mjs')).href);
 const storage = await import(pathToFileURL(join(temp, 'storage.mjs')).href);
 const session = await import(pathToFileURL(join(temp, 'session.mjs')).href);
+const workshop = await import(pathToFileURL(join(temp, 'workshop-content.mjs')).href);
+const workshopUi = await import(pathToFileURL(join(temp, 'workshop-ui.mjs')).href);
+const world = await import(pathToFileURL(join(temp, 'growth-world.mjs')).href);
+const reporting = await import(pathToFileURL(join(temp, 'parent-report.mjs')).href);
+const commit = await import(pathToFileURL(join(temp, 'learning-commit.mjs')).href);
+const haptics = await import(pathToFileURL(join(temp, 'haptics.mjs')).href);
 const now = Date.UTC(2026, 9, 26);
 
-assert.equal(engine.GAMES.length, 23);
+assert.equal(engine.GAMES.length, 28);
 // Audio settings are stored in the existing V2 profile object, never legacy keys.
 const defaults = engine.freshSave();
 assert.equal(defaults.schema, 2);
@@ -52,7 +58,7 @@ assert.equal(engine.clampVolume(-20, 65), 0);
 assert.equal(engine.clampVolume(Number.NaN, 65), 65);
 assert.equal(engine.clampVolume('50', 75), 75);
 
-assert.equal(new Set(engine.GAMES.map(g => g.id)).size, 23);
+assert.equal(new Set(engine.GAMES.map(g => g.id)).size, 28);
 const memoryTargets = new Set();
 for (const game of engine.GAMES) {
   for (let i = 0; i < 80; i++) {
@@ -141,7 +147,7 @@ for (let c = 0; c <= 15; c++) {
   assert.equal(p.target, 2);
   if (!p.maxed) assert.equal(p.current, c % 2);
 }
-// All 23 games must generate five distinct items with a correct option at levels 2–5.
+// All 28 games must generate five distinct items with a correct option at levels 2–5.
 let advancedQuestions = 0;
 for (const game of engine.GAMES) {
   for (let level = 2; level <= 5; level++) {
@@ -172,7 +178,7 @@ for (const game of engine.GAMES) {
       }
       if (game.id === 'odd') assert.equal(q.visual.preview.length, level === 5 ? 6 : level >= 4 ? 5 : 4);
       if (game.id === 'clock' && level === 4) assert.equal(q.visual.minute % 15, 0);
-      if (game.id === 'colors' && level === 5) assert.equal(q.choices.length, 6);
+      if (game.id === 'colors' && level === 5) assert.equal(q.choices.length, 4);
     }
     const save = engine.freshSave();
     save.completed[game.id] = (level - 1) * 2;
@@ -185,7 +191,7 @@ for (const game of engine.GAMES) {
 }
 console.log('PASS: advanced levels ' + advancedQuestions + ' questions and earned unlock gates');
 
-console.log('PASS: 23 games × 80 cases, answer validity, arithmetic, finite rounds, recall scheduler');
+console.log('PASS: 28 games × 80 cases, answer validity, arithmetic, finite rounds, recall scheduler');
 
 /** Non-choice input regression tests: do not fall back to 3 answer buttons. */
 for (const gameId of ['trace', 'blocks', 'train', 'move']) {
@@ -501,6 +507,133 @@ for (const [clears, nextLevel] of [[0, 1], [1, 1], [2, 2], [3, 2],
 console.log('PASS: replay follows latest unlocked level after clearing 2/4/6/8 quests');
 
 console.log('PASS: pure session transitions and scoring; old saves and recovery checks');
+
+
+/** Direct hands-on interactions: every item requires actual input, not a free completion. */
+for (let lv = 1; lv <= 5; lv++) for (let i = 0; i < 80; i++) {
+  const shop = engine.makeQuestion('shop', i, lv), coins = workshopUi.freshWorkshop();
+  assert(workshopUi.workshopHtml(shop, coins, false).includes('data-workshop="coin"'));
+  let result;
+  while (coins.coins.reduce((n, x) => n + x, 0) < Number(shop.answer)) {
+    const left = Number(shop.answer) - coins.coins.reduce((n, x) => n + x, 0);
+    result = workshopUi.workshopClick(shop, coins, 'coin', left >= 10 ? 10 : left >= 5 ? 5 : 1);
+  }
+  assert.equal(result.finished, true, shop.id);
+  const routine = engine.makeQuestion('routine', i, lv), order = workshopUi.freshWorkshop();
+  assert(routine.visual.preview?.length >= 3);
+  for (const label of routine.answer.split('|')) {
+    const index = routine.visual.preview.indexOf(label);
+    assert(index >= 0);
+    result = workshopUi.workshopClick(routine, order, 'routine', index);
+  }
+  assert.equal(result.finished, true, routine.id);
+  const split = engine.makeQuestion('split', i, lv), baskets = workshopUi.freshWorkshop();
+  for (let j = 0; j < split.visual.a; j++) result = workshopUi.workshopClick(split, baskets, 'left');
+  for (let j = 0; j < split.visual.b; j++) result = workshopUi.workshopClick(split, baskets, 'right');
+  assert.equal(result.finished, true, split.id);
+  const beat = engine.makeQuestion('rhythm', i, lv), drums = workshopUi.freshWorkshop();
+  for (const note of beat.visual.preview) result = workshopUi.workshopClick(beat, drums, 'beat', note === '🔵' ? 0 : 1);
+  assert.equal(result.finished, true, beat.id);
+}
+const rhythmQ = engine.makeQuestion('rhythm', 6, 3), rhythmState = workshopUi.freshWorkshop();
+const wrongBeat = rhythmQ.visual.preview[0] === '🔵' ? 1 : 0;
+assert.equal(workshopUi.workshopClick(rhythmQ, rhythmState, 'beat', wrongBeat).finished, false);
+assert.equal(rhythmState.beats.length, 0);
+const sampleSave = engine.freshSave();
+sampleSave.completed.add = 5;
+sampleSave.completed.shop = 2;
+const wp = world.worldProgress(sampleSave);
+assert.equal(wp.clears, 7);
+assert.equal(wp.unlocked, 3);
+assert(world.worldHtml(sampleSave).includes('みどりの こうえん'));
+const reportDay = new Date(2026, 9, 26, 14, 0);
+progress.recordDaily(sampleSave, reportDay, 'shop', 'independent', 10);
+progress.recordDaily(sampleSave, reportDay, 'shop', 'clear');
+const r7 = reporting.parentPeriod(sampleSave, reportDay, 7);
+assert.equal(r7.days, 1);
+assert.equal(r7.independent, 1);
+const csv = reporting.learningCsv(sampleSave, reportDay);
+assert(csv.startsWith('\ufeff'));
+assert(csv.includes('"独力正答"'));
+assert(csv.includes('"おかいもの ごっこ"'));
+assert(csv.includes('"2026-10-26"'));
+const treeWithStarts = progressUi.skillTreeHtml(sampleSave, 'きつね', 'math');
+assert(treeWithStarts.includes('data-game="shop"'));
+assert(treeWithStarts.includes('data-skill-play="shop"'));
+console.log('PASS: four direct-manipulation games, 1600 workshop input simulations, station unlocks and parent CSV');
+for (let lv = 1; lv <= 5; lv++) for (let i = 0; i < 80; i++) {
+  const q = engine.makeQuestion('digits', i, lv);
+  assert(/^[0-9]$/.test(q.answer));
+  const guide = activity.TRACE_GUIDES[q.answer];
+  assert(guide.strokes.length >= 1);
+  const state = activityUi.newActivityState(q);
+  let result;
+  for (const stroke of guide.strokes) {
+    for (let j = 0; j < stroke.length; j++)
+      result = activityUi.activityClick(q, state, 'trace-point', j);
+  }
+  assert.equal(result.kind, 'submit', 'digit '+q.id);
+  assert.equal(result.assisted, true);
+}
+assert.equal(activity.TRACE_GUIDES['4'].strokes.length, 2);
+console.log('PASS: 0-9 number tracing, stroke order and accessibility across 400 questions');
+
+
+// Persistent commits must be immutable; callers can safely recover from QuotaExceededError.
+const oldSave = engine.freshSave(), answerQ = engine.makeQuestion('shop', 0);
+const oldDate = new Date(2026, 9, 26, 15);
+const preparedAnswer = commit.prepareAnswer(oldSave, answerQ, 'independent', true, 10, oldDate);
+assert.equal(oldSave.xp, 0);
+assert.equal(Object.keys(oldSave.daily).length, 0);
+assert.equal(preparedAnswer.data.xp, 10);
+assert.equal(preparedAnswer.data.daily['2026-10-26'].independent, 1);
+const failedMistake = commit.prepareMistake(oldSave, answerQ, oldDate);
+assert.equal(oldSave.daily['2026-10-26'], undefined);
+assert.equal(failedMistake.daily['2026-10-26'].mistakes, 1);
+assert.equal(failedMistake.xp, 0);
+assert.throws(() => storage.persistSlot({ setItem: () => { throw new Error('QuotaExceededError'); } }, 1, failedMistake));
+assert.equal(oldSave.daily['2026-10-26'], undefined, 'failed mistake log must not touch existing state');
+const mockFail = { setItem: () => { throw new Error('QuotaExceededError'); } };
+assert.throws(() => storage.persistSlot(mockFail, 1, preparedAnswer.data));
+assert.equal(oldSave.xp, 0, 'failed persistent write must not award in-memory XP');
+const learningSession = session.createSession('shop', 1, [answerQ]);
+learningSession.practiced = 0;
+const clearCandidate = commit.prepareClear(preparedAnswer.data, learningSession, oldDate);
+assert.equal(preparedAnswer.data.sessions, 0);
+assert.equal(clearCandidate.sessions, 1);
+assert.equal(clearCandidate.completed.shop, 1);
+assert.equal(clearCandidate.daily['2026-10-26'].clears, 1);
+assert.equal(preparedAnswer.data.daily['2026-10-26'].clears, 0);
+const restSession = session.createSession('move', 1, [engine.makeQuestion('move', 0)]);
+const rested = commit.prepareClear(oldSave, restSession, oldDate);
+assert.equal(rested.completed.move, undefined, 'rest-only movement cannot unlock levels');
+console.log('PASS: immutable persistence candidates protect XP, daily logs, unlocks and rest outcomes');
+
+
+// Optional tactile feedback: disabled or unsupported devices are strictly no-op.
+assert.equal(engine.freshSave().settings.haptics, true);
+const migratedHaptics = storage.normalizeSave({ schema: 2, settings: { sound: true, bgm: true } });
+assert.equal(migratedHaptics.settings.haptics, true, 'existing V2 records must keep working');
+assert.equal(storage.normalizeSave({
+  schema: 2, settings: { haptics: false }
+}).settings.haptics, false, 'haptic preference must persist after reload');
+const emitted = [];
+const vibrate = pattern => { emitted.push(pattern); return true; };
+const enabled = { haptics: true, quiet: false };
+assert.equal(haptics.emitHaptic('correct', enabled, { vibrate }), true);
+assert.equal(haptics.emitHaptic('retry', enabled, { vibrate }), true);
+assert.equal(haptics.emitHaptic('level', enabled, { vibrate }), true);
+assert.deepEqual(emitted, [32, [35,45,35], [35,50,45,50,75]]);
+assert.equal(haptics.emitHaptic('tap', { haptics: false, quiet: false }, { vibrate }), false);
+assert.equal(haptics.emitHaptic('clear', { haptics: true, quiet: true }, { vibrate }), false);
+assert.equal(haptics.emitHaptic('correct', enabled, { vibrate, reducedMotion: true }), false);
+assert.equal(haptics.emitHaptic('correct', enabled, {}), false);
+assert.equal(haptics.emitHaptic('correct', enabled, { vibrate: () => { throw Error('unsupported'); } }), false);
+assert.equal(emitted.length, 3);
+const codeWithHaptics = readFileSync(new URL('../src/quest-main.ts', import.meta.url), 'utf8');
+assert(codeWithHaptics.includes('data-action="haptics"'));
+assert(codeWithHaptics.includes("action === 'test-haptics'"));
+console.log('PASS: haptics toggle, settings migration, device fallback, sensory reduction and feedback patterns');
 
 rmSync(temp, { recursive: true, force: true });
 

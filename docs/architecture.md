@@ -103,3 +103,14 @@ https://github.com/c-a-p-engineer/kids-learning/tree/archive/pre-dopagaki-202610
 - touch-content.ts、touch-ui.ts、touch.css：点つなぎ、迷路、時計の入力。
 - quest-main.ts：既存の学習セッションへ新ゲームの完了通知と復元を接続。大小比較は数字自体を回答面にする。
 - 旧V1保存キー、V2の4人の学習記録と設定は維持。E2Eを延期し、単体テストと型検査、ビルドを先に通す。
+
+## V2.8 責務分離と保存トランザクション
+
+- workshop-content.ts：買い物・順序・数の分配・リズムの決定論的教材データ。
+- workshop-ui.ts：4ゲームのタップ操作・一問内の一時状態・完成条件。XPや保存を持たない。
+- trace-guides.ts／activity-content.ts／activity-ui.ts：既存のひらがな運筆ロジックを数字0〜9にも再利用。
+- growth-world.ts：固定しきい値の駅/街の開放状況と描画。保存済みcompletedから再計算し、新スキーマ不要。
+- parent-report.ts：7/30/90日集計・キャラ別CSV、ローカルデータ読み取り専用。
+- learning-commit.ts：正解/誤答/クリアの次期保存データを不変に組み立てる。quest-main.tsは単一persistSlot成功後のみsaveを置き換える。
+- progress-ui.ts：スキルツリーのゲームへ直接ジャンプするボタンを追加。
+- V1/V2保存キー、schema=2、音量/文字設定/4人の独立性、5問セッションを維持。E2Eは延期。詳細はrenewal-2026/09-v28-expanded-learning.md。

@@ -113,10 +113,14 @@ export function skillTreeHtml(save: LearningSave, profileName: string, selected:
     }).join('');
     const next = info.maxed ? 'ぜんレベル かいほう！' :
       'つぎの レベルまで ' + info.current + '/' + info.target + ' クリア';
+    const waiting = countDue(game.id, save, Date.now());
     return '<article class="skill-branch"><div class="skill-branch-header"><span class="skill-branch-icon">' +
       game.icon + '</span><div><h3>' + escape(game.title) + '</h3><p>' + escape(game.subject) +
-      ' ・ ' + clears + 'かいクリア</p></div></div><div class="skill-path" role="group" aria-label="' +
-      escape(game.title) + ' レベルかいほう">' + tree +
+      ' ・ ' + clears + 'かいクリア' + (waiting ? ' ・ 🔁 ' + waiting + 'こふくしゅう' : '') +
+      '</p></div></div><button type="button" class="skill-start" data-game="' + game.id +
+      '" aria-label="' + escape(game.title) + ' レベル ' + info.level + 'で あそぶ">' +
+      '▶ この ゲームを あそぶ（LV' + info.level + '）</button>' +
+      '<div class="skill-path" role="group" aria-label="' + escape(game.title) + ' レベルかいほう">' + tree +
       '</div><p class="skill-progress-copy">' + next + '</p></article>';
   }).join('');
   return '<section class="growth-page"><button type="button" class="growth-back" data-action="home">← ホームへ</button>' +
