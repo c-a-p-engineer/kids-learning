@@ -35,7 +35,10 @@ export const MOVE_CARDS = [
   { emoji: '🪞', name: 'まねっこ みぎひだり', instruction: 'みぎの て、ひだりの てを じゅんばんに あげよう', seated: 'すわった ままで OK' },
   { emoji: '👐', name: 'てを ぎゅっぱ', instruction: 'てを やさしく にぎって ひらこう', seated: 'すわった ままで OK' },
   { emoji: '🌻', name: 'おひさま のびのび', instruction: 'りょうてを むねの まえから ゆっくり ひらこう', seated: 'うでだけ うごかせば OK' },
-  { emoji: '🐱', name: 'ねこ こっくり', instruction: 'あごを すこし ひいて、まえを みよう', seated: 'くびが いたければ しないで OK' }
+  { emoji: '🐱', name: 'ねこ こっくり', instruction: 'あごを すこし ひいて、まえを みよう', seated: 'くびが いたければ しないで OK' },
+  { emoji: '🥁', name: 'リズム ぱちぱち', instruction: 'ぱん・ぱん・おやすみ の じゅんで やってみよう', seated: 'てだけ うごかせば OK' },
+  { emoji: '👐', name: 'みぎ ひだり ぱっ', instruction: 'みぎてを ひらいて、ひだりてを ひらいてみよう', seated: 'すわった ままでも OK' },
+  { emoji: '🎵', name: 'ゆっくり はやく', instruction: 'ゆっくり 2かい、すこし はやく 2かい てを たたこう', seated: 'はやさは じぶんで きめていいよ' }
 ] as const;
 
 /** Deterministic per-game prompt; no camera, motion inference or third-party data. */
