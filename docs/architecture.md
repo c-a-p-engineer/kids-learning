@@ -1,6 +1,6 @@
 # KIDS LEARNING V2 のアーキテクチャ
 
-2026-10-26 時点の現行コードを正とする。Preactは初期検討候補だったが、本実装では新しい依存を増やさずVanilla TypeScriptで15ゲームを構築した。
+2026-10-26 時点の現行コードを正とする。Preactは初期検討候補だったが、本実装では新しい依存を増やさずVanilla TypeScriptで19ゲームを構築した。
 
 ## 実行構成
 
@@ -14,6 +14,9 @@ src/index.html → src/quest-main.ts → src/engine.ts
                       └── localStorage（匿名プレイヤー別）
 ~~~
 
+- src/activity-content.ts: 新4操作型ゲームの固定問題データと描画ガイド。
+- src/activity-ui.ts: 新4操作型ゲームの入力と表示、一問内の一時操作状態。
+- src/activity.css: 新4ゲームのみのスマホ対応・タッチスタイル。
 - src/engine.ts: GAMES、makeQuestion、evaluate、nextReview、chooseRound、countDue。画面・ブラウザAPIから独立した問題生成・採点・復習。
 - src/quest-main.ts: ホーム、ゲーム、結果、保護者画面とイベント委譲。Sessionで5問の進行を管理。採点を確定してからXPと復習予定を保存する。
 - src/game-audio.ts: ユーザーの操作後にWeb Audio APIでBGM/SEを合成。画面と可視状態に応じて停止。
@@ -68,3 +71,15 @@ https://github.com/c-a-p-engineer/kids-learning/tree/archive/pre-dopagaki-202610
 - 説明文を読む時間に配慮し、正解後の自動進行を文字サイズに比例して1.75〜2.8秒にする。
 - 学習データ・復習・XPは不変。既存4キャラそれぞれ独立して記録。
 
+
+
+## V2.5 異なる操作を持つゲーム
+
+従来の選択式15ゲームは今までのドメイン・画面を維持。新しい4ゲーム（trace/blocks/train/move）は `activity-content.ts` で出題し、`activity-ui.ts` 内で入力を処理します。quest-main.tsは完了イベントを受けて、既存の5問セッション、連打防止、XP記録へ接続するだけのアダプターです。
+
+- `trace` はSVG上の軌跡と番号ボタン代替。軌跡は保存しない。
+- `blocks` は5個ごとの視覚枠、+1/+5/-1で数を合成。
+- `train` は文字車両のタップ順序により単語を作る。
+- `move` は座ったままの代替もできる動作と自己申告。休む選択肢も設ける。
+
+療育効果や書字能力の医療的判断に使わず、`trace/move` の練習完了は復習マスタリーの集計から除外します。既存15ゲームのIDや保存schema=2は変更しません。
