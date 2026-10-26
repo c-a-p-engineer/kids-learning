@@ -5,7 +5,7 @@ import './touch.css';
 import { createSession, advanceSession, attemptOutcome } from './session';
 import type { Session, AnswerMode } from './session';
 import { isTouchGame } from './touch-content';
-import { touchHtml, touchClick, freshTouch } from './touch-ui';
+import { touchHtml, touchClick, touchPointer, freshTouch } from './touch-ui';
 import type { TouchState } from './touch-ui';
 import { recordDaily } from './progression';
 import { loadSlot, persistSlot, backupText, parseBackup, backupDelta } from './storage';
@@ -441,9 +441,9 @@ function makeHint(q: Question): string {
     case 'blocks': return '5こずつ まとめて かぞえてみよう。';
     case 'train': return 'えの なまえを ゆっくり こえに だしてみよう。';
     case 'move': return 'できる ところだけ まねしてみよう。むりしなくて いいよ。';
-    case 'connect': return '1から じゅんに おしていこう。';
-    case 'maze': return 'まえの マスの となりを おしてみよう。';
-    case 'clockhands': return 'みじかい はりが なんじ、ながい はりが なんふん。';
+    case 'connect': return '1から じゅんに ゆびを はなさず なぞろう。';
+    case 'maze': return 'でんしゃから ほしまで みちを なぞってみよう。';
+    case 'clockhands': return 'あおい みじかい はりと オレンジの ながい はりを つかんで うごかそう。';
   }
 }
 function answer(choice: string, mode?: AnswerMode): void {
@@ -601,6 +601,20 @@ function completeActivity(result: ActivityResult): void {
     answer(result.value, result.skipped ? 'skip' : result.assisted ? 'practice' : undefined);
   else render();
 }
+function onTouchPointer(event: PointerEvent, phase: 'down' | 'move' | 'up' | 'cancel'): void {
+  if (page !== 'game' || session?.phase !== 'answer' || session.locked || !touchState ||
+      !isTouchGame(session.gameId)) return;
+  const svg = event.target instanceof Element ?
+    event.target.closest<SVGSVGElement>('[data-touch-trace], [data-clock-face]') : null;
+  if (!svg) return;
+  // Prevent scrolling only while an actual trace or clock-hand gesture is in progress.
+  const active = touchState.pointerId === event.pointerId;
+  const result = touchPointer(session.deck[session.index], touchState, phase, event, svg);
+  if (active || touchState.pointerId === event.pointerId) event.preventDefault();
+  if (result.finished && result.value)
+    answer(result.value, result.practice ? 'practice' : undefined);
+  else if (result.refresh || phase === 'up' || phase === 'cancel') render();
+}
 function onTracePointer(event: PointerEvent, phase: 'down' | 'move' | 'up' | 'cancel'): void {
   if (page !== 'game' || (session?.gameId !== 'trace' && session?.gameId !== 'lines') || session?.phase !== 'answer' ||
       session.locked || !activityState) return;
@@ -614,7 +628,10 @@ function onTracePointer(event: PointerEvent, phase: 'down' | 'move' | 'up' | 'ca
 for (const [eventType, phase] of [
   ['pointerdown', 'down'], ['pointermove', 'move'], ['pointerup', 'up'], ['pointercancel', 'cancel']
 ] as const) {
-  app.addEventListener(eventType, event => onTracePointer(event as PointerEvent, phase));
+  app.addEventListener(eventType, event => {
+    onTracePointer(event as PointerEvent, phase);
+    onTouchPointer(event as PointerEvent, phase);
+  });
 }
 
 gameAudio.configure(save.settings.sound, save.settings.bgm, save.settings.seVolume, save.settings.bgmVolume);
