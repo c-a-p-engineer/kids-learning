@@ -9,6 +9,19 @@ const engine = await import('data:text/javascript;charset=utf-8,' + encodeURICom
 const now = Date.UTC(2026, 9, 26);
 
 assert.equal(engine.GAMES.length, 15);
+// Audio settings are stored in the existing V2 profile object, never legacy keys.
+const defaults = engine.freshSave();
+assert.equal(defaults.schema, 2);
+assert.equal(defaults.settings.bgm, true);
+assert.equal(defaults.settings.sound, true);
+assert.equal(defaults.settings.bgmVolume, 75);
+assert.equal(defaults.settings.seVolume, 65);
+assert.equal(engine.clampVolume(43.9, 75), 44);
+assert.equal(engine.clampVolume(120, 75), 100);
+assert.equal(engine.clampVolume(-20, 65), 0);
+assert.equal(engine.clampVolume(Number.NaN, 65), 65);
+assert.equal(engine.clampVolume('50', 75), 75);
+
 assert.equal(new Set(engine.GAMES.map(g => g.id)).size, 15);
 const memoryTargets = new Set();
 for (const game of engine.GAMES) {
