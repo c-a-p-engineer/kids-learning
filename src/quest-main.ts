@@ -1,7 +1,9 @@
 import './game.css';
 import './activity.css';
 import './progress.css';
-import { readDaily, recordDaily } from './progression';
+import { recordDaily } from './progression';
+import { loadSlot, persistSlot, backupText, parseBackup, backupDelta } from './storage';
+import type { Backup } from './storage';
 import { statusHtml, skillTreeHtml, PROGRESS_CATEGORIES } from './progress-ui';
 import type { ProgressCategory } from './progress-ui';
 import { gameAudio } from './game-audio';
@@ -41,6 +43,8 @@ let activityState: ActivityState | null = null;
 let categoryFilter = 'all';
 let skillCategory: ProgressCategory = 'all';
 let resetArmed = false;
+let backupDraft: Backup | null = null;
+let backupError = '';
 let autoAdvanceTimer: number | undefined;
 let unlockAnswerTimer: number | undefined;
 const AUTO_ADVANCE_MS = 1750;
@@ -102,78 +106,28 @@ function applyTextSize(): void {
 }
 
 function loadSave(): LearningSave {
-  try {
-    const raw = localStorage.getItem(storeKey());
-    if (!raw) return freshSave();
-    const parsed: unknown = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object') return freshSave();
-    const obj = parsed as Partial<LearningSave>;
-    if (obj.schema !== 2) return freshSave();
-    const data = freshSave();
-    data.xp = Number.isFinite(obj.xp) ? Math.max(0, Number(obj.xp)) : 0;
-    data.sessions = Number.isFinite(obj.sessions) ? Math.max(0, Number(obj.sessions)) : 0;
-    if (obj.completed && typeof obj.completed === 'object') {
-      for (const game of GAMES) {
-        const n = (obj.completed as Record<string, unknown>)[game.id];
-        if (typeof n === 'number' && Number.isInteger(n) && n >= 0) data.completed[game.id] = Math.min(n, 100000);
-      }
-    }
-    if (obj.settings && typeof obj.settings === 'object') {
-      data.settings.quiet = obj.settings.quiet === true;
-      data.settings.sound = typeof obj.settings.sound === 'boolean' ? obj.settings.sound : true;
-      data.settings.bgm = obj.settings.bgm !== false;
-      data.settings.bgmVolume = clampVolume(obj.settings.bgmVolume, 75);
-      data.settings.seVolume = clampVolume(obj.settings.seVolume, 65);
-      data.settings.textSize = clampTextSize(obj.settings.textSize);
-    }
-    data.daily = readDaily(obj.daily);
-    if (obj.reviews && typeof obj.reviews === 'object') {
-      for (const [key, value] of Object.entries(obj.reviews)) {
-        if (!value || typeof value !== 'object') continue;
-        const review = value as Partial<LearningSave['reviews'][string]>;
-        const question = review.question;
-        if (!question || !isGameId(String(question.gameId)) || typeof question.id !== 'string' ||
-          !Array.isArray(question.choices) || !question.choices.every(x => typeof x === 'string') ||
-          typeof question.answer !== 'string' || !question.choices.includes(question.answer) ||
-          typeof question.prompt !== 'string' || typeof question.explanation !== 'string' ||
-          !question.visual || typeof question.visual !== 'object' ||
-          !Number.isFinite(review.dueAt) || !Number.isFinite(review.lastAnsweredAt)) continue;
-        const suffix = question.id.slice(question.gameId.length + 1);
-        const parts = suffix.match(/^(?:L([2-5]):)?(\d{1,3})$/);
-        if (!question.id.startsWith(question.gameId + ':') || !parts) continue;
-        const level = parts[1] ? Number(parts[1]) : 1;
-        const index = Number(parts[2]);
-        if (!Number.isInteger(index) || index < 0 || index > 200) continue;
-        if (key !== question.id) continue;
-        // Rebuild canonical questions for the matching difficulty level, not from persisted DOM data.
-        const canonical = chooseCanonical(question.gameId, index, level);
-        data.reviews[key] = {
-          question: canonical, stage: Math.max(0, Math.min(3, Math.floor(Number(review.stage) || 0))),
-          dueAt: Number(review.dueAt), lastAnsweredAt: Number(review.lastAnsweredAt), correct: review.correct === true
-        };
-      }
-    }
-    return data;
-  } catch {
+  try { return loadSlot(localStorage, slot); }
+  catch {
     storageWarning = 'きろくを よみこめませんでした。ほごしゃに みてもらおう。';
     return freshSave();
   }
 }
-function chooseCanonical(gameId: GameId, index: number, level = 1): Question {
-  // The import is deliberately in engine rather than trusting records on localStorage.
-  return generate(gameId, index, level);
-}
-import { makeQuestion as generate } from './engine';
-
-function saveNow(): void {
-  try { localStorage.setItem(storeKey(), JSON.stringify(save)); }
-  catch { storageWarning = 'ほぞんできません。ブラウザの あきようりょうを かくにんしてください。'; }
+function saveNow(): boolean {
+  try {
+    persistSlot(localStorage, slot, save);
+    if (storageWarning.startsWith('ほぞんできません')) storageWarning = '';
+    return true;
+  } catch {
+    storageWarning = 'ほぞんできません。ほごしゃに つたえてね。いまの へんこうは ほぞんされていません。';
+    return false;
+  }
 }
 function setSlot(next: number): void {
   if (!Number.isInteger(next) || next < 1 || next > 4) return;
   dismissEffects();
   stopTimers();
   resetArmed = false;
+  backupDraft = null; backupError = '';
   gameAudio.effect('profile');
   slot = next;
   try { localStorage.setItem('kids_learning_active_slot_v2', String(slot)); } catch { /* in-memory only */ }
@@ -426,6 +380,19 @@ function parentHtml(): string {
     '<h2>ゲーム別の進捗</h2><div class="table-wrap"><table><thead><tr><th>ゲーム</th><th>クリア</th><th>復習待ち</th></tr></thead>' +
     '<tbody>' + rows + '</tbody></table></div>' +
     '<div class="parent-actions"><button type="button" class="secondary-btn" data-action="export">⬇ このキャラのきろくを ほぞん</button>' +
+    '<h2>バックアップから ふくげん</h2>' +
+    '<p>このキャラのV2バックアップだけ復元できます。いまの記録は上書きされるので、先に保存してね。</p>' +
+    '<label class="backup-file-label" for="backup-file">📂 バックアップJSONを えらぶ</label>' +
+    '<input id="backup-file" type="file" accept=".json,application/json" aria-label="バックアップJSONファイル" />' +
+    (backupError ? '<p class="backup-error" role="alert">' + safe(backupError) + '</p>' : '') +
+    (backupDraft ? '<div class="backup-preview"><strong>ふくげんする データ（かくにん）</strong>' +
+      '<p>' + safe(activeProfile().name) + '：' + safe(backupDraft.exportedAt.slice(0, 10)) + ' のバックアップ</p>' +
+      (() => { const delta = backupDelta(save, backupDraft.data);
+        return '<p>XP：' + delta.xp[0] + ' → ' + delta.xp[1] +
+          ' / クリア：' + delta.clears[0] + ' → ' + delta.clears[1] +
+          ' / きろくの日：' + delta.days[0] + ' → ' + delta.days[1] + '</p>'; })() +
+      '<div class="reset-actions"><button type="button" class="danger-btn" data-action="backup-confirm">このキャラに ふくげんする</button>' +
+      '<button type="button" class="secondary-btn" data-action="backup-cancel">やめる</button></div></div>' : '') +
     '<h2>きろくの リセット</h2>' +
     '<p>このキャラの学習記録（XP・クリア・復習）だけを最初に戻します。音量設定、ほかの3キャラ、旧版データは残ります。</p>' +
     (resetArmed ? '<div class="reset-confirm" role="alert"><strong>ほんとうに ' + safe(activeProfile().name) +
@@ -574,7 +541,7 @@ function resetCurrentLearning(): void {
   const nextSave = freshSave();
   nextSave.settings = { ...old.settings };
   try {
-    localStorage.setItem(storeKey(), JSON.stringify(nextSave));
+    persistSlot(localStorage, slot, nextSave);
   } catch {
     storageWarning = 'リセットできませんでした。ブラウザのほぞんを かくにんしてください。';
     resetArmed = false;
@@ -586,6 +553,7 @@ function resetCurrentLearning(): void {
   session = null;
   activityState = null;
   resetArmed = false;
+  backupDraft = null;
   storageWarning = 'がくしゅうきろくを リセットしました。ほかのキャラのきろくは そのままです。';
   render();
 }
@@ -601,8 +569,36 @@ function speak(): void {
   u.lang = 'ja-JP'; u.rate = 0.83;
   window.speechSynthesis.speak(u);
 }
+async function prepareBackup(file: File): Promise<void> {
+  backupDraft = null;
+  backupError = '';
+  try {
+    if (file.size > 3 * 1024 * 1024) throw new Error('ファイルが 3MBを こえています。');
+    const currentSlot = slot;
+    const text = await file.text();
+    if (slot !== currentSlot) return;
+    backupDraft = parseBackup(text, slot);
+  } catch (error) {
+    backupError = error instanceof Error ? error.message : 'バックアップを よみこめません。';
+  }
+  if (page === 'parent') render();
+}
+function restoreBackup(): void {
+  if (page !== 'parent' || !backupDraft || backupDraft.slot !== slot) return;
+  try {
+    // Single atomic localStorage write; preserve current in-memory state on failure.
+    persistSlot(localStorage, slot, backupDraft.data);
+    save = backupDraft.data;
+    backupDraft = null; backupError = '';
+    storageWarning = 'バックアップを ふくげんしました。';
+    render();
+  } catch {
+    backupError = 'ふくげん できませんでした。あきようりょうを かくにんしてください。';
+    render();
+  }
+}
 function exportSave(): void {
-  const payload = JSON.stringify({ exportedAt: new Date().toISOString(), slot, data: save }, null, 2);
+  const payload = backupText(slot, save);
   const url = URL.createObjectURL(new Blob([payload], { type: 'application/json' }));
   const a = document.createElement('a'); a.href = url; a.download = 'kids-learning-v2-player-' + slot + '.json';
   document.body.appendChild(a); a.click(); a.remove();
@@ -665,6 +661,11 @@ app.addEventListener('input', event => {
   const output = document.getElementById(type + '-output');
   if (output) output.textContent = value + '%';
   saveNow();
+});
+app.addEventListener('change', event => {
+  const element = event.target;
+  if (page === 'parent' && element instanceof HTMLInputElement &&
+      element.id === 'backup-file' && element.files?.[0]) void prepareBackup(element.files[0]);
 });
 app.addEventListener('click', event => {
   const target = event.target;
@@ -742,5 +743,7 @@ app.addEventListener('click', event => {
   else if (action === 'reset-open' && page === 'parent') { resetArmed = true; render(); }
   else if (action === 'reset-cancel' && page === 'parent') { resetArmed = false; render(); }
   else if (action === 'reset-now') resetCurrentLearning();
+  else if (action === 'backup-confirm') restoreBackup();
+  else if (action === 'backup-cancel') { backupDraft = null; backupError = ''; render(); }
 });
 render();
