@@ -133,7 +133,7 @@ export function touchHtml(q: Question, state: TouchState, disabled: boolean): st
   if (q.gameId === 'connect' || q.gameId === 'maze') return routeHtml(q, state, disabled);
   const step = q.visual.step ?? 30;
   const minuteText = String(state.minute).padStart(2, '0');
-  return '<div class="touch-activity"><p class="touch-tip">はりを つかんで ぐるっと まわそう！</p>' +
+  return '<div class="touch-activity">' +
     clockSvg(state.hour, state.minute) +
     '<div class="clock-hand-guide"><span>🔵 あおい はり：じかん</span><span>🟠 オレンジ：ふん</span></div>' +
     '<p class="clock-current" aria-live="polite">' + state.hour + ':' + minuteText + '</p>' +
