@@ -46,3 +46,16 @@ https://github.com/c-a-p-engineer/kids-learning/tree/archive/pre-dopagaki-202610
 
 - src/game-audio.ts: WebAudioでBGM/効果音を合成。画面遷移・表示状態・利用者操作に連動して開始停止。独立音量を反映し、回答時やスライダー操作時には楽曲ループを再始動しない。
 - 設定画面（options）: BGM/SEのON/OFF、音量、演出ON/OFF。画面遷移前のクエスト状態を保持して戻る。音量値はV2既存データへのoptionalフィールド追加で、clampVolumeによる不正値補正を実施。
+
+
+## V2.3 追記
+
+- engine.ts: MAX_LEVEL=5、CLEARS_PER_LEVEL=2、unlockedLevel、progressForを追加。問題生成は第3引数のlevelで難易度分岐。
+- レベル1のIDは従来維持。レベル2以降は gameId:L{level}:{index} に名前空間を分離し、保存済みの問題を読み戻す際にlevelを復元。
+- chooseRoundは第5引数levelを受け取り、そのレベルの新しい問題を生成。復習の期限到来は2問まで従来どおり混合。
+- quest-main.ts: 回答正解→自動進行タイマーを管理。途中退出・オプション移動・キャラ切替でタイマーを解除。複数クリックで加点・クリアが重複しない。
+- 誤答は最大2秒の入力待ちを設ける。2回目以降は非正解ヒントを追加。
+- ホームのカテゴリはクライアント状態、学習記録とは無関係。
+- 記録リセットはキャラクター1枠のV2学習データだけで、他キャラ・V1保存領域にアクセスしない。設定はコピーして維持。
+- 仕様の詳細: docs/renewal-2026/04-level-progress-and-ux.md
+
