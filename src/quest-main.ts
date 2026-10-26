@@ -441,9 +441,9 @@ function makeHint(q: Question): string {
     case 'blocks': return '5こずつ まとめて かぞえてみよう。';
     case 'train': return 'えの なまえを ゆっくり こえに だしてみよう。';
     case 'move': return 'できる ところだけ まねしてみよう。むりしなくて いいよ。';
-    case 'connect': return '1から じゅんに おしていこう。';
-    case 'maze': return 'まえの マスの となりを おしてみよう。';
-    case 'clockhands': return 'みじかい はりが なんじ、ながい はりが なんふん。';
+    case 'connect': return '1から じゅんに ゆびを はなさず なぞろう。';
+    case 'maze': return 'でんしゃから ほしまで みちを なぞってみよう。';
+    case 'clockhands': return 'あおい みじかい はりと オレンジの ながい はりを つかんで うごかそう。';
   }
 }
 function answer(choice: string, mode?: AnswerMode): void {
