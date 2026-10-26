@@ -421,6 +421,9 @@ for (let level = 1; level <= 5; level++) for (let i = 0; i < 80; i++) {
   const clock = touchUi.freshTouch();
   assert(touchUi.touchHtml(q, clock, false).includes('data-clock-hand="minute"'));
   assert(touchUi.touchHtml(q, clock, false).includes('data-clock-hand="hour"'));
+  const handsMarkup = touchUi.touchHtml(q, clock, false);
+  assert(handsMarkup.indexOf('data-clock-hand="minute"') < handsMarkup.indexOf('data-clock-hand="hour"'),
+    'short hand must render on top so both hands remain grabbable at 12:00');
   // Set minutes, then the hour hand including its minute-dependent fractional angle.
   const tip = (degrees, length) => [
     100 + Math.sin(degrees * Math.PI / 180) * length,
