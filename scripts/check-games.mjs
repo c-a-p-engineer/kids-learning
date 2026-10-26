@@ -272,6 +272,33 @@ assert.equal(reject.refresh, true, 'leaving the corridor must immediately reset 
 assert.equal(offState.traceIndex, 0);
 assert.equal(offState.waypointIndex, 0);
 assert.equal(offState.drawing, false);
+
+const koQ = engine.makeQuestion('trace', 4);
+assert.equal(koQ.answer, 'こ');
+const koState = activityUi.newActivityState(koQ);
+for (let strokeIndex = 0; strokeIndex < 2; strokeIndex++) {
+  const points = activity.TRACE_GUIDES['こ'].strokes[strokeIndex];
+  if (strokeIndex === 1) {
+    activityUi.traceSample(koQ, koState, 'down', points[0]);
+    const off = activityUi.traceSample(koQ, koState, 'move', [0, 0]);
+    assert.equal(off.refresh, true);
+    assert.equal(koState.traceIndex, 1, 'second-stroke mistakes must preserve the first stroke');
+    assert.equal(koState.strokes.length, 1, 'completed first stroke remains visible');
+  }
+  let part;
+  for (let pointIndex = 0; pointIndex < points.length; pointIndex++) {
+    part = activityUi.traceSample(koQ, koState,
+      pointIndex === 0 ? 'down' : pointIndex === points.length - 1 ? 'up' : 'move',
+      points[pointIndex]);
+  }
+  if (strokeIndex === 0) assert.equal(koState.traceIndex, 1);
+  else assert.equal(part.kind, 'submit');
+}
+const outsideStart = activityUi.newActivityState(koQ);
+const startResult = activityUi.traceSample(koQ, outsideStart, 'down', [0,0]);
+assert.equal(startResult.refresh, true);
+assert.equal(outsideStart.drawing, false);
+
 const moveQ = engine.makeQuestion('move', 0);
 const moveResult = activityUi.activityClick(moveQ, activityUi.newActivityState(moveQ), 'move-done', -1);
 assert.equal(moveResult.kind, 'submit');
