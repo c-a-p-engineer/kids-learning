@@ -16,6 +16,28 @@ export function mazePath(i: number, level: number): { size: number; path: number
   const turns = i % 4;
   return { size, path: route.map(cell => rotate(cell, size, turns)) };
 }
+/** Roads include the hidden solution plus optional dead ends; the solution is never drawn. */
+export function mazeRoads(path: readonly number[], size: number, index: number, level: number): string[] {
+  const roads = path.slice(1).map((cell, i) => path[i] + ':' + cell);
+  const occupied = new Set(path);
+  const branchCount = Math.min(size * size - path.length, level <= 2 ? level : level - 1);
+  const candidates = Array.from({ length: size * size }, (_, cell) => cell)
+    .filter(cell => !occupied.has(cell))
+    .map(cell => ({
+      cell,
+      parent: path.find(other => Math.abs(Math.floor(other / size) - Math.floor(cell / size)) +
+        Math.abs(other % size - cell % size) === 1)
+    }))
+    .filter((candidate): candidate is { cell: number; parent: number } => candidate.parent !== undefined)
+    .sort((a, b) => {
+      const ka = (a.cell * 7 + index * 3) % (size * size);
+      const kb = (b.cell * 7 + index * 3) % (size * size);
+      return ka - kb || a.cell - b.cell;
+    });
+  for (const candidate of candidates.slice(0, branchCount))
+    roads.push(candidate.parent + ':' + candidate.cell);
+  return roads;
+}
 export function makeTouchQuestion(gameId: TouchGame, index: number, level: number): Question {
   const id = gameId + (level > 1 ? ':L' + level : '') + ':' + index;
   if (gameId === 'connect') {
@@ -26,8 +48,8 @@ export function makeTouchQuestion(gameId: TouchGame, index: number, level: numbe
   }
   if (gameId === 'maze') {
     const { size, path } = mazePath(index, level);
-    return { id, gameId, prompt: '🚂から ⭐まで ゆびで みちを なぞろう！',
-      visual: { kind: 'maze', a: size, numbers: path }, choices: ['ゴール', 'もういちど'], answer: 'ゴール',
+    return { id, gameId, prompt: '🚂から ⭐へ いこう！',
+      visual: { kind: 'maze', a: size, numbers: path, preview: mazeRoads(path, size, index, level) }, choices: ['ゴール', 'もういちど'], answer: 'ゴール',
       explanation: 'みちを みつけたね！' };
   }
   const step = level === 1 ? 30 : level === 2 ? 15 : 5;
