@@ -482,6 +482,24 @@ assert.equal(advanced.phase, 'answer');
 assert.equal(advanced.attempts, 0);
 assert.equal(advanced.hints, 0);
 assert.equal(solved.index, 0, 'advance must not mutate old session');
+
+
+// Regression: 'もういちど' on the cleared result screen must load the freshly unlocked level.
+// A manually selected lower-level quest must also continue at the newest unlocked level.
+const pageCode = readFileSync(new URL('../src/quest-main.ts', import.meta.url), 'utf8');
+assert(pageCode.includes("action === 'replay' && session) startGame(session.gameId);"),
+  'replay must defer to startGame default (current unlocked level)');
+assert(!pageCode.includes("startGame(session.gameId, session.level)"),
+  'replay must not force the just-cleared old level');
+assert(pageCode.includes('レベル ' + "' + progress.level + ' へ すすむ"),
+  'result button must clearly indicate the new level');
+for (const [clears, nextLevel] of [[0, 1], [1, 1], [2, 2], [3, 2],
+  [4, 3], [5, 3], [6, 4], [7, 4], [8, 5], [25, 5]]) {
+  assert.equal(engine.unlockedLevel(clears), nextLevel,
+    'latest replay destination for ' + clears + ' clears');
+}
+console.log('PASS: replay follows latest unlocked level after clearing 2/4/6/8 quests');
+
 console.log('PASS: pure session transitions and scoring; old saves and recovery checks');
 
 rmSync(temp, { recursive: true, force: true });
