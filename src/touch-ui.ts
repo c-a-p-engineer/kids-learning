@@ -119,7 +119,8 @@ export function touchHtml(q: Question, state: TouchState, disabled: boolean): st
     '<p class="clock-current" aria-live="polite">' + state.hour + ':' + minuteText + '</p>' +
     '<button type="button" class="clock-check" data-touch="clock-check"' + (disabled ? ' disabled' : '') +
     '>✅ できた！</button>' +
-    '<details class="touch-fallback"><summary>はりを つかみにくいとき</summary>' +
+    '<details class="touch-fallback"' + (state.altOpen ? ' open' : '') +
+    '><summary>はりを つかみにくいとき</summary>' +
     '<div class="clock-controls"><div><strong>みじかい はり</strong>' +
     '<button type="button" data-touch="hour-minus"' + (disabled ? ' disabled' : '') + ' aria-label="じかんを 1もどす">−</button>' +
     '<button type="button" data-touch="hour-plus"' + (disabled ? ' disabled' : '') + ' aria-label="じかんを 1すすめる">＋</button></div>' +
@@ -152,6 +153,7 @@ export function touchClick(q: Question, state: TouchState, action: string, index
     return { finished: false, refresh: true };
   }
   const step = q.visual.step ?? 30;
+  if (['hour-plus', 'hour-minus', 'minute-plus', 'minute-minus'].includes(action)) state.altOpen = true;
   if (action === 'hour-plus') state.hour = state.hour % 12 + 1;
   if (action === 'hour-minus') state.hour = (state.hour + 10) % 12 + 1;
   if (action === 'minute-plus') state.minute = (state.minute + step) % 60;
