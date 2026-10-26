@@ -641,6 +641,20 @@ assert.deepEqual(shopUndoState.coins, [1, 1], 'invalid coin position is ignored'
 const moneyHtml = workshopUi.workshopHtml(shopUndo, shopUndoState, false);
 assert(moneyHtml.includes('aria-label="1えんを もどす"'), 'coin removal has accessible labels');
 
+const routineEdit = engine.makeQuestion('routine', 0, 1), editableSteps = workshopUi.freshWorkshop();
+assert(workshopUi.workshopHtml(routineEdit, editableSteps, false).includes('routine-options'));
+workshopUi.workshopClick(routineEdit, editableSteps, 'routine', 0);
+workshopUi.workshopClick(routineEdit, editableSteps, 'routine', 1);
+assert(workshopUi.workshopHtml(routineEdit, editableSteps, false).includes('routine-remove'));
+workshopUi.workshopClick(routineEdit, editableSteps, 'routine-remove', 0);
+assert.deepEqual(editableSteps.sequence, [1], 'removing the first placed step keeps later choice');
+assert(!workshopUi.workshopHtml(routineEdit, editableSteps, false).includes('ひとつ もどす'));
+const splitEdit = engine.makeQuestion('split', 0, 2), editableStones = workshopUi.freshWorkshop();
+workshopUi.workshopClick(splitEdit, editableStones, 'left-five');
+workshopUi.workshopClick(splitEdit, editableStones, 'left-undo');
+assert.equal(editableStones.left, 4);
+assert(workshopUi.workshopHtml(splitEdit, editableStones, false).includes('data-workshop="left-undo"'));
+assert(!workshopUi.workshopHtml(splitEdit, editableStones, false).includes('↩ もどす'));
 const rhythmQ = engine.makeQuestion('rhythm', 6, 3), rhythmState = workshopUi.freshWorkshop();
 const wrongBeat = rhythmQ.visual.preview[0] === '🔵' ? 1 : 0;
 assert.equal(workshopUi.workshopClick(rhythmQ, rhythmState, 'beat', wrongBeat).finished, false);
