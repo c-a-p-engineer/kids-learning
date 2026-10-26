@@ -407,7 +407,7 @@ for (let level = 1; level <= 5; level++) for (let i = 0; i < 80; i++) {
     assert.equal(completed.practice, true);
     const out = touchUi.freshTouch();
     touchUi.traceRouteSample(q, out, 'down', pts[0]);
-    const escaped = touchUi.traceRouteSample(q, out, 'move', [280, 280]);
+    const escaped = touchUi.traceRouteSample(q, out, 'move', [0, 0]);
     assert.equal(escaped.finished, false);
     assert.equal(out.drawing, false, 'going off the route must reset without a penalty');
     // Accessible numbered fallback still completes the same question.
