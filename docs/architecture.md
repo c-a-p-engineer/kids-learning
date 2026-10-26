@@ -1,6 +1,6 @@
 # KIDS LEARNING V2 のアーキテクチャ
 
-2026-10-26 時点の現行コードを正とする。Preactは初期検討候補だったが、本実装では新しい依存を増やさずVanilla TypeScriptで10ゲームを構築した。
+2026-10-26 時点の現行コードを正とする。Preactは初期検討候補だったが、本実装では新しい依存を増やさずVanilla TypeScriptで15ゲームを構築した。
 
 ## 実行構成
 
@@ -16,9 +16,11 @@ src/index.html → src/quest-main.ts → src/engine.ts
 
 - src/engine.ts: GAMES、makeQuestion、evaluate、nextReview、chooseRound、countDue。画面・ブラウザAPIから独立した問題生成・採点・復習。
 - src/quest-main.ts: ホーム、ゲーム、結果、保護者画面とイベント委譲。Sessionで5問の進行を管理。採点を確定してからXPと復習予定を保存する。
+- src/game-audio.ts: ユーザーの操作後にWeb Audio APIでBGM/SEを合成。画面と可視状態に応じて停止。
+- src/reward-effects.ts: 学習判定と独立した短い星・XP・紙吹雪（動き軽減対応）。
 - src/game.css: 360px級スマホ、タブレット、focus-visible、reduced-motion。
 - src/public/404.html: GitHub Pagesの旧深いURLに対するSPA入口復帰。
-- scripts/check-games.mjs: 10ゲーム×80ケースと復習期間を検証。
+- scripts/check-games.mjs: 15ゲーム×80ケースと復習期間を検証。
 
 ## 保存キー
 
