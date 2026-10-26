@@ -49,11 +49,13 @@ export function workshopHtml(q: Question, state: WorkshopState, disabled: boolea
     return '<div class="workshop"><div class="split-baskets">' +
       '<div class="split-basket"><strong>🔴 ' + leftTarget + 'こ の はこ</strong>' +
       '<div class="split-dots">' + '🔴'.repeat(state.left) + '</div><b>' + state.left + '/' + leftTarget + '</b>' +
-      btn('left', 'ここに 1こ いれる', disabled || !remaining) +
+      btn('left', '＋1こ', disabled || !remaining) +
+      btn('left-five', '＋5こ', disabled || remaining < 5 || state.left + 5 > leftTarget) +
       btn('left-undo', '↩ もどす', disabled || !state.left) + '</div>' +
       '<div class="split-basket"><strong>🔵 ' + rightTarget + 'こ の はこ</strong>' +
       '<div class="split-dots">' + '🔵'.repeat(state.right) + '</div><b>' + state.right + '/' + rightTarget + '</b>' +
-      btn('right', 'ここに 1こ いれる', disabled || !remaining) +
+      btn('right', '＋1こ', disabled || !remaining) +
+      btn('right-five', '＋5こ', disabled || remaining < 5 || state.right + 5 > rightTarget) +
       btn('right-undo', '↩ もどす', disabled || !state.right) + '</div></div>' +
       '<p class="workshop-hint">あと ' + remaining + 'こ のこっているよ</p>' + message + '</div>';
   }
@@ -101,6 +103,10 @@ export function workshopClick(q: Question, state: WorkshopState, action: string,
     const left = q.visual.a ?? 0, right = q.visual.b ?? 0, total = left + right;
     if (action === 'left-undo') state.left = Math.max(0, state.left - 1);
     else if (action === 'right-undo') state.right = Math.max(0, state.right - 1);
+    else if (action === 'left-five' && state.left + 5 <= left && state.left + state.right + 5 <= total)
+      state.left += 5;
+    else if (action === 'right-five' && state.right + 5 <= right && state.left + state.right + 5 <= total)
+      state.right += 5;
     else if (action === 'left' && state.left + state.right < total) state.left++;
     else if (action === 'right' && state.left + state.right < total) state.right++;
     else return { finished: false };
