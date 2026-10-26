@@ -1,0 +1,30 @@
+/* Simple hands-on activities — large targets, never mandatory dragging. */
+.touch-activity{display:flex;flex-direction:column;align-items:center;gap:13px;width:100%;max-width:640px;margin:auto}
+.touch-tip{font-weight:900;color:#536892;text-align:center;line-height:1.6;margin:4px 0}
+.connect-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;width:100%;max-width:460px}
+.connect-dot{aspect-ratio:1;min-width:0;border:3px solid #c8d8f4;border-bottom-width:6px;border-radius:50%;
+  background:#eaf1ff;color:#42639e;font-size:clamp(1.4rem,5vw,2.1rem);font-weight:950}
+.connect-dot.visited{background:#b8f1df;border-color:#65bfa2;color:#257353;opacity:1}
+.touch-reset{min-height:52px;padding:10px 22px;background:#f1f6ff;border:2px solid #c5d9f4;
+  color:#475f90;font-weight:900;border-radius:14px}
+.maze-grid{display:grid;grid-template-columns:repeat(var(--maze-columns),minmax(0,1fr));gap:5px;
+  width:min(100%,430px);padding:8px;background:#dcecf5;border-radius:16px}
+.maze-cell{min-width:0;aspect-ratio:1;min-height:58px;border-radius:11px;border:2px solid #c6dfef;
+  background:#fff;color:#41638a;font-size:clamp(1.3rem,5vw,2.4rem);font-weight:900}
+.maze-cell.wall{background:#83a7c3;border-color:#83a7c3;box-shadow:inset 0 0 0 3px #6d9abc}
+.maze-cell.walked{background:#b5edc7;border-color:#77ce9b}
+.maze-cell.start{background:#ffdf88}.maze-cell.goal{background:#ffe5a5}
+.maze-cell:disabled{opacity:1}
+.hands-clock{width:min(100%,310px);aspect-ratio:1}
+.clock-current{font-size:2rem;font-weight:950;font-variant-numeric:tabular-nums;color:#344f8b;margin:0}
+.clock-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;width:100%;max-width:440px}
+.clock-controls>div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;
+  border:2px solid #d5e2f7;border-radius:17px;padding:11px;background:#f5f9ff}
+.clock-controls strong{grid-column:1/-1;text-align:center;color:#47608a;font-size:1rem}
+.clock-controls button{font-size:2rem;min-height:68px;border:2px solid #b3c8ef;border-bottom-width:5px;
+  border-radius:14px;background:#fff;color:#4266a9;font-weight:950}
+.clock-check{min-height:65px;width:min(100%,320px);border:2px solid #edae5e;border-bottom-width:5px;
+  background:#ffe1a0;color:#775022;font-weight:950;border-radius:17px;font-size:1.1rem}
+.touch-activity button:focus-visible{outline:4px solid #ffb23c;outline-offset:3px}
+@media(max-width:380px){.connect-grid{gap:8px}.maze-cell{min-height:49px}.clock-controls{gap:7px}.clock-controls button{min-height:60px}}
+@media(prefers-reduced-motion:reduce){.touch-activity *{transition:none!important}}
