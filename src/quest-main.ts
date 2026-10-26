@@ -16,7 +16,7 @@ import { isTouchGame } from './touch-content';
 import { touchHtml, touchClick, touchPointer, freshTouch } from './touch-ui';
 import type { TouchState } from './touch-ui';
 import { recordDaily } from './progression';
-import { loadSlot, persistSlot, backupText, parseBackup, backupDelta } from './storage';
+import { loadSlot, persistSlotIfUnchanged, readSlotSnapshot, StaleSlotError, backupText, parseBackup, backupDelta } from './storage';
 import type { Backup } from './storage';
 import { statusHtml, skillTreeHtml, PROGRESS_CATEGORIES } from './progress-ui';
 import type { ProgressCategory } from './progress-ui';
@@ -78,6 +78,8 @@ function categoryOf(subject: string): string {
 }
 let slot = getSlot();
 let storageWarning = '';
+let slotSnapshot: string | null = null;
+let slotStale = false;
 let save = loadSave();
 const HOME_TITLE = 'まなびクエスト';
 const PROFILES = [
@@ -104,15 +106,49 @@ function applyTextSize(): void {
 }
 
 function loadSave(): LearningSave {
-  try { return loadSlot(localStorage, slot); }
+  try {
+    slotSnapshot = readSlotSnapshot(localStorage, slot);
+    slotStale = false;
+    return loadSlot(localStorage, slot);
+  }
   catch {
     storageWarning = 'きろくを よみこめませんでした。ほごしゃに みてもらおう。';
     return freshSave();
   }
 }
+/** Refuse writes after another tab changes the same character. Never merge old XP blindly. */
+function markSlotStale(): void {
+  slotStale = true;
+  stopTimers();
+  dismissEffects();
+  session = null;
+  activityState = null;
+  touchState = null;
+  workshopState = null;
+  resetArmed = false;
+  backupDraft = null;
+  page = 'home';
+}
+function persistCurrent(next: LearningSave): void {
+  if (slotStale) throw new StaleSlotError();
+  try {
+    slotSnapshot = persistSlotIfUnchanged(localStorage, slot, next, slotSnapshot);
+  } catch (error) {
+    if (error instanceof StaleSlotError) markSlotStale();
+    throw error;
+  }
+}
+function refreshSlot(): void {
+  save = loadSave();
+  storageWarning = '';
+  backupError = '';
+  gameAudio.configure(save.settings.sound, save.settings.bgm, save.settings.seVolume, save.settings.bgmVolume);
+  applyTextSize();
+  render();
+}
 function saveNow(): boolean {
   try {
-    persistSlot(localStorage, slot, save);
+    persistCurrent(save);
     if (storageWarning.startsWith('ほぞんできません')) storageWarning = '';
     return true;
   } catch {
@@ -434,6 +470,14 @@ function parentHtml(): string {
 }
 function render(): void {
   if (!app) return;
+  if (slotStale) {
+    app.innerHTML = layout('<section class="parent sync-block" role="alert">' +
+      '<h1>🔄 べつの タブで きろくが かわったよ</h1>' +
+      '<p>この がめんの こたえは ほぞんせずに とめたよ。</p>' +
+      '<button type="button" class="primary-btn" data-action="sync-reload">あたらしい きろくを よむ</button>' +
+      '</section>');
+    return;
+  }
   if (page === 'game') app.innerHTML = gameHtml();
   else if (page === 'result') app.innerHTML = resultHtml();
   else if (page === 'parent') app.innerHTML = parentHtml();
@@ -447,6 +491,12 @@ function render(): void {
   gameAudio.setScene(page === 'stats' || page === 'skills' || page === 'world' ? 'home' : page);
 }
 function startGame(id: GameId, requestedLevel?: number): void {
+  if (slotStale) { render(); return; }
+  try {
+    if (readSlotSnapshot(localStorage, slot) !== slotSnapshot) {
+      markSlotStale(); render(); return;
+    }
+  } catch { markSlotStale(); render(); return; }
   stopTimers();
   const unlocked = unlockedLevel(save.completed[id] ?? 0);
   const level = typeof requestedLevel === 'number' && Number.isInteger(requestedLevel) &&
@@ -501,7 +551,7 @@ function answer(choice: string, mode?: AnswerMode): void {
   if (!evaluate(q, choice)) {
     const prepared = prepareMistake(save, q, new Date());
     try {
-      persistSlot(localStorage, slot, prepared);
+      persistCurrent(prepared);
       save = prepared;
       if (storageWarning.startsWith('ほぞんできません')) storageWarning = '';
     } catch {
@@ -536,7 +586,7 @@ function answer(choice: string, mode?: AnswerMode): void {
   const practice = mode !== undefined;
   const prepared = prepareAnswer(save, q, kind, independent, earned, new Date());
   try {
-    persistSlot(localStorage, slot, prepared.data);
+    persistCurrent(prepared.data);
     save = prepared.data;
     if (storageWarning.startsWith('ほぞんできません')) storageWarning = '';
   } catch {
@@ -569,7 +619,7 @@ function next(): void {
   if (session.index === session.deck.length - 1) {
     const prepared = prepareClear(save, session, new Date());
     try {
-      persistSlot(localStorage, slot, prepared);
+      persistCurrent(prepared);
       save = prepared;
       if (storageWarning.startsWith('ほぞんできません')) storageWarning = '';
     } catch {
@@ -606,7 +656,7 @@ function resetCurrentLearning(): void {
   const nextSave = freshSave();
   nextSave.settings = { ...old.settings };
   try {
-    persistSlot(localStorage, slot, nextSave);
+    persistCurrent(nextSave);
   } catch {
     storageWarning = 'リセットできませんでした。ブラウザのほぞんを かくにんしてください。';
     resetArmed = false;
@@ -652,7 +702,7 @@ function restoreBackup(): void {
   if (page !== 'parent' || !backupDraft || backupDraft.slot !== slot) return;
   try {
     // Single atomic localStorage write; preserve current in-memory state on failure.
-    persistSlot(localStorage, slot, backupDraft.data);
+    persistCurrent(backupDraft.data);
     save = backupDraft.data;
     backupDraft = null; backupError = '';
     storageWarning = 'バックアップを ふくげんしました。';
@@ -685,6 +735,7 @@ function completeActivity(result: ActivityResult): void {
   else render();
 }
 function onTouchPointer(event: PointerEvent, phase: 'down' | 'move' | 'up' | 'cancel'): void {
+  if (slotStale) return;
   if (page !== 'game' || session?.phase !== 'answer' || session.locked || !touchState ||
       !isTouchGame(session.gameId)) return;
   const svg = event.target instanceof Element ?
@@ -699,6 +750,7 @@ function onTouchPointer(event: PointerEvent, phase: 'down' | 'move' | 'up' | 'ca
   else if (result.refresh || phase === 'up' || phase === 'cancel') render();
 }
 function onTracePointer(event: PointerEvent, phase: 'down' | 'move' | 'up' | 'cancel'): void {
+  if (slotStale) return;
   if (page !== 'game' || (session?.gameId !== 'trace' && session?.gameId !== 'lines' && session?.gameId !== 'digits') || session?.phase !== 'answer' ||
       session.locked || !activityState) return;
   const svg = event.target instanceof Element ? event.target.closest<SVGSVGElement>('[data-trace-board]') : null;
@@ -723,6 +775,14 @@ for (const [eventType, phase] of [
 
 gameAudio.configure(save.settings.sound, save.settings.bgm, save.settings.seVolume, save.settings.bgmVolume);
 applyTextSize();
+window.addEventListener('storage', event => {
+  if (event.storageArea === localStorage &&
+      (event.key === storeKey() || event.key === null) &&
+      event.newValue !== slotSnapshot) {
+    markSlotStale();
+    render();
+  }
+});
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     stopTimers();
@@ -734,6 +794,7 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 app.addEventListener('input', event => {
+  if (slotStale) return;
   const target = event.target;
   if (!(target instanceof HTMLInputElement)) return;
   if (page === 'options' && target.hasAttribute('data-text-size')) {
@@ -764,6 +825,10 @@ app.addEventListener('change', event => {
 app.addEventListener('click', event => {
   const target = event.target;
   if (!(target instanceof Element)) return;
+  if (slotStale) {
+    if (target.closest<HTMLElement>('[data-action="sync-reload"]')) refreshSlot();
+    return;
+  }
   gameAudio.unlock();
   const workshopButton = target.closest<HTMLButtonElement>('[data-workshop]');
   if (workshopButton && page === 'game' && session?.phase === 'answer' &&
