@@ -8,14 +8,19 @@ export const GAMES = [
   { id: 'words', title: 'ことばトレジャー', icon: '🗝️', subject: 'こくご', description: 'えと おなじ ことばを みつけよう', color: '#77b963' },
   { id: 'shapes', title: 'かたちパズル', icon: '🔷', subject: 'ずけい', description: 'おなじ かたちを さがそう', color: '#4ba8cd' },
   { id: 'memory', title: 'おぼえてカード', icon: '🧠', subject: 'きおく', description: 'えを みて おぼえて こたえよう', color: '#dc83c8' },
-  { id: 'clock', title: 'じかんの とびら', icon: '🕒', subject: 'せいかつ', description: 'とけいの じかんを あてよう', color: '#7892e8' }
+  { id: 'clock', title: 'じかんの とびら', icon: '🕒', subject: 'せいかつ', description: 'とけいの じかんを あてよう', color: '#7892e8' },
+  { id: 'bond', title: '10の ともだち', icon: '🤝', subject: 'さんすう', description: 'あわせて 10になる かずを みつけよう', color: '#f2a257' },
+  { id: 'pattern', title: 'つぎは なあに？', icon: '🧩', subject: 'かんがえる', description: 'ならびかたの ひみつを みつけよう', color: '#7e89ec' },
+  { id: 'category', title: 'なかま あつめ', icon: '🧺', subject: 'ことば', description: 'どんな なかまに はいるかな？', color: '#38bfa1' },
+  { id: 'odd', title: 'ちがいを はっけん', icon: '🔍', subject: 'かんがえる', description: 'ひとつだけ ちがう ものを さがそう', color: '#e57eb3' },
+  { id: 'colors', title: 'いろの まほう', icon: '🎨', subject: 'せいかつ', description: 'いろの なまえを おぼえよう', color: '#59a6e5' }
 ] as const;
 
 export type GameId = (typeof GAMES)[number]['id'];
 export type Visual = {
-  kind: 'dots' | 'add' | 'subtract' | 'sequence' | 'compare' | 'picture' | 'shape' | 'clock' | 'memory';
+  kind: 'dots' | 'add' | 'subtract' | 'sequence' | 'compare' | 'picture' | 'shape' | 'clock' | 'memory' | 'bond' | 'pattern' | 'category' | 'odd' | 'color';
   a?: number; b?: number; step?: number; numbers?: number[];
-  symbol?: string; hour?: number; minute?: number; preview?: string[];
+  symbol?: string; hour?: number; minute?: number; preview?: string[]; answerIndex?: number;
 };
 export interface Question {
   id: string;
@@ -39,11 +44,11 @@ export interface LearningSave {
   sessions: number;
   completed: Record<string, number>;
   reviews: Record<string, ReviewRecord>;
-  settings: { quiet: boolean; sound: boolean };
+  settings: { quiet: boolean; sound: boolean; bgm: boolean };
 }
 export const STORAGE_KEY = 'kids_learning_dopagaki_v2';
 export function freshSave(): LearningSave {
-  return { schema: 2, xp: 0, sessions: 0, completed: {}, reviews: {}, settings: { quiet: false, sound: false } };
+  return { schema: 2, xp: 0, sessions: 0, completed: {}, reviews: {}, settings: { quiet: false, sound: true, bgm: true } };
 }
 function options(answer: number, min = 0, max = 20): string[] {
   const pool = [answer, answer - 1, answer + 1, answer + 2, answer - 2, answer + 3, answer - 3];
@@ -124,7 +129,7 @@ export function makeQuestion(gameId: GameId, index: number): Question {
   if (gameId === 'memory') {
     const at = i % MEMORY.length;
     const preview = [MEMORY[at], MEMORY[(at + 1) % MEMORY.length], MEMORY[(at + 2) % MEMORY.length]];
-    const answer = preview[1];
+    const answer = preview[(i + Math.floor(i / 12)) % 3];
     const choices = rotated([answer, MEMORY[(at + 4) % MEMORY.length], MEMORY[(at + 6) % MEMORY.length]], i);
     return { id, gameId, prompt: 'さっき あった えは どれ？', visual: { kind: 'memory', preview }, choices, answer, explanation: 'よく おぼえていたね！ ' + answer + 'が あったよ。' };
   }
@@ -135,6 +140,58 @@ export function makeQuestion(gameId: GameId, index: number): Question {
     const previous = hour === 1 ? 12 : hour - 1;
     const choices = rotated([answer, String(next) + 'じ' + (minute === 30 ? 'はん' : ''), String(previous) + 'じ' + (minute === 30 ? 'はん' : '')], i);
     return { id, gameId, prompt: 'とけいは なんじ？', visual: { kind: 'clock', hour, minute }, choices, answer, explanation: 'みじかい はりを みよう。' + answer + 'だね！' };
+  }
+
+  if (gameId === 'bond') {
+    const a = i % 11, answer = 10 - a;
+    return { id, gameId, prompt: 'あわせて 10に なるのは？',
+      visual: { kind: 'bond', a, b: 10 }, choices: numberChoices(answer, i, 10),
+      answer: String(answer), explanation: a + 'と ' + answer + 'で 10に なるね！' };
+  }
+  if (gameId === 'pattern') {
+    const symbols = ['⭐','🌙','🌼','🚂','🐱','🍎','🔴','🔵'];
+    const a = symbols[i % symbols.length], b = symbols[(i + 3) % symbols.length];
+    const prefix = i % 2 === 0 ? [a,b,a] : [a,b,a,b];
+    const answer = prefix.length % 2 === 0 ? a : b;
+    const choices = rotated([answer, ...symbols.filter(x => x !== a && x !== b).slice(i % 3, i % 3 + 2)], i);
+    return { id, gameId, prompt: 'ならびかたを みて、つぎは？',
+      visual: { kind: 'pattern', preview: prefix }, choices, answer,
+      explanation: 'じゅんばんこに ならんで いるね！ ' + answer + 'が つぎ！' };
+  }
+  if (gameId === 'category') {
+    const sets = [
+      { name:'どうぶつ', icons:['🐱','🐶','🐰','🐘'] },
+      { name:'のりもの', icons:['🚂','🚗','🚲','🚌'] },
+      { name:'たべもの', icons:['🍎','🍙','🍉','🍞'] },
+      { name:'しぜん', icons:['🌳','🌻','🌈','☁️'] }
+    ];
+    const group = sets[i % sets.length], emoji = group.icons[Math.floor(i / sets.length) % group.icons.length];
+    const choices = rotated([group.name, sets[(i + 1) % sets.length].name, sets[(i + 2) % sets.length].name], i);
+    return { id, gameId, prompt: 'これは なんの なかま？',
+      visual: { kind: 'category', symbol: emoji }, choices, answer: group.name,
+      explanation: emoji + 'は 「' + group.name + '」の なかまだね！' };
+  }
+  if (gameId === 'odd') {
+    const icons = ['🐱','🍎','🚂','🐰','🌻','🐟','🎈','🚌'];
+    const a = icons[i % icons.length], b = icons[(i + 3) % icons.length];
+    const answerIndex = (i * 3 + Math.floor(i / 4)) % 4;
+    const preview = Array.from({ length: 4 }, (_, pos) => pos === answerIndex ? b : a);
+    const answer = String(answerIndex + 1);
+    return { id, gameId, prompt: 'ひとつだけ ちがうのは なんばん？',
+      visual: { kind: 'odd', preview, answerIndex }, choices: rotated(['1','2','3','4'], i),
+      answer, explanation: answer + 'ばん だけ ちがう えだね！' };
+  }
+  if (gameId === 'colors') {
+    const swatches = [
+      { name:'あか', color:'#e94a52' }, { name:'あお', color:'#377bdd' },
+      { name:'きいろ', color:'#f5cf42' }, { name:'みどり', color:'#43ae6b' },
+      { name:'むらさき', color:'#9c65ce' }, { name:'オレンジ', color:'#f28a37' }
+    ];
+    const chosen = swatches[i % swatches.length];
+    const choices = rotated([chosen.name, swatches[(i + 2) % swatches.length].name, swatches[(i + 4) % swatches.length].name], i);
+    return { id, gameId, prompt: 'この いろの なまえは？',
+      visual: { kind: 'color', symbol: chosen.color }, choices, answer: chosen.name,
+      explanation: 'この いろは 「' + chosen.name + '」！' };
   }
   throw new Error('Unknown game ' + gameId);
 }
