@@ -56,17 +56,20 @@ export interface ReviewRecord {
   lastAnsweredAt: number;
   correct: boolean;
 }
+import type { DailyLog } from './progression';
+
 export interface LearningSave {
   schema: 2;
   xp: number;
   sessions: number;
   completed: Record<string, number>;
   reviews: Record<string, ReviewRecord>;
+  daily: Record<string, DailyLog>;
   settings: { quiet: boolean; sound: boolean; bgm: boolean; bgmVolume: number; seVolume: number; textSize: number };
 }
 export const STORAGE_KEY = 'kids_learning_dopagaki_v2';
 export function freshSave(): LearningSave {
-  return { schema: 2, xp: 0, sessions: 0, completed: {}, reviews: {}, settings: { quiet: false, sound: true, bgm: true, bgmVolume: 75, seVolume: 65, textSize: 100 } };
+  return { schema: 2, xp: 0, sessions: 0, completed: {}, reviews: {}, daily: {}, settings: { quiet: false, sound: true, bgm: true, bgmVolume: 75, seVolume: 65, textSize: 100 } };
 }
 /** 保存データの不正な値を無害化する。V2旧データに音量がなければ初期値を使用。 */
 export function clampVolume(value: unknown, fallback: number): number {
