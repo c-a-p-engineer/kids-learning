@@ -1,4 +1,5 @@
 import { isActivity, makeActivityQuestion } from './activity-content';
+import { isTouchGame, makeTouchQuestion } from './touch-content';
 
 export const GAMES = [
   { id: 'count', title: 'かずシールド', icon: '🛡️', subject: 'さんすう', description: 'ドットを かぞえて シールドを こわそう', color: '#19b69e' },
@@ -19,7 +20,10 @@ export const GAMES = [
   { id: 'trace', title: 'ゆびで ひらがな', icon: '✍️', subject: 'うんぴつ', description: 'ゆびで みちを なぞって もじを かこう', color: '#f28f98' },
   { id: 'blocks', title: 'かずの ブロックこうじょう', icon: '🧱', subject: 'さんすう', description: 'ブロックを いれて かずを つくろう', color: '#56bd9f' },
   { id: 'train', title: 'ことば れっしゃ', icon: '🚃', subject: 'こくご', description: 'もじの しゃりょうを じゅんに つなごう', color: '#779de6' },
-  { id: 'move', title: 'からだ まねっこ', icon: '🙌', subject: 'うんどう', description: 'おててや あしを ゆっくり うごかそう', color: '#d38ddc' }
+  { id: 'move', title: 'からだ まねっこ', icon: '🙌', subject: 'うんどう', description: 'おててや あしを ゆっくり うごかそう', color: '#d38ddc' },
+  { id: 'connect', title: 'てんを つなごう', icon: '🖊️', subject: 'うんぴつ', description: '1から じゅんに てんを タップ', color: '#e99975' },
+  { id: 'maze', title: 'でんしゃの めいろ', icon: '🚂', subject: 'かんがえる', description: 'みちを つないで ほしへ いこう', color: '#7cbdb3' },
+  { id: 'clockhands', title: 'とけいを つくろう', icon: '🕰️', subject: 'せいかつ', description: 'はりを うごかして じかんを あわせよう', color: '#7f9bdc' }
 ] as const;
 
 export const MAX_LEVEL = 5;
@@ -36,7 +40,7 @@ export function progressFor(clears: number): { level: number; current: number; t
 
 export type GameId = (typeof GAMES)[number]['id'];
 export type Visual = {
-  kind: 'dots' | 'add' | 'subtract' | 'sequence' | 'compare' | 'picture' | 'shape' | 'clock' | 'memory' | 'bond' | 'pattern' | 'category' | 'odd' | 'color' | 'trace' | 'blocks' | 'train' | 'move';
+  kind: 'dots' | 'add' | 'subtract' | 'sequence' | 'compare' | 'picture' | 'shape' | 'clock' | 'memory' | 'bond' | 'pattern' | 'category' | 'odd' | 'color' | 'trace' | 'blocks' | 'train' | 'move' | 'connect' | 'maze' | 'clockhands';
   a?: number; b?: number; step?: number; numbers?: number[];
   symbol?: string; hour?: number; minute?: number; preview?: string[]; answerIndex?: number;
 };
@@ -119,6 +123,7 @@ export function makeQuestion(gameId: GameId, index: number, level = 1): Question
   const lv = Math.max(1, Math.min(MAX_LEVEL, Math.floor(level)));
   const id = gameId + (lv > 1 ? ':L' + lv : '') + ':' + i;
   if (isActivity(gameId)) return makeActivityQuestion(gameId, i, lv);
+  if (isTouchGame(gameId)) return makeTouchQuestion(gameId, i, lv);
   if (gameId === 'count') {
     const a = lv === 1 ? (i % 10) + 1 :
       lv === 2 ? (i % 15) + 1 :
