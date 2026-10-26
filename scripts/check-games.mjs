@@ -1,14 +1,26 @@
 #!/usr/bin/env node
-import { readFileSync } from 'node:fs';
+import { readFileSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { strict as assert } from 'node:assert';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import ts from 'typescript';
 
-const source = readFileSync(new URL('../src/engine.ts', import.meta.url), 'utf8');
-const output = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.ESNext } });
-const engine = await import('data:text/javascript;charset=utf-8,' + encodeURIComponent(output.outputText));
+// Transpile each dependency to a temporary ESM module: no extra runtime or test framework.
+const temp = mkdtempSync(join(tmpdir(), 'kids-learning-test-'));
+for (const moduleName of ['engine', 'activity-content', 'activity-ui']) {
+  const source = readFileSync(new URL('../src/' + moduleName + '.ts', import.meta.url), 'utf8');
+  const js = ts.transpileModule(source, {
+    compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.ESNext }
+  }).outputText.replaceAll("from './activity-content'", "from './activity-content.mjs'");
+  writeFileSync(join(temp, moduleName + '.mjs'), js);
+}
+const engine = await import(pathToFileURL(join(temp, 'engine.mjs')).href);
+const activity = await import(pathToFileURL(join(temp, 'activity-content.mjs')).href);
+const activityUi = await import(pathToFileURL(join(temp, 'activity-ui.mjs')).href);
 const now = Date.UTC(2026, 9, 26);
 
-assert.equal(engine.GAMES.length, 15);
+assert.equal(engine.GAMES.length, 19);
 // Audio settings are stored in the existing V2 profile object, never legacy keys.
 const defaults = engine.freshSave();
 assert.equal(defaults.schema, 2);
@@ -34,7 +46,7 @@ assert.equal(engine.clampVolume(-20, 65), 0);
 assert.equal(engine.clampVolume(Number.NaN, 65), 65);
 assert.equal(engine.clampVolume('50', 75), 75);
 
-assert.equal(new Set(engine.GAMES.map(g => g.id)).size, 15);
+assert.equal(new Set(engine.GAMES.map(g => g.id)).size, 19);
 const memoryTargets = new Set();
 for (const game of engine.GAMES) {
   for (let i = 0; i < 80; i++) {
@@ -123,7 +135,7 @@ for (let c = 0; c <= 15; c++) {
   assert.equal(p.target, 2);
   if (!p.maxed) assert.equal(p.current, c % 2);
 }
-// All 15 games must generate five distinct items with a correct option at levels 2–5.
+// All 19 games must generate five distinct items with a correct option at levels 2–5.
 let advancedQuestions = 0;
 for (const game of engine.GAMES) {
   for (let level = 2; level <= 5; level++) {
@@ -167,4 +179,72 @@ for (const game of engine.GAMES) {
 }
 console.log('PASS: advanced levels ' + advancedQuestions + ' questions and earned unlock gates');
 
-console.log('PASS: 15 games × 80 cases, answer validity, arithmetic, finite rounds, recall scheduler');
+console.log('PASS: 19 games × 80 cases, answer validity, arithmetic, finite rounds, recall scheduler');
+
+/** Non-choice input regression tests: do not fall back to 3 answer buttons. */
+for (const gameId of ['trace', 'blocks', 'train', 'move']) {
+  const q = engine.makeQuestion(gameId, 0);
+  assert(activity.isActivity(gameId));
+  const state = activityUi.newActivityState(q);
+  assert(activityUi.activityHtml(q, state).includes('class="interactive'));
+  assert(!activityUi.activityHtml(q, state).includes('data-answer'));
+}
+for (let lv = 1; lv <= 5; lv++) {
+  for (let i = 0; i < 30; i++) {
+    const train = engine.makeQuestion('train', i, lv);
+    assert.equal((train.visual.preview || []).length, Array.from(train.answer).length);
+    assert.notDeepEqual(train.visual.preview, Array.from(train.answer), 'train starts preassembled');
+    const trainState = activityUi.newActivityState(train);
+    const tiles = train.visual.preview || [];
+    let result;
+    for (const glyph of Array.from(train.answer)) {
+      const index = tiles.findIndex((tile, j) => tile === glyph && !trainState.usedTiles.includes(j));
+      assert(index !== -1, 'train must include every target glyph');
+      result = activityUi.activityClick(train, trainState, 'train-tile', index);
+    }
+    assert.equal(result.kind, 'submit');
+    assert.equal(result.value, train.answer);
+    const block = engine.makeQuestion('blocks', i, lv);
+    const blockState = activityUi.newActivityState(block);
+    const target = Number(block.answer);
+    while (blockState.count + 5 <= target) {
+      result = activityUi.activityClick(block, blockState, 'block-five', -1);
+    }
+    while (blockState.count < target) {
+      result = activityUi.activityClick(block, blockState, 'block-one', -1);
+    }
+    assert.equal(result.kind, 'submit');
+    assert.equal(result.value, block.answer);
+    assert.equal(blockState.count, target);
+  }
+}
+const blockQ = engine.makeQuestion('blocks', 0);
+const blockState = activityUi.newActivityState(blockQ);
+const overshoot = activityUi.activityClick(blockQ, blockState, 'block-five', -1);
+assert.equal(overshoot.kind, 'submit'); // target 5; the factory can finish with one group.
+assert.equal(blockState.count, 5);
+const noExtra = activityUi.activityClick(blockQ, blockState, 'block-five', -1);
+assert.equal(noExtra.kind, 'progress'); // cannot earn another answer by tapping more
+assert.equal(blockState.count, 5);
+const traceQ = engine.makeQuestion('trace', 0);
+const traceState = activityUi.newActivityState(traceQ);
+const guide = activity.TRACE_GUIDES[traceQ.answer];
+assert(guide.points.length >= 7);
+for (let i = 0; i < guide.points.length; i++) {
+  const result = activityUi.activityClick(traceQ, traceState, 'trace-point', i);
+  if (i < guide.points.length - 1) assert.equal(result.kind, 'progress');
+  else {
+    assert.equal(result.kind, 'submit');
+    assert.equal(result.assisted, true);
+  }
+}
+const moveQ = engine.makeQuestion('move', 0);
+const moveResult = activityUi.activityClick(moveQ, activityUi.newActivityState(moveQ), 'move-done', -1);
+assert.equal(moveResult.kind, 'submit');
+assert.equal(moveResult.assisted, true);
+const restResult = activityUi.activityClick(moveQ, activityUi.newActivityState(moveQ), 'move-skip', -1);
+assert.equal(restResult.kind, 'submit');
+assert.equal(restResult.skipped, true);
+console.log('PASS: tracing alternative, number block input, letter construction, seated movement and rest');
+rmSync(temp, { recursive: true, force: true });
+
