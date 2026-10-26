@@ -308,7 +308,7 @@ function gameHtml(): string {
       (storageWarning.startsWith('ほぞんできません') ? '🔄 もういちど ほぞんする' :
         number === session.deck.length ? '🎉 けっかを みる' : 'つぎの もんだい ➜') +
       '</button>' : '') +
-    '</section><p class="play-note">まちがえても だいじょうぶ。なんかいでも かんがえられるよ。</p>');
+    '</section>');
 }
 function resultHtml(): string {
   if (!session) return homeHtml();

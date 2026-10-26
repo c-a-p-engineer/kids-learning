@@ -90,18 +90,17 @@ export function statusHtml(save: LearningSave, profileName: string, now: Date): 
     (todayGames || '<span class="growth-help">あそんだ ゲームが ここに でるよ。</span>') +
     '</div></section>' +
     '<section class="growth-panel growth-week" aria-label="7にちかんの がんばり">' +
-    '<h2>📈 7にちの ぼうけん</h2><p class="growth-help">ぼうが たかいほど たくさん がんばったよ！</p>' +
+    '<h2>📈 7にちの ぼうけん</h2>' +
     '<div class="history-chart" role="list" aria-label="最近7日間の取り組み数">' + bars + '</div>' +
     '<div class="growth-week-total"><span>🌟 ' + seven.days + '/7 にち あそんだ</span>' +
     '<span>✍️ ' + seven.questions + ' もん</span><span>🏆 ' + seven.clears + ' クリア</span>' +
     '<span>✨ +' + seven.xp + ' XP</span></div></section>' +
     '<section class="growth-panel growth-records" aria-label="日ごとの きろく">' +
     '<h2>📒 さいきん30にちの きろく</h2>' +
-    '<p class="growth-help">ひづけを ひらくと くわしく みられるよ。</p>' +
     '<div class="daily-record-list">' + (records || '<p class="growth-empty">まだ きろくが ないよ。あそんで ためよう！</p>') +
     '</div></section>' +
-    '<p class="growth-note">※ 日別きろくは V2.6 から。以前のXP・クリアは合計に残りますが、日付は推測しません。' +
-    'きろくはこの端末の選んだキャラだけ。なぞり・運動の練習は、学力の正答と分けて集計しています。</p></section>';
+    '<details class="growth-note"><summary>ほごしゃの かたへ</summary><p>日別きろくは V2.6 から。以前のXP・クリアは合計に残り、過去の日付は推測しません。' +
+    'きろくは端末内の選んだキャラだけです。なぞり・運動の練習と学力の正答は分けて集計しています。</p></details></section>';
 }
 export function skillTreeHtml(save: LearningSave, profileName: string, selected: ProgressCategory): string {
   const summary = skillSummary(save);
@@ -146,9 +145,9 @@ export function skillTreeHtml(save: LearningSave, profileName: string, selected:
     buttons('skills') +
     '<div class="skill-summary"><strong>⭐ ' + summary.unlocked + '/' + summary.total +
     '</strong><span>ひらいた レベル　🏆 ' + summary.maxed + 'ゲーム ぜんかいほう</span></div>' +
-    '<p class="growth-help">ひとつの ゲームを 2かいクリアすると つぎの LV が ひらくよ。⭐のレベルを おすと あそべるよ。</p>' +
+    '<p class="growth-help">⭐を おすと あそべるよ。</p>' +
     '<nav class="skill-filters" aria-label="スキルの ぶんや">' + tabs + '</nav>' +
     '<div class="skill-tree-grid">' + trees + '</div>' +
-    '<p class="growth-note">※ スキルツリーの解放は「挑戦できるレベル」です。能力検査や発達・療育の評価ではありません。' +
-    'むずかしいときは やさしいもんだいに もどっても だいじょうぶ。</p></section>';
+    '<details class="growth-note"><summary>ほごしゃの かたへ</summary><p>スキルツリーは挑戦できるレベルです。発達・療育の評価ではありません。' +
+    'むずかしいときは、やさしい問題へもどれます。</p></details></section>';
 }
