@@ -8,7 +8,7 @@ import ts from 'typescript';
 
 // Transpile each dependency to a temporary ESM module: no extra runtime or test framework.
 const temp = mkdtempSync(join(tmpdir(), 'kids-learning-test-'));
-for (const moduleName of ['engine', 'activity-content', 'activity-ui', 'progression', 'progress-ui', 'touch-content', 'touch-ui', 'storage', 'trace-guides', 'session', 'workshop-content', 'workshop-ui', 'growth-world', 'parent-report']) {
+for (const moduleName of ['engine', 'activity-content', 'activity-ui', 'progression', 'progress-ui', 'touch-content', 'touch-ui', 'storage', 'trace-guides', 'session', 'workshop-content', 'workshop-ui', 'growth-world', 'parent-report', 'learning-commit']) {
   const source = readFileSync(new URL('../src/' + moduleName + '.ts', import.meta.url), 'utf8');
   const js = ts.transpileModule(source, {
     compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.ESNext }
@@ -28,6 +28,7 @@ const workshop = await import(pathToFileURL(join(temp, 'workshop-content.mjs')).
 const workshopUi = await import(pathToFileURL(join(temp, 'workshop-ui.mjs')).href);
 const world = await import(pathToFileURL(join(temp, 'growth-world.mjs')).href);
 const reporting = await import(pathToFileURL(join(temp, 'parent-report.mjs')).href);
+const commit = await import(pathToFileURL(join(temp, 'learning-commit.mjs')).href);
 const now = Date.UTC(2026, 9, 26);
 
 assert.equal(engine.GAMES.length, 28);
@@ -575,6 +576,31 @@ for (let lv = 1; lv <= 5; lv++) for (let i = 0; i < 80; i++) {
 }
 assert.equal(activity.TRACE_GUIDES['4'].strokes.length, 2);
 console.log('PASS: 0-9 number tracing, stroke order and accessibility across 400 questions');
+
+
+// Persistent commits must be immutable; callers can safely recover from QuotaExceededError.
+const oldSave = engine.freshSave(), answerQ = engine.makeQuestion('shop', 0);
+const oldDate = new Date(2026, 9, 26, 15);
+const preparedAnswer = commit.prepareAnswer(oldSave, answerQ, 'independent', true, 10, oldDate);
+assert.equal(oldSave.xp, 0);
+assert.equal(Object.keys(oldSave.daily).length, 0);
+assert.equal(preparedAnswer.data.xp, 10);
+assert.equal(preparedAnswer.data.daily['2026-10-26'].independent, 1);
+const mockFail = { setItem: () => { throw new Error('QuotaExceededError'); } };
+assert.throws(() => storage.persistSlot(mockFail, 1, preparedAnswer.data));
+assert.equal(oldSave.xp, 0, 'failed persistent write must not award in-memory XP');
+const learningSession = session.createSession('shop', 1, [answerQ]);
+learningSession.practiced = 0;
+const clearCandidate = commit.prepareClear(preparedAnswer.data, learningSession, oldDate);
+assert.equal(preparedAnswer.data.sessions, 0);
+assert.equal(clearCandidate.sessions, 1);
+assert.equal(clearCandidate.completed.shop, 1);
+assert.equal(clearCandidate.daily['2026-10-26'].clears, 1);
+assert.equal(preparedAnswer.data.daily['2026-10-26'].clears, 0);
+const restSession = session.createSession('move', 1, [engine.makeQuestion('move', 0)]);
+const rested = commit.prepareClear(oldSave, restSession, oldDate);
+assert.equal(rested.completed.move, undefined, 'rest-only movement cannot unlock levels');
+console.log('PASS: immutable persistence candidates protect XP, daily logs, unlocks and rest outcomes');
 
 rmSync(temp, { recursive: true, force: true });
 
