@@ -278,8 +278,7 @@ function visualHtml(visual: Visual, preview: boolean): string {
     case 'subtract': return '<div class="visual-group"><div class="math-line">' + a + ' − ' + b + ' ＝ ❓</div>' +
       dots(a, b) + '<small>うすい まるは とった かず</small></div>';
     case 'sequence': return '<div class="track">' + (visual.numbers ?? []).map(n => '<span>' + (n < 0 ? '？' : n) + '</span>').join('') + '</div>';
-    case 'compare': return '<div class="compare"><div><small>ひだり</small><strong>' + a + '</strong>' +
-      dots(a) + '</div><b>VS</b><div><small>みぎ</small><strong>' + b + '</strong>' + dots(b) + '</div></div>';
+    case 'compare': return ''; // cards are the answer surface
     case 'picture': return '<div class="big-emoji" aria-hidden="true">' + safe(visual.symbol ?? '') + '</div>';
     case 'shape': return '<div class="big-shape" aria-hidden="true">' + safe(visual.symbol ?? '') + '</div>';
     case 'clock': return analogClock(visual.hour ?? 1, visual.minute ?? 0);
@@ -308,7 +307,18 @@ function gameHtml(): string {
   const solved = session.phase === 'solved';
   const locked = session.locked;
   const longChoices = q.choices.some(choice => Array.from(choice).length >= 3);
-  const options = isActivity(q.gameId) && activityState
+  const comparison = q.gameId === 'compare' ?
+    '<div class="compare-pick" role="group" aria-label="おおきい かずを タップ">' +
+    (['ひだり', 'みぎ'] as const).map((side, i) => {
+      const count = i === 0 ? q.visual.a ?? 0 : q.visual.b ?? 0;
+      return '<button type="button" class="compare-pick-card" data-answer="' + side +
+        '" aria-label="' + count + '、' + side + 'の かずを えらぶ"' +
+        (solved || locked ? ' disabled' : '') +
+        '><span class="compare-pick-number">' + count + '</span>' +
+        dots(count) + '</button>';
+    }).join('') + '</div>' : '';
+  const options = q.gameId === 'compare' ? comparison :
+    isActivity(q.gameId) && activityState
     ? activityHtml(q, activityState, solved || locked) :
     memoryPreview ? '<button type="button" class="primary-btn" data-action="remember">おぼえた！ こたえる ➜</button>' :
     '<div class="answer-instruction">こたえを ひとつ えらんでね</div><div class="answer-grid' + (longChoices ? ' long-choices' : '') + '">' +
