@@ -105,7 +105,7 @@ function clockSvg(hour: number, minute: number): string {
   return '<svg class="hands-clock" data-clock-face viewBox="0 0 200 200" role="img" aria-label="いま ' +
     hour + 'じ ' + minute + 'ふん。あおい みじかい はりと オレンジの ながい はりを つかんで まわそう">' +
     '<circle cx="100" cy="100" r="98" fill="#f6fbff" stroke="#89afe6" stroke-width="4"/>' +
-    labels + hand('hour', hourDeg, 48, '#4269ba') + hand('minute', minuteDeg, 70, '#e78c58') +
+    labels + hand('minute', minuteDeg, 70, '#e78c58') + hand('hour', hourDeg, 48, '#4269ba') +
     '<circle cx="100" cy="100" r="7" fill="#425a98"/></svg>';
 }
 export function touchHtml(q: Question, state: TouchState, disabled: boolean): string {
