@@ -285,7 +285,7 @@ function gameHtml(): string {
     q.choices.map(choice => '<button type="button" class="answer-btn" aria-label="こたえ ' + safe(choice) +
       '" data-answer="' + safe(choice) + '"' + (solved || locked ? ' disabled' : '') +
       '><span class="answer-choice">' + safe(choice) + '</span></button>').join('') + '</div>';
-  const hint = !memoryPreview && !solved ? '<button type="button" class="hint-btn" data-action="hint">💡 ヒントを みる</button>' : '';
+  const hint = !isActivity(q.gameId) && !isTouchGame(q.gameId) && !memoryPreview && !solved ? '<button type="button" class="hint-btn" data-action="hint">💡 ヒントを みる</button>' : '';
   const feedback = session.feedback ? '<div class="feedback ' + (solved ? 'feedback-good' : 'feedback-try') +
     '" role="status">' + safe(session.feedback) + '</div>' : '';
   return layout('<section class="play-head"><button type="button" class="back-btn" data-action="home">← もどる</button>' +
@@ -293,9 +293,9 @@ function gameHtml(): string {
     '</span><span class="pill">' + number + ' / ' + session.deck.length + '</span></section>' +
     '<div class="progress" role="progressbar" aria-label="もんだいの すすみぐあい" aria-valuemin="0" aria-valuemax="5" aria-valuenow="' +
     session.index + '"><div style="width:' + percent + '%"></div></div>' +
-    '<section class="challenge" style="--accent:' + game.color + '"><div class="challenge-tag">' + game.icon + ' QUESTION ' + number + '</div>' +
+    '<section class="challenge" style="--accent:' + game.color + '"><div class="challenge-tag">' + game.icon + ' ' + number + 'もんめ</div>' +
     '<h1>' + safe(memoryPreview ? 'まずは えを おぼえよう！' : q.prompt) + '</h1>' +
-    (isActivity(q.gameId) ? '' : '<div class="visual-stage">' + visualHtml(q.visual, memoryPreview) + '</div>') +
+    (isActivity(q.gameId) || isTouchGame(q.gameId) || q.gameId === 'compare' ? '' : '<div class="visual-stage">' + visualHtml(q.visual, memoryPreview) + '</div>') +
     (memoryPreview ? '<p class="memory-note">じかんは きにしなくて いいよ。おぼえたら ボタンを おしてね。</p>' : '') +
     '<button type="button" class="read-btn" data-action="speak">🔊 もんだいを きく</button>' +
     '<div class="answers">' + options + '</div>' + feedback + hint +
