@@ -768,7 +768,7 @@ app.addEventListener('click', event => {
     const result = workshopClick(q, workshopState, workshopButton.dataset.workshop ?? '',
       Number(workshopButton.dataset.index ?? -1));
     if (result.finished && result.value) answer(result.value, result.practice ? 'practice' : undefined);
-    else { gameAudio.effect('tap'); render(); }
+    else { gameAudio.effect('tap'); haptic('tap', save.settings); render(); }
     return;
   }
   const touchButton = target.closest<HTMLButtonElement>('[data-touch]');
