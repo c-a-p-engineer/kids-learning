@@ -268,7 +268,14 @@ function gameHtml(): string {
         '><span class="compare-pick-number">' + count + '</span>' +
         dots(count) + '</button>';
     }).join('') + '</div>' : '';
-  const options = q.gameId === 'compare' ? comparison :
+  const oddPicture = q.gameId === 'odd' ?
+    '<div class="odd-pick" role="group" aria-label="ひとつだけ ちがう えを タップ">' +
+    (q.visual.preview ?? []).map((emoji, i) =>
+      '<button type="button" class="odd-picture-card" data-answer="' + (i + 1) +
+      '" aria-label="' + (i + 1) + 'ばんの ' + safe(emoji) + '"' +
+      (solved || locked ? ' disabled' : '') + '>' + safe(emoji) + '</button>').join('') +
+    '</div>' : '';
+  const options = q.gameId === 'odd' ? oddPicture : q.gameId === 'compare' ? comparison :
     isWorkshop(q.gameId) && workshopState ? workshopHtml(q, workshopState, solved || locked) :
     isTouchGame(q.gameId) && touchState ? touchHtml(q, touchState, solved || locked) :
     isActivity(q.gameId) && activityState
@@ -288,7 +295,7 @@ function gameHtml(): string {
     session.index + '"><div style="width:' + percent + '%"></div></div>' +
     '<section class="challenge" style="--accent:' + game.color + '"><div class="challenge-tag">' + game.icon + ' ' + number + 'もんめ</div>' +
     '<h1>' + safe(memoryPreview ? 'まずは えを おぼえよう！' : q.prompt) + '</h1>' +
-    (isActivity(q.gameId) || isTouchGame(q.gameId) || isWorkshop(q.gameId) || q.gameId === 'compare' ? '' : '<div class="visual-stage">' + visualHtml(q.visual, memoryPreview) + '</div>') +
+    (isActivity(q.gameId) || isTouchGame(q.gameId) || isWorkshop(q.gameId) || q.gameId === 'compare' || q.gameId === 'odd' ? '' : '<div class="visual-stage">' + visualHtml(q.visual, memoryPreview) + '</div>') +
     (memoryPreview ? '<p class="memory-note">じかんは きにしなくて いいよ。おぼえたら ボタンを おしてね。</p>' : '') +
     '<button type="button" class="read-btn" data-action="speak">🔊 もんだいを きく</button>' +
     '<div class="answers">' + options + '</div>' + feedback + hint +
