@@ -30,7 +30,7 @@ const world = await import(pathToFileURL(join(temp, 'growth-world.mjs')).href);
 const reporting = await import(pathToFileURL(join(temp, 'parent-report.mjs')).href);
 const now = Date.UTC(2026, 9, 26);
 
-assert.equal(engine.GAMES.length, 27);
+assert.equal(engine.GAMES.length, 28);
 // Audio settings are stored in the existing V2 profile object, never legacy keys.
 const defaults = engine.freshSave();
 assert.equal(defaults.schema, 2);
@@ -145,7 +145,7 @@ for (let c = 0; c <= 15; c++) {
   assert.equal(p.target, 2);
   if (!p.maxed) assert.equal(p.current, c % 2);
 }
-// All 27 games must generate five distinct items with a correct option at levels 2–5.
+// All 28 games must generate five distinct items with a correct option at levels 2–5.
 let advancedQuestions = 0;
 for (const game of engine.GAMES) {
   for (let level = 2; level <= 5; level++) {
@@ -189,7 +189,7 @@ for (const game of engine.GAMES) {
 }
 console.log('PASS: advanced levels ' + advancedQuestions + ' questions and earned unlock gates');
 
-console.log('PASS: 27 games × 80 cases, answer validity, arithmetic, finite rounds, recall scheduler');
+console.log('PASS: 28 games × 80 cases, answer validity, arithmetic, finite rounds, recall scheduler');
 
 /** Non-choice input regression tests: do not fall back to 3 answer buttons. */
 for (const gameId of ['trace', 'blocks', 'train', 'move']) {
@@ -559,6 +559,22 @@ const treeWithStarts = progressUi.skillTreeHtml(sampleSave, 'きつね', 'math')
 assert(treeWithStarts.includes('data-game="shop"'));
 assert(treeWithStarts.includes('data-skill-play="shop"'));
 console.log('PASS: four direct-manipulation games, 1600 workshop input simulations, station unlocks and parent CSV');
+for (let lv = 1; lv <= 5; lv++) for (let i = 0; i < 80; i++) {
+  const q = engine.makeQuestion('digits', i, lv);
+  assert(/^[0-9]$/.test(q.answer));
+  const guide = activity.TRACE_GUIDES[q.answer];
+  assert(guide.strokes.length >= 1);
+  const state = activityUi.newActivityState(q);
+  let result;
+  for (const stroke of guide.strokes) {
+    for (let j = 0; j < stroke.length; j++)
+      result = activityUi.activityClick(q, state, 'trace-point', j);
+  }
+  assert.equal(result.kind, 'submit', 'digit '+q.id);
+  assert.equal(result.assisted, true);
+}
+assert.equal(activity.TRACE_GUIDES['4'].strokes.length, 2);
+console.log('PASS: 0-9 number tracing, stroke order and accessibility across 400 questions');
 
 rmSync(temp, { recursive: true, force: true });
 
