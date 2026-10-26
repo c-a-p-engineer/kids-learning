@@ -95,3 +95,13 @@
 .workshop-message:empty{display:none}
 @media(max-width:390px){.workshop-shop .coin-token{flex-basis:56px;width:56px;height:56px;min-width:56px;min-height:56px}
  .workshop-shop .workshop-actions .workshop-btn{font-size:1.08rem;min-height:70px}}
+
+/* Tap what was placed instead of searching for a separate undo action. */
+button.routine-step{font:inherit;font-size:.88rem;font-weight:900;cursor:pointer;
+  border:2px solid #9bd7bb;background:#e6f9ed;color:#376b52;min-height:76px}
+button.routine-step:focus-visible,button.split-dots:focus-visible{outline:4px solid #f3b941;outline-offset:3px}
+button.split-dots{display:block;width:100%;min-height:66px;padding:7px;border:2px solid #cbddef;
+  border-radius:13px;background:white;cursor:pointer;font:inherit;font-size:1.35rem;
+  line-height:1.65;white-space:normal;overflow-wrap:anywhere}
+button.split-dots:disabled{opacity:.65;cursor:default}
+button.split-dots:active:not(:disabled),button.routine-step:active:not(:disabled){transform:translateY(2px)}
