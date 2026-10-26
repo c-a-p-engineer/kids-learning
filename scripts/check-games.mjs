@@ -140,7 +140,7 @@ for (let c = 0; c <= 15; c++) {
   assert.equal(p.target, 2);
   if (!p.maxed) assert.equal(p.current, c % 2);
 }
-// All 22 games must generate five distinct items with a correct option at levels 2–5.
+// All 23 games must generate five distinct items with a correct option at levels 2–5.
 let advancedQuestions = 0;
 for (const game of engine.GAMES) {
   for (let level = 2; level <= 5; level++) {
@@ -184,7 +184,7 @@ for (const game of engine.GAMES) {
 }
 console.log('PASS: advanced levels ' + advancedQuestions + ' questions and earned unlock gates');
 
-console.log('PASS: 22 games × 80 cases, answer validity, arithmetic, finite rounds, recall scheduler');
+console.log('PASS: 23 games × 80 cases, answer validity, arithmetic, finite rounds, recall scheduler');
 
 /** Non-choice input regression tests: do not fall back to 3 answer buttons. */
 for (const gameId of ['trace', 'blocks', 'train', 'move']) {
