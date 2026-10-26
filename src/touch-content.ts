@@ -20,13 +20,13 @@ export function makeTouchQuestion(gameId: TouchGame, index: number, level: numbe
   const id = gameId + (level > 1 ? ':L' + level : '') + ':' + index;
   if (gameId === 'connect') {
     const n = Math.min(10, 3 + level + index % 3);
-    return { id, gameId, prompt: '1から じゅんばんに てんを つなごう！',
-      visual: { kind: 'connect', a: n }, choices: [String(n), 'まだ'], answer: String(n),
+    return { id, gameId, prompt: '1から じゅんに せんを なぞろう！',
+      visual: { kind: 'connect', a: n, b: index % 4 }, choices: [String(n), 'まだ'], answer: String(n),
       explanation: '1から ' + n + 'まで つながったね！' };
   }
   if (gameId === 'maze') {
     const { size, path } = mazePath(index, level);
-    return { id, gameId, prompt: '🚂から ⭐まで みちを つなごう！',
+    return { id, gameId, prompt: '🚂から ⭐まで ゆびで みちを なぞろう！',
       visual: { kind: 'maze', a: size, numbers: path }, choices: ['ゴール', 'もういちど'], answer: 'ゴール',
       explanation: 'みちを みつけたね！' };
   }
