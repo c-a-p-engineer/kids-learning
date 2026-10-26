@@ -119,3 +119,74 @@ main{padding:7px 12px 20px}.hero{padding:25px 18px;min-height:210px;border-radiu
 }
 @media(max-width:360px){.quest-grid{grid-template-columns:1fr}.quest-card{min-height:155px}.quest-description{margin-bottom:6px}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+
+/* V2.1: 仲間選択、学習シーン、適度に豊かな報酬表現 */
+.profile-avatar{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  min-width:108px;min-height:98px;border:3px solid transparent;border-radius:18px;
+  background:var(--profile-color);color:#35466f;padding:9px 14px;box-shadow:0 6px 0 #bac6d9;
+  text-align:center;transition:transform .17s ease,box-shadow .17s ease}
+.profile-avatar span{font-size:2.4rem;line-height:1.1;filter:drop-shadow(0 3px 0 #ffffffad)}
+.profile-avatar strong{font-size:.9rem;letter-spacing:.02em}
+.profile-avatar:hover{transform:translateY(-3px)}
+.profile-avatar.chosen{background:var(--profile-color);border-color:#5567d4;color:#28356c;
+  box-shadow:0 4px 0 #5262a4,0 0 0 4px #ffffff}
+.profile-avatar:active{transform:translateY(2px)}
+.quest-card{overflow:hidden}
+.quest-card:after{content:"✦";position:absolute;top:8px;right:14px;font-size:1.5rem;
+  color:var(--accent);opacity:.18;transition:transform .18s ease,opacity .18s ease}
+.quest-card:hover:after,.quest-card:focus-visible:after{transform:rotate(35deg) scale(1.5);opacity:.8}
+.quest-card:focus-visible{z-index:1}
+.pattern-line,.odd-line{display:flex;align-items:center;justify-content:center;gap:11px;flex-wrap:wrap}
+.pattern-line>span{display:flex;align-items:center;justify-content:center;width:72px;height:86px;
+  background:#eff3ff;border:3px solid #cfdcff;border-radius:16px;font-size:2.8rem}
+.pattern-line>.pattern-missing{border-style:dashed;background:#fff6d7;border-color:#edbf75}
+.odd-item{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  width:90px;min-height:110px;border-radius:14px;background:#eff4ff;border:2px solid #d9e5fc;gap:2px}
+.odd-item span{font-size:3.3rem}.odd-item strong{font-size:1.03rem;color:#6a75a2}
+.color-swatch{height:180px;width:180px;max-width:100%;border-radius:50%;background:var(--swatch);
+  border:10px solid white;box-shadow:0 8px 0 #ccd7e8,0 0 0 4px #cbd7ec}
+.reward-overlay{position:fixed;inset:0;z-index:9999;pointer-events:none;overflow:hidden}
+.reward-particle{position:absolute;display:block;line-height:1;font-size:1.9rem;
+  filter:drop-shadow(1px 3px 2px #293d6b20);
+  animation:reward-pop .95s cubic-bezier(.15,.65,.3,1) forwards}
+.reward-toast{position:absolute;left:50%;top:19%;transform:translate(-50%,-50%);
+  font-size:clamp(1.25rem,6vw,2.4rem);font-weight:900;color:#ffffff;white-space:nowrap;
+  -webkit-text-stroke:1px #5861b1;text-shadow:0 3px #5368b5,0 7px 18px #192b6a55;
+  animation:reward-float .95s ease-out forwards}
+@keyframes reward-pop{
+  0%{opacity:0;transform:translate(0,8px) scale(.25) rotate(0)}
+  16%{opacity:1;transform:translate(0,0) scale(1.1)}
+  100%{opacity:0;transform:translate(var(--fly-x),var(--fly-y)) scale(.6) rotate(var(--twist))}
+}
+@keyframes reward-float{
+  0%{opacity:0;transform:translate(-50%,8px) scale(.6)}
+  25%{opacity:1;transform:translate(-50%,-50%) scale(1.12)}
+  70%{opacity:1;transform:translate(-50%,-70%)}
+  100%{opacity:0;transform:translate(-50%,-100%)}
+}
+@media(max-width:630px){
+  .topbar{height:auto;min-height:69px}
+  .top-actions{gap:3px}
+  .top-actions .icon-btn{width:40px;height:44px;padding:2px}
+  .top-actions .level-pill{font-size:.71rem;padding:7px}
+  .select-profile{gap:9px}
+  .profile-row{width:100%;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+  .profile-avatar{min-width:0;min-height:81px;padding:9px 2px;border-radius:14px}
+  .profile-avatar span{font-size:1.95rem}
+  .profile-avatar strong{font-size:.73rem}
+  .pattern-line{gap:5px}.pattern-line>span{width:58px;height:67px;font-size:2.2rem}
+  .odd-line{gap:5px}.odd-item{width:65px;min-height:87px}.odd-item span{font-size:2.3rem}
+  .color-swatch{width:160px;height:160px}
+}
+@media(max-width:375px){
+  .brand span:last-child{font-size:.83rem}
+  .top-actions .level-pill{display:none}
+  .odd-item{width:60px}
+}
+@media(prefers-reduced-motion:reduce){
+  .reward-overlay{display:none}
+  .profile-avatar,.quest-card:after{transition:none}
+}
+.quiet-mode .reward-overlay{display:none}
+.quiet .profile-avatar,.quiet .quest-card:after{transition:none}
