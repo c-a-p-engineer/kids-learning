@@ -9,7 +9,7 @@ const engine = await import('data:text/javascript;charset=utf-8,' + encodeURICom
 const now = Date.UTC(2026, 9, 26);
 
 assert.equal(engine.GAMES.length, 15);
-assert.equal(new Set(engine.GAMES.map(g => g.id)).size, 10);
+assert.equal(new Set(engine.GAMES.map(g => g.id)).size, 15);
 const memoryTargets = new Set();
 for (const game of engine.GAMES) {
   for (let i = 0; i < 80; i++) {
