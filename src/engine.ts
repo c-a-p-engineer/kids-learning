@@ -56,17 +56,22 @@ export interface LearningSave {
   sessions: number;
   completed: Record<string, number>;
   reviews: Record<string, ReviewRecord>;
-  settings: { quiet: boolean; sound: boolean; bgm: boolean; bgmVolume: number; seVolume: number };
+  settings: { quiet: boolean; sound: boolean; bgm: boolean; bgmVolume: number; seVolume: number; textSize: number };
 }
 export const STORAGE_KEY = 'kids_learning_dopagaki_v2';
 export function freshSave(): LearningSave {
-  return { schema: 2, xp: 0, sessions: 0, completed: {}, reviews: {}, settings: { quiet: false, sound: true, bgm: true, bgmVolume: 75, seVolume: 65 } };
+  return { schema: 2, xp: 0, sessions: 0, completed: {}, reviews: {}, settings: { quiet: false, sound: true, bgm: true, bgmVolume: 75, seVolume: 65, textSize: 100 } };
 }
 /** 保存データの不正な値を無害化する。V2旧データに音量がなければ初期値を使用。 */
 export function clampVolume(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value)
     ? Math.max(0, Math.min(100, Math.round(value)))
     : fallback;
+}
+/** 学習用文字サイズは80〜160%の10%刻み。古い保存データや不正な値は100%へ。 */
+export function clampTextSize(value: unknown, fallback = 100): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
+  return Math.max(80, Math.min(160, Math.round(value / 10) * 10));
 }
 function options(answer: number, min = 0, max = 20): string[] {
   const pool = [answer, answer - 1, answer + 1, answer + 2, answer - 2, answer + 3, answer - 3];
