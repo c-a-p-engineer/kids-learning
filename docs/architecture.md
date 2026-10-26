@@ -59,3 +59,12 @@ https://github.com/c-a-p-engineer/kids-learning/tree/archive/pre-dopagaki-202610
 - 記録リセットはキャラクター1枠のV2学習データだけで、他キャラ・V1保存領域にアクセスしない。設定はコピーして維持。
 - 仕様の詳細: docs/renewal-2026/04-level-progress-and-ux.md
 
+
+## V2.4 文字サイズの保存・反映
+
+- engine.ts: settings.textSize（整数パーセント、標準100%）とclampTextSizeで80..160を10単位に丸める。
+- quest-main.ts: loadSave時に既存schema=2へ補完。inputの変更イベントで保存・CSS変数を更新し、ゲーム状態を再生成せず即時反映。
+- game.css: htmlのfont-sizeを --learning-font-percent（%）で可変化。remベースのUIを拡大し、長い回答はモバイルで縦並び、130%以上の文字設定では小画面カードを1列に。
+- 説明文を読む時間に配慮し、正解後の自動進行を文字サイズに比例して1.75〜2.8秒にする。
+- 学習データ・復習・XPは不変。既存4キャラそれぞれ独立して記録。
+
