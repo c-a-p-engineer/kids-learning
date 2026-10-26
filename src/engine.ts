@@ -17,6 +17,7 @@ export const GAMES = [
   { id: 'category', title: 'なかま あつめ', icon: '🧺', subject: 'ことば', description: 'どんな なかまに はいるかな？', color: '#38bfa1' },
   { id: 'odd', title: 'ちがいを はっけん', icon: '🔍', subject: 'かんがえる', description: 'ひとつだけ ちがう ものを さがそう', color: '#e57eb3' },
   { id: 'colors', title: 'いろの まほう', icon: '🎨', subject: 'せいかつ', description: 'いろの なまえを おぼえよう', color: '#59a6e5' },
+  { id: 'lines', title: 'せんと カーブ', icon: '〰️', subject: 'うんぴつ', description: 'まずは せんや カーブを なぞろう', color: '#6dbae1' },
   { id: 'trace', title: 'ゆびで ひらがな', icon: '✍️', subject: 'うんぴつ', description: 'ゆびで みちを なぞって もじを かこう', color: '#f28f98' },
   { id: 'blocks', title: 'かずの ブロックこうじょう', icon: '🧱', subject: 'さんすう', description: 'ブロックを いれて かずを つくろう', color: '#56bd9f' },
   { id: 'train', title: 'ことば れっしゃ', icon: '🚃', subject: 'こくご', description: 'もじの しゃりょうを じゅんに つなごう', color: '#779de6' },
@@ -40,7 +41,7 @@ export function progressFor(clears: number): { level: number; current: number; t
 
 export type GameId = (typeof GAMES)[number]['id'];
 export type Visual = {
-  kind: 'dots' | 'add' | 'subtract' | 'sequence' | 'compare' | 'picture' | 'shape' | 'clock' | 'memory' | 'bond' | 'pattern' | 'category' | 'odd' | 'color' | 'trace' | 'blocks' | 'train' | 'move' | 'connect' | 'maze' | 'clockhands';
+  kind: 'dots' | 'add' | 'subtract' | 'sequence' | 'compare' | 'picture' | 'shape' | 'clock' | 'memory' | 'bond' | 'pattern' | 'category' | 'odd' | 'color' | 'trace' | 'lines' | 'blocks' | 'train' | 'move' | 'connect' | 'maze' | 'clockhands';
   a?: number; b?: number; step?: number; numbers?: number[];
   symbol?: string; hour?: number; minute?: number; preview?: string[]; answerIndex?: number;
 };
