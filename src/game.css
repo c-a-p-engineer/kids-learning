@@ -344,3 +344,7 @@ html{font-size:var(--learning-font-percent,100%)}
 .compare-pick .dot-pack .dot{width:clamp(13px,2.9vw,19px);height:clamp(13px,2.9vw,19px)}
 .compare-pick .dot-row.dot-groups{gap:4px}
 @media(max-width:360px){.compare-pick{gap:8px}.compare-pick-card{padding:10px 3px;min-height:145px}}
+
+/* Reduced effect count keeps child-visible reward without needless per-frame cost. */
+.reward-particle{will-change:transform,opacity}
+@media(prefers-reduced-motion:reduce){.reward-particle{will-change:auto}}
