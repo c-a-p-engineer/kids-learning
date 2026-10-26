@@ -2,6 +2,12 @@ import './game.css';
 import './activity.css';
 import './progress.css';
 import './touch.css';
+import './v28.css';
+import { isWorkshop } from './workshop-content';
+import { freshWorkshop, workshopHtml, workshopClick } from './workshop-ui';
+import type { WorkshopState } from './workshop-ui';
+import { worldHtml, worldProgress } from './growth-world';
+import { parentPeriod, learningCsv } from './parent-report';
 import { createSession, advanceSession, attemptOutcome } from './session';
 import type { Session, AnswerMode } from './session';
 import { isTouchGame } from './touch-content';
@@ -23,12 +29,13 @@ import type { GameId, LearningSave, Question, Visual } from './engine';
 const app = document.getElementById('app');
 if (!app) throw new Error('Root #app not found');
 
-type AppPage = 'home' | 'game' | 'result' | 'parent' | 'options' | 'stats' | 'skills';
+type AppPage = 'home' | 'game' | 'result' | 'parent' | 'options' | 'stats' | 'skills' | 'world';
 let page: AppPage = 'home';
 let beforeOptions: Exclude<AppPage, 'options'> = 'home';
 let session: Session | null = null;
 let activityState: ActivityState | null = null;
 let touchState: TouchState | null = null;
+let workshopState: WorkshopState | null = null;
 let categoryFilter = 'all';
 let skillCategory: ProgressCategory = 'all';
 let resetArmed = false;
@@ -124,7 +131,7 @@ function setSlot(next: number): void {
   gameAudio.configure(save.settings.sound, save.settings.bgm, save.settings.seVolume, save.settings.bgmVolume);
   applyTextSize();
   session = null;
-  activityState = null; touchState = null;
+  activityState = null; touchState = null; workshopState = null;
   page = 'home';
   render();
 }
@@ -175,7 +182,8 @@ function homeHtml(): string {
     '<div class="hero-mascot" aria-hidden="true">' + activeProfile().icon + '<span>⭐</span></div></section>' +
     '<div class="growth-shortcuts" aria-label="せいちょうの きろく">' +
     '<button type="button" data-action="stats"><span>📊</span><strong>ステータス</strong><small>まいにちの きろく</small></button>' +
-    '<button type="button" data-action="skills"><span>🌳</span><strong>スキルツリー</strong><small>レベルを みよう</small></button></div>' +
+    '<button type="button" data-action="skills"><span>🌳</span><strong>スキルツリー</strong><small>レベルを みよう</small></button>' +
+    '<button type="button" data-action="world"><span>🚂</span><strong>まなびの えき</strong><small>クリアで まちが そだつ</small></button></div>' +
     '<section class="select-profile" aria-label="ぼうけんの なかまを えらぶ"><strong>ぼうけんの なかまを えらぼう！</strong><div class="profile-row">' +
     profiles + '</div></section>' +
     '<section class="quests"><div class="section-header"><h2>クエストを えらぼう</h2><p>すきなものから はじめていいよ！</p></div>' +
@@ -261,6 +269,7 @@ function gameHtml(): string {
         dots(count) + '</button>';
     }).join('') + '</div>' : '';
   const options = q.gameId === 'compare' ? comparison :
+    isWorkshop(q.gameId) && workshopState ? workshopHtml(q, workshopState, solved || locked) :
     isTouchGame(q.gameId) && touchState ? touchHtml(q, touchState, solved || locked) :
     isActivity(q.gameId) && activityState
     ? activityHtml(q, activityState, solved || locked) :
@@ -269,7 +278,7 @@ function gameHtml(): string {
     q.choices.map(choice => '<button type="button" class="answer-btn" aria-label="こたえ ' + safe(choice) +
       '" data-answer="' + safe(choice) + '"' + (solved || locked ? ' disabled' : '') +
       '><span class="answer-choice">' + safe(choice) + '</span></button>').join('') + '</div>';
-  const hint = !isActivity(q.gameId) && !isTouchGame(q.gameId) && !memoryPreview && !solved ? '<button type="button" class="hint-btn" data-action="hint">💡 ヒントを みる</button>' : '';
+  const hint = !isActivity(q.gameId) && !isTouchGame(q.gameId) && !isWorkshop(q.gameId) && !memoryPreview && !solved ? '<button type="button" class="hint-btn" data-action="hint">💡 ヒントを みる</button>' : '';
   const feedback = session.feedback ? '<div class="feedback ' + (solved ? 'feedback-good' : 'feedback-try') +
     '" role="status">' + safe(session.feedback) + '</div>' : '';
   return layout('<section class="play-head"><button type="button" class="back-btn" data-action="home">← もどる</button>' +
@@ -279,7 +288,7 @@ function gameHtml(): string {
     session.index + '"><div style="width:' + percent + '%"></div></div>' +
     '<section class="challenge" style="--accent:' + game.color + '"><div class="challenge-tag">' + game.icon + ' ' + number + 'もんめ</div>' +
     '<h1>' + safe(memoryPreview ? 'まずは えを おぼえよう！' : q.prompt) + '</h1>' +
-    (isActivity(q.gameId) || isTouchGame(q.gameId) || q.gameId === 'compare' ? '' : '<div class="visual-stage">' + visualHtml(q.visual, memoryPreview) + '</div>') +
+    (isActivity(q.gameId) || isTouchGame(q.gameId) || isWorkshop(q.gameId) || q.gameId === 'compare' ? '' : '<div class="visual-stage">' + visualHtml(q.visual, memoryPreview) + '</div>') +
     (memoryPreview ? '<p class="memory-note">じかんは きにしなくて いいよ。おぼえたら ボタンを おしてね。</p>' : '') +
     '<button type="button" class="read-btn" data-action="speak">🔊 もんだいを きく</button>' +
     '<div class="answers">' + options + '</div>' + feedback + hint +
@@ -291,7 +300,7 @@ function gameHtml(): string {
 function resultHtml(): string {
   if (!session) return homeHtml();
   const game = GAMES.find(g => g.id === session?.gameId)!;
-  const practice = session.gameId === 'trace' || session.gameId === 'lines' || session.gameId === 'move' || session.gameId === 'connect' || session.gameId === 'maze';
+  const practice = session.gameId === 'trace' || session.gameId === 'lines' || session.gameId === 'move' || session.gameId === 'connect' || session.gameId === 'maze' || session.gameId === 'routine' || session.gameId === 'rhythm';
   const progress = progressFor(save.completed[game.id] ?? 0);
   const advance = progress.level > session.level;
   const replayLabel = advance ? '🌟 レベル ' + progress.level + ' へ すすむ' :
@@ -371,6 +380,15 @@ function parentHtml(): string {
     '<div><strong>' + due + '</strong><span>復習待ち</span></div>' +
     '<div><strong>' + mastered + '</strong><span>再想起の実績※</span></div></div>' +
     '<p class="footnote">※習得の推定値です。学校の到達度評価や発達診断ではありません。</p>' +
+    '<h2>さいきんの きろく</h2><div class="parent-periods">' +
+    [7, 30, 90].map(days => {
+      const p = parentPeriod(save, new Date(), days);
+      return '<div class="parent-period"><strong>' + days + 'にち</strong>' +
+        '<span>' + p.days + 'にち がくしゅう</span><span>ひとりで ' + p.independent +
+        'こ</span><span>れんしゅう ' + p.practiced + 'こ</span><span>' + p.clears +
+        'クリア</span></div>';
+    }).join('') + '</div>' +
+    '<button type="button" class="secondary-btn" data-action="export-csv">📄 90にちの きろくを CSVに ほぞん</button>' +
     '<h2>ゲーム別の進捗</h2><div class="table-wrap"><table><thead><tr><th>ゲーム</th><th>クリア</th><th>復習待ち</th></tr></thead>' +
     '<tbody>' + rows + '</tbody></table></div>' +
     '<div class="parent-actions"><button type="button" class="secondary-btn" data-action="export">⬇ このキャラのきろくを ほぞん</button>' +
@@ -403,11 +421,12 @@ function render(): void {
   else if (page === 'parent') app.innerHTML = parentHtml();
   else if (page === 'stats') app.innerHTML = layout(statusHtml(save, activeProfile().name, new Date()));
   else if (page === 'skills') app.innerHTML = layout(skillTreeHtml(save, activeProfile().name, skillCategory));
+  else if (page === 'world') app.innerHTML = layout(worldHtml(save));
   else if (page === 'options') app.innerHTML = optionsHtml();
   else app.innerHTML = homeHtml();
   document.body.classList.toggle('quiet-mode', save.settings.quiet);
   applyTextSize();
-  gameAudio.setScene(page === 'stats' || page === 'skills' ? 'home' : page);
+  gameAudio.setScene(page === 'stats' || page === 'skills' || page === 'world' ? 'home' : page);
 }
 function startGame(id: GameId, requestedLevel?: number): void {
   stopTimers();
@@ -417,6 +436,7 @@ function startGame(id: GameId, requestedLevel?: number): void {
   const deck = chooseRound(id, save, Date.now(), 5, level);
   activityState = isActivity(id) ? newActivityState(deck[0]) : null;
   touchState = isTouchGame(id) ? freshTouch() : null;
+  workshopState = isWorkshop(id) ? freshWorkshop() : null;
   session = createSession(id, level, deck);
   page = 'game';
   gameAudio.effect('select');
@@ -448,12 +468,16 @@ function makeHint(q: Question): string {
     case 'connect': return '1から じゅんに ゆびを はなさず なぞろう。';
     case 'maze': return 'でんしゃから ほしまで みちを なぞってみよう。';
     case 'clockhands': return 'あおい みじかい はりと オレンジの ながい はりを つかんで うごかそう。';
+    case 'shop': return '1えん・5えん・10えんを つかって ぴったりに しよう。';
+    case 'routine': return 'つぎに なにを するかな？ えを みて ならべよう。';
+    case 'split': return 'いしを みぎと ひだりの はこに わけよう。';
+    case 'rhythm': return 'いろの じゅんばんを みて たいこを たたこう。';
   }
 }
 function answer(choice: string, mode?: AnswerMode): void {
   if (!session || session.phase !== 'answer' || session.locked || page !== 'game') return;
   const q = session.deck[session.index];
-  if (!isActivity(q.gameId) && !isTouchGame(q.gameId) && !q.choices.includes(choice)) return;
+  if (!isActivity(q.gameId) && !isTouchGame(q.gameId) && !isWorkshop(q.gameId) && !q.choices.includes(choice)) return;
   session.attempts++;
   if (!evaluate(q, choice)) {
     session.wrong++;
@@ -516,6 +540,7 @@ function next(): void {
     session = advanceSession(session);
     activityState = isActivity(session.gameId) ? newActivityState(session.deck[session.index]) : null;
     touchState = isTouchGame(session.gameId) ? freshTouch() : null;
+    workshopState = isWorkshop(session.gameId) ? freshWorkshop() : null;
   }
   render();
   if (page === 'result') burst('clear');
@@ -545,7 +570,7 @@ function resetCurrentLearning(): void {
   stopTimers();
   save = nextSave;
   session = null;
-  activityState = null; touchState = null;
+  activityState = null; touchState = null; workshopState = null;
   resetArmed = false;
   backupDraft = null;
   storageWarning = 'がくしゅうきろくを リセットしました。ほかのキャラのきろくは そのままです。';
@@ -590,6 +615,14 @@ function restoreBackup(): void {
     backupError = 'ふくげん できませんでした。あきようりょうを かくにんしてください。';
     render();
   }
+}
+function exportCsv(): void {
+  const payload = learningCsv(save, new Date());
+  const url = URL.createObjectURL(new Blob([payload], { type: 'text/csv;charset=utf-8' }));
+  const link = document.createElement('a');
+  link.href = url; link.download = 'kids-learning-' + slot + '-90days.csv';
+  document.body.appendChild(link); link.click(); link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 function exportSave(): void {
   const payload = backupText(slot, save);
@@ -682,6 +715,16 @@ app.addEventListener('click', event => {
   const target = event.target;
   if (!(target instanceof Element)) return;
   gameAudio.unlock();
+  const workshopButton = target.closest<HTMLButtonElement>('[data-workshop]');
+  if (workshopButton && page === 'game' && session?.phase === 'answer' &&
+      !session.locked && workshopState && isWorkshop(session.gameId)) {
+    const q = session.deck[session.index];
+    const result = workshopClick(q, workshopState, workshopButton.dataset.workshop ?? '',
+      Number(workshopButton.dataset.index ?? -1));
+    if (result.finished && result.value) answer(result.value, result.practice ? 'practice' : undefined);
+    else { gameAudio.effect('tap'); render(); }
+    return;
+  }
   const touchButton = target.closest<HTMLButtonElement>('[data-touch]');
   if (touchButton && page === 'game' && session?.phase === 'answer' && !session.locked &&
       touchState && isTouchGame(session.gameId)) {
@@ -729,13 +772,13 @@ app.addEventListener('click', event => {
   if (slotBtn) { setSlot(Number(slotBtn.dataset.slot)); return; }
   const action = target.closest<HTMLElement>('[data-action]')?.dataset.action;
   if (action === 'home') { window.speechSynthesis?.cancel(); dismissEffects(); stopTimers();
-    page = 'home'; session = null; activityState = null; touchState = null; backupDraft = null; resetArmed = false; render(); }
-  else if (action === 'stats' || action === 'skills') {
+    page = 'home'; session = null; activityState = null; touchState = null; workshopState = null; backupDraft = null; resetArmed = false; render(); }
+  else if (action === 'stats' || action === 'skills' || action === 'world') {
     dismissEffects(); stopTimers(); gameAudio.effect('tap');
     page = action; render(); window.scrollTo({ top: 0, behavior: 'auto' });
   }
   else if (action === 'parent') { dismissEffects(); stopTimers(); page = 'parent';
-    session = null; activityState = null; touchState = null; backupDraft = null; resetArmed = false; render(); }
+    session = null; activityState = null; touchState = null; workshopState = null; backupDraft = null; resetArmed = false; render(); }
   else if (action === 'options') { dismissEffects(); stopTimers(); if (session) session.locked = false;
     beforeOptions = page === 'options' ? 'home' : page; page = 'options'; render(); }
   else if (action === 'back-options') { page = beforeOptions; render(); scheduleAdvance(); }
@@ -761,6 +804,7 @@ app.addEventListener('click', event => {
     if (output) output.textContent = '100%';
   }
   else if (action === 'export') exportSave();
+  else if (action === 'export-csv' && page === 'parent') exportCsv();
   else if (action === 'reset-open' && page === 'parent') { resetArmed = true; render(); }
   else if (action === 'reset-cancel' && page === 'parent') { resetArmed = false; render(); }
   else if (action === 'reset-now') resetCurrentLearning();
