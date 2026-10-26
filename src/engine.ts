@@ -1,3 +1,5 @@
+import { isActivity, makeActivityQuestion } from './activity-content';
+
 export const GAMES = [
   { id: 'count', title: 'かずシールド', icon: '🛡️', subject: 'さんすう', description: 'ドットを かぞえて シールドを こわそう', color: '#19b69e' },
   { id: 'add', title: 'たしざんロケット', icon: '🚀', subject: 'さんすう', description: 'ふたつの かずを あわせて とばそう', color: '#f49b3f' },
@@ -13,7 +15,11 @@ export const GAMES = [
   { id: 'pattern', title: 'つぎは なあに？', icon: '🧩', subject: 'かんがえる', description: 'ならびかたの ひみつを みつけよう', color: '#7e89ec' },
   { id: 'category', title: 'なかま あつめ', icon: '🧺', subject: 'ことば', description: 'どんな なかまに はいるかな？', color: '#38bfa1' },
   { id: 'odd', title: 'ちがいを はっけん', icon: '🔍', subject: 'かんがえる', description: 'ひとつだけ ちがう ものを さがそう', color: '#e57eb3' },
-  { id: 'colors', title: 'いろの まほう', icon: '🎨', subject: 'せいかつ', description: 'いろの なまえを おぼえよう', color: '#59a6e5' }
+  { id: 'colors', title: 'いろの まほう', icon: '🎨', subject: 'せいかつ', description: 'いろの なまえを おぼえよう', color: '#59a6e5' },
+  { id: 'trace', title: 'ゆびで ひらがな', icon: '✍️', subject: 'うんぴつ', description: 'ゆびで みちを なぞって もじを かこう', color: '#f28f98' },
+  { id: 'blocks', title: 'かずの ブロックこうじょう', icon: '🧱', subject: 'さんすう', description: 'ブロックを いれて かずを つくろう', color: '#56bd9f' },
+  { id: 'train', title: 'ことば れっしゃ', icon: '🚃', subject: 'こくご', description: 'もじの しゃりょうを じゅんに つなごう', color: '#779de6' },
+  { id: 'move', title: 'からだ まねっこ', icon: '🙌', subject: 'うんどう', description: 'おててや あしを ゆっくり うごかそう', color: '#d38ddc' }
 ] as const;
 
 export const MAX_LEVEL = 5;
@@ -30,7 +36,7 @@ export function progressFor(clears: number): { level: number; current: number; t
 
 export type GameId = (typeof GAMES)[number]['id'];
 export type Visual = {
-  kind: 'dots' | 'add' | 'subtract' | 'sequence' | 'compare' | 'picture' | 'shape' | 'clock' | 'memory' | 'bond' | 'pattern' | 'category' | 'odd' | 'color';
+  kind: 'dots' | 'add' | 'subtract' | 'sequence' | 'compare' | 'picture' | 'shape' | 'clock' | 'memory' | 'bond' | 'pattern' | 'category' | 'odd' | 'color' | 'trace' | 'blocks' | 'train' | 'move';
   a?: number; b?: number; step?: number; numbers?: number[];
   symbol?: string; hour?: number; minute?: number; preview?: string[]; answerIndex?: number;
 };
@@ -109,6 +115,7 @@ export function makeQuestion(gameId: GameId, index: number, level = 1): Question
   const i = Math.max(0, Math.floor(index));
   const lv = Math.max(1, Math.min(MAX_LEVEL, Math.floor(level)));
   const id = gameId + (lv > 1 ? ':L' + lv : '') + ':' + i;
+  if (isActivity(gameId)) return makeActivityQuestion(gameId, i, lv);
   if (gameId === 'count') {
     const a = lv === 1 ? (i % 10) + 1 :
       lv === 2 ? (i % 15) + 1 :
