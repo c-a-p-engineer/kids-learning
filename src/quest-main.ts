@@ -292,13 +292,17 @@ function resultHtml(): string {
   if (!session) return homeHtml();
   const game = GAMES.find(g => g.id === session?.gameId)!;
   const practice = session.gameId === 'trace' || session.gameId === 'lines' || session.gameId === 'move' || session.gameId === 'connect' || session.gameId === 'maze';
+  const progress = progressFor(save.completed[game.id] ?? 0);
+  const advance = progress.level > session.level;
+  const replayLabel = advance ? '🌟 レベル ' + progress.level + ' へ すすむ' :
+    '🔁 レベル ' + progress.level + ' を もういちど';
   return layout('<section class="result-card"><div class="result-emoji" aria-hidden="true">' + game.icon + '🏆</div>' +
     '<p class="eyebrow">QUEST CLEAR!</p><h1>クエスト クリア！</h1>' +
     '<p>' + safe(activeProfile().name) + '、' + safe(game.title) + ' を がんばったね！</p>' +
-    '<div class="unlock-result">⭐ レベル ' + progressFor(save.completed[game.id] ?? 0).level +
-    '/' + MAX_LEVEL + (progressFor(save.completed[game.id] ?? 0).level > session.level ?
-    ' 🎊 あたらしい レベルが ひらいた！' :
-    ' · ' + progressFor(save.completed[game.id] ?? 0).current + '/' + CLEARS_PER_LEVEL + ' クリア') + '</div>' +
+    '<div class="unlock-result">⭐ レベル ' + progress.level + '/' + MAX_LEVEL +
+    (advance ? ' 🎊 つぎは レベル ' + progress.level + '！' :
+      progress.maxed ? ' 🏆 ぜんレベル かいほう！' :
+      ' · つぎまで ' + progress.current + '/' + CLEARS_PER_LEVEL + ' クリア') + '</div>' +
     (practice ?
       '<div class="result-scores"><div><strong>' + session.practiced + '</strong><small>やってみた</small></div>' +
       '<div><strong>' + session.skipped + '</strong><small>おやすみ</small></div>' +
@@ -310,7 +314,7 @@ function resultHtml(): string {
       'てを うごかしたり、まねしたり。できた ことを たいせつにしよう。' :
       'あしたも おぼえていたら さらに すごい！<br>おぼえているか、また ためしてみよう。') + '</p>' +
     '<button type="button" class="primary-btn" data-action="home">ほかの クエストへ ➜</button>' +
-    '<button type="button" class="secondary-btn" data-action="replay">もういちど あそぶ</button></section>');
+    '<button type="button" class="secondary-btn" data-action="replay">' + replayLabel + '</button></section>');
 }
 function optionsHtml(): string {
   const settings = save.settings;
@@ -735,7 +739,7 @@ app.addEventListener('click', event => {
   else if (action === 'options') { dismissEffects(); stopTimers(); if (session) session.locked = false;
     beforeOptions = page === 'options' ? 'home' : page; page = 'options'; render(); }
   else if (action === 'back-options') { page = beforeOptions; render(); scheduleAdvance(); }
-  else if (action === 'replay' && session) startGame(session.gameId, session.level);
+  else if (action === 'replay' && session) startGame(session.gameId);
   else if (action === 'next') next();
   else if (action === 'hint') hint();
   else if (action === 'remember' && session?.phase === 'preview') { session.phase = 'answer'; render(); }
