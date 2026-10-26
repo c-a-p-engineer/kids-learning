@@ -1,5 +1,8 @@
 import './game.css';
 import { gameAudio } from './game-audio';
+import { isActivity } from './activity-content';
+import { activityHtml, activityClick, newActivityState, tracePointer } from './activity-ui';
+import type { ActivityResult, ActivityState } from './activity-ui';
 import { burst, dismissEffects } from './reward-effects';
 import { GAMES, STORAGE_KEY, MAX_LEVEL, CLEARS_PER_LEVEL, progressFor, unlockedLevel, clampTextSize, clampVolume, chooseRound, countDue, evaluate, freshSave, isGameId, nextReview } from './engine';
 import type { GameId, LearningSave, Question, Visual } from './engine';
@@ -15,6 +18,8 @@ interface Session {
   index: number;
   right: number;
   helped: number;
+  practiced: number;
+  skipped: number;
   wrong: number;
   phase: Phase;
   attempts: number;
@@ -27,6 +32,7 @@ type AppPage = 'home' | 'game' | 'result' | 'parent' | 'options';
 let page: AppPage = 'home';
 let beforeOptions: Exclude<AppPage, 'options'> = 'home';
 let session: Session | null = null;
+let activityState: ActivityState | null = null;
 let categoryFilter = 'all';
 let resetArmed = false;
 let autoAdvanceTimer: number | undefined;
@@ -52,9 +58,11 @@ const CATEGORIES = [
   { id: 'math', label: 'かず・さんすう', icon: '🔢' },
   { id: 'language', label: 'ことば', icon: '📖' },
   { id: 'logic', label: 'かたち・きおく', icon: '🧩' },
-  { id: 'life', label: 'せいかつ', icon: '🌱' }
+  { id: 'life', label: 'せいかつ', icon: '🌱' },
+  { id: 'motor', label: 'うごく・なぞる', icon: '✍️' }
 ] as const;
 function categoryOf(subject: string): string {
+  if (subject === 'うんぴつ' || subject === 'うんどう') return 'motor';
   if (subject === 'さんすう') return 'math';
   if (subject === 'こくご' || subject === 'ことば') return 'language';
   if (subject === 'ずけい' || subject === 'きおく' || subject === 'かんがえる') return 'logic';
@@ -166,6 +174,7 @@ function setSlot(next: number): void {
   gameAudio.configure(save.settings.sound, save.settings.bgm, save.settings.seVolume, save.settings.bgmVolume);
   applyTextSize();
   session = null;
+  activityState = null;
   page = 'home';
   render();
 }
@@ -210,7 +219,7 @@ function homeHtml(): string {
   }).join('');
   return layout('<section class="hero"><div class="hero-content"><p class="eyebrow">HELLO, LITTLE HERO!</p>' +
     '<h1>きょうの <span>ぼうけん</span>に<br>しゅっぱつ！</h1>' +
-    '<p>15この ぼうけん！ こたえて、ひらめいて、<strong>できた！</strong>を あつめよう。</p>' +
+    '<p>' + GAMES.length + 'この ぼうけん！ さわって、うごいて、<strong>できた！</strong>を あつめよう.</p>' +
     '<div class="hero-stats"><span>🏆 ' + save.sessions + 'かいクリア</span><span>✨ ' + save.xp + ' XP</span>' +
     (due ? '<span>🔁 ふくしゅう ' + due + 'こ</span>' : '<span>🌈 きょうも いっぽ！</span>') + '</div></div>' +
     '<div class="hero-mascot" aria-hidden="true">' + activeProfile().icon + '<span>⭐</span></div></section>' +
@@ -287,7 +296,9 @@ function gameHtml(): string {
   const solved = session.phase === 'solved';
   const locked = session.locked;
   const longChoices = q.choices.some(choice => Array.from(choice).length >= 3);
-  const options = memoryPreview ? '<button type="button" class="primary-btn" data-action="remember">おぼえた！ こたえる ➜</button>' :
+  const options = isActivity(q.gameId) && activityState
+    ? activityHtml(q, activityState, solved || locked) :
+    memoryPreview ? '<button type="button" class="primary-btn" data-action="remember">おぼえた！ こたえる ➜</button>' :
     '<div class="answer-instruction">こたえを ひとつ えらんでね</div><div class="answer-grid' + (longChoices ? ' long-choices' : '') + '">' +
     q.choices.map(choice => '<button type="button" class="answer-btn" aria-label="こたえ ' + safe(choice) +
       '" data-answer="' + safe(choice) + '"' + (solved || locked ? ' disabled' : '') +
@@ -302,7 +313,7 @@ function gameHtml(): string {
     session.index + '"><div style="width:' + percent + '%"></div></div>' +
     '<section class="challenge" style="--accent:' + game.color + '"><div class="challenge-tag">' + game.icon + ' QUESTION ' + number + '</div>' +
     '<h1>' + safe(memoryPreview ? 'まずは えを おぼえよう！' : q.prompt) + '</h1>' +
-    '<div class="visual-stage">' + visualHtml(q.visual, memoryPreview) + '</div>' +
+    (isActivity(q.gameId) ? '' : '<div class="visual-stage">' + visualHtml(q.visual, memoryPreview) + '</div>') +
     (memoryPreview ? '<p class="memory-note">じかんは きにしなくて いいよ。おぼえたら ボタンを おしてね。</p>' : '') +
     '<button type="button" class="read-btn" data-action="speak">🔊 もんだいを きく</button>' +
     '<div class="answers">' + options + '</div>' + feedback + hint +
@@ -314,6 +325,7 @@ function gameHtml(): string {
 function resultHtml(): string {
   if (!session) return homeHtml();
   const game = GAMES.find(g => g.id === session?.gameId)!;
+  const practice = session.gameId === 'trace' || session.gameId === 'move';
   return layout('<section class="result-card"><div class="result-emoji" aria-hidden="true">' + game.icon + '🏆</div>' +
     '<p class="eyebrow">QUEST CLEAR!</p><h1>クエスト クリア！</h1>' +
     '<p>' + safe(activeProfile().name) + '、' + safe(game.title) + ' を がんばったね！</p>' +
@@ -321,10 +333,16 @@ function resultHtml(): string {
     '/' + MAX_LEVEL + (progressFor(save.completed[game.id] ?? 0).level > session.level ?
     ' 🎊 あたらしい レベルが ひらいた！' :
     ' · ' + progressFor(save.completed[game.id] ?? 0).current + '/' + CLEARS_PER_LEVEL + ' クリア') + '</div>' +
-    '<div class="result-scores"><div><strong>' + session.right + '</strong><small>ひとりで できた</small></div>' +
-    '<div><strong>' + session.helped + '</strong><small>ヒントで できた</small></div>' +
-    '<div><strong>' + session.deck.length + '</strong><small>クリアした もんだい</small></div></div>' +
-    '<p class="result-explain">あしたも おぼえていたら さらに すごい！<br>おぼえているか、また ためしてみよう。</p>' +
+    (practice ?
+      '<div class="result-scores"><div><strong>' + session.practiced + '</strong><small>やってみた</small></div>' +
+      '<div><strong>' + session.skipped + '</strong><small>おやすみ</small></div>' +
+      '<div><strong>' + session.deck.length + '</strong><small>あそんだ かず</small></div></div>' :
+      '<div class="result-scores"><div><strong>' + session.right + '</strong><small>ひとりで できた</small></div>' +
+      '<div><strong>' + session.helped + '</strong><small>ヒントで できた</small></div>' +
+      '<div><strong>' + session.deck.length + '</strong><small>クリアした もんだい</small></div></div>') +
+    '<p class="result-explain">' + (practice ?
+      'てを うごかしたり、まねしたり。できた ことを たいせつにしよう。' :
+      'あしたも おぼえていたら さらに すごい！<br>おぼえているか、また ためしてみよう。') + '</p>' +
     '<button type="button" class="primary-btn" data-action="home">ほかの クエストへ ➜</button>' +
     '<button type="button" class="secondary-btn" data-action="replay">もういちど あそぶ</button></section>');
 }
@@ -410,8 +428,9 @@ function startGame(id: GameId): void {
   stopTimers();
   const level = unlockedLevel(save.completed[id] ?? 0);
   const deck = chooseRound(id, save, Date.now(), 5, level);
+  activityState = isActivity(id) ? newActivityState(deck[0]) : null;
   session = { gameId: id, level, deck, index: 0, right: 0, helped: 0, wrong: 0, phase: deck[0].visual.kind === 'memory' ? 'preview' : 'answer',
-    attempts: 0, hints: 0, feedback: '', locked: false, committed: new Set() };
+    attempts: 0, hints: 0, feedback: '', locked: false, practiced: 0, skipped: 0, committed: new Set() };
   page = 'game';
   gameAudio.effect('select');
   render();
@@ -434,12 +453,16 @@ function makeHint(q: Question): string {
     case 'category': return 'どこで みかける ものかな？';
     case 'odd': return 'いちばん おおい えと ちがう えを さがそう。';
     case 'colors': return 'まわりに おなじ いろの ものは あるかな？';
+    case 'trace': return 'ゆびを ゆっくり うごかして てんを つなごう。';
+    case 'blocks': return '5こずつ まとめて かぞえてみよう。';
+    case 'train': return 'えの なまえを ゆっくり こえに だしてみよう。';
+    case 'move': return 'できる ところだけ まねしてみよう。むりしなくて いいよ。';
   }
 }
-function answer(choice: string): void {
+function answer(choice: string, mode?: 'practice' | 'skip'): void {
   if (!session || session.phase !== 'answer' || session.locked || page !== 'game') return;
   const q = session.deck[session.index];
-  if (!q.choices.includes(choice)) return;
+  if (!isActivity(q.gameId) && !q.choices.includes(choice)) return;
   session.attempts++;
   if (!evaluate(q, choice)) {
     session.wrong++;
@@ -463,17 +486,25 @@ function answer(choice: string): void {
   const event = q.id + '|' + session.index;
   if (session.committed.has(event)) return;
   session.committed.add(event);
-  const independent = session.attempts === 1 && session.hints === 0;
-  if (independent) session.right++; else session.helped++;
-  const recalled = Boolean(save.reviews[q.id]?.dueAt && save.reviews[q.id].dueAt <= Date.now());
-  save.reviews[q.id] = nextReview(save.reviews[q.id], q, independent, Date.now());
-  save.xp += independent ? 10 : 5;
+  const practice = mode !== undefined;
+  const independent = !practice && session.attempts === 1 && session.hints === 0;
+  if (practice) {
+    if (mode === 'skip') session.skipped++; else session.practiced++;
+  } else if (independent) session.right++;
+  else session.helped++;
+  const recalled = !practice && Boolean(save.reviews[q.id]?.dueAt && save.reviews[q.id].dueAt <= Date.now());
+  // Tracing and self-reported movement are practice, NOT validated recall or motor proficiency.
+  if (!practice) save.reviews[q.id] = nextReview(save.reviews[q.id], q, independent, Date.now());
+  const earned = mode === 'skip' ? 0 : practice ? 5 : independent ? 10 : 5;
+  save.xp += earned;
   saveNow();
   session.phase = 'solved';
-  session.feedback = (independent ? '✨ せいかい！ じぶんで できた！ ' : '🌱 できた！ かんがえなおせたね！ ') + q.explanation;
+  session.feedback = mode === 'skip' ? '🌱 みてくれて ありがとう。つぎへ いこう！' :
+    (practice ? '✨ やってみたね！ ' : independent ? '✨ せいかい！ じぶんで できた！ ' :
+    '🌱 できた！ かんがえなおせたね！ ') + q.explanation;
   gameAudio.effect(recalled && independent ? 'review' : 'correct');
   render();
-  burst(recalled && independent ? 'review' : 'correct', independent ? 10 : 5);
+  if (mode !== 'skip') burst(recalled && independent ? 'review' : 'correct', earned);
   scheduleAdvance();
 }
 function next(): void {
@@ -487,6 +518,7 @@ function next(): void {
     gameAudio.effect('clear');
   } else {
     session.index++;
+    activityState = isActivity(session.gameId) ? newActivityState(session.deck[session.index]) : null;
     session.attempts = 0; session.hints = 0; session.feedback = ''; session.locked = false;
     session.phase = session.deck[session.index].visual.kind === 'memory' ? 'preview' : 'answer';
   }
@@ -518,6 +550,7 @@ function resetCurrentLearning(): void {
   stopTimers();
   save = nextSave;
   session = null;
+  activityState = null;
   resetArmed = false;
   storageWarning = 'がくしゅうきろくを リセットしました。ほかのキャラのきろくは そのままです。';
   render();
@@ -538,6 +571,29 @@ function exportSave(): void {
   document.body.appendChild(a); a.click(); a.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
+/** Adapter from activity UI into the existing single-answer, double-credit-safe session. */
+function completeActivity(result: ActivityResult): void {
+  if (result.kind === 'submit' && result.value !== undefined)
+    answer(result.value, result.skipped ? 'skip' : result.assisted ? 'practice' : undefined);
+  else render();
+}
+function onTracePointer(event: PointerEvent, phase: 'down' | 'move' | 'up' | 'cancel'): void {
+  if (page !== 'game' || session?.gameId !== 'trace' || session.phase !== 'answer' ||
+      session.locked || !activityState) return;
+  const svg = event.target instanceof Element ? event.target.closest<SVGSVGElement>('[data-trace-board]') : null;
+  if (!svg) return;
+  if (phase === 'down' || phase === 'move') event.preventDefault();
+  const result = tracePointer(session.deck[session.index], activityState, phase, event, svg);
+  if (result.kind === 'submit') completeActivity(result);
+  else if (phase === 'up' || phase === 'cancel') render();
+}
+for (const [eventType, phase] of [
+  ['pointerdown', 'down'], ['pointermove', 'move'], ['pointerup', 'up'], ['pointercancel', 'cancel']
+] as const) {
+  app.addEventListener(eventType, event => onTracePointer(event as PointerEvent, phase));
+}
+
 gameAudio.configure(save.settings.sound, save.settings.bgm, save.settings.seVolume, save.settings.bgmVolume);
 applyTextSize();
 document.addEventListener('visibilitychange', () => {
@@ -577,6 +633,15 @@ app.addEventListener('click', event => {
   const target = event.target;
   if (!(target instanceof Element)) return;
   gameAudio.unlock();
+  const activityButton = target.closest<HTMLButtonElement>('[data-activity]');
+  if (activityButton && page === 'game' && session?.phase === 'answer' &&
+      !session.locked && activityState && isActivity(session.gameId)) {
+    const q = session.deck[session.index];
+    const result = activityClick(q, activityState, activityButton.dataset.activity ?? '',
+      Number(activityButton.dataset.index ?? -1));
+    completeActivity(result);
+    return;
+  }
   const answerBtn = target.closest<HTMLButtonElement>('[data-answer]');
   if (answerBtn) { answer(answerBtn.dataset.answer ?? ''); return; }
   const categoryBtn = target.closest<HTMLButtonElement>('[data-category]');
@@ -592,9 +657,9 @@ app.addEventListener('click', event => {
   if (slotBtn) { setSlot(Number(slotBtn.dataset.slot)); return; }
   const action = target.closest<HTMLElement>('[data-action]')?.dataset.action;
   if (action === 'home') { window.speechSynthesis?.cancel(); dismissEffects(); stopTimers();
-    page = 'home'; session = null; resetArmed = false; render(); }
+    page = 'home'; session = null; activityState = null; resetArmed = false; render(); }
   else if (action === 'parent') { dismissEffects(); stopTimers(); page = 'parent';
-    session = null; resetArmed = false; render(); }
+    session = null; activityState = null; resetArmed = false; render(); }
   else if (action === 'options') { dismissEffects(); stopTimers(); if (session) session.locked = false;
     beforeOptions = page === 'options' ? 'home' : page; page = 'options'; render(); }
   else if (action === 'back-options') { page = beforeOptions; render(); scheduleAdvance(); }
