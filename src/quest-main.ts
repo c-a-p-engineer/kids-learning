@@ -515,7 +515,9 @@ function next(): void {
   stopTimers();
   if (session.index === session.deck.length - 1) {
     save.sessions++;
-    save.completed[session.gameId] = (save.completed[session.gameId] ?? 0) + 1;
+    // Rest-only movement sessions are welcome, but do not unlock harder levels.
+    if (session.gameId !== 'move' || session.practiced > 0)
+      save.completed[session.gameId] = (save.completed[session.gameId] ?? 0) + 1;
     saveNow();
     page = 'result';
     gameAudio.effect('clear');
