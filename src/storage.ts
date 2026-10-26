@@ -88,6 +88,15 @@ export function parseBackup(text: string, activeSlot: number): Backup {
   if (!env.data || typeof env.data !== 'object' || Array.isArray(env.data) ||
       (env.data as Record<string, unknown>).schema !== 2)
     throw new Error('V2の きろくが みつかりません。');
+  // A schema-only object must not silently overwrite a genuine child's records with defaults.
+  const raw = env.data as Record<string, unknown>;
+  if (typeof raw.xp !== 'number' || !Number.isFinite(raw.xp) || raw.xp < 0 ||
+      typeof raw.sessions !== 'number' || !Number.isFinite(raw.sessions) || raw.sessions < 0 ||
+      !raw.completed || typeof raw.completed !== 'object' || Array.isArray(raw.completed) ||
+      !raw.reviews || typeof raw.reviews !== 'object' || Array.isArray(raw.reviews) ||
+      !raw.settings || typeof raw.settings !== 'object' || Array.isArray(raw.settings)) {
+    throw new Error('ふくげんに ひつような きろくが たりません。');
+  }
   if (typeof env.exportedAt !== 'string' || !Number.isFinite(Date.parse(env.exportedAt)))
     throw new Error('バックアップの じこくが ちがいます。');
   return { exportedAt: env.exportedAt, slot: activeSlot, data: normalizeSave(env.data) };
