@@ -16,6 +16,18 @@ assert.equal(defaults.settings.bgm, true);
 assert.equal(defaults.settings.sound, true);
 assert.equal(defaults.settings.bgmVolume, 75);
 assert.equal(defaults.settings.seVolume, 65);
+
+assert.equal(defaults.settings.textSize, 100);
+assert.equal(engine.clampTextSize(80), 80);
+assert.equal(engine.clampTextSize(100), 100);
+assert.equal(engine.clampTextSize(160), 160);
+assert.equal(engine.clampTextSize(135), 140);
+assert.equal(engine.clampTextSize(79), 80);
+assert.equal(engine.clampTextSize(170), 160);
+assert.equal(engine.clampTextSize('120'), 100);
+assert.equal(engine.clampTextSize(Number.NaN), 100);
+assert.equal(engine.clampTextSize(Infinity), 100);
+
 assert.equal(engine.clampVolume(43.9, 75), 44);
 assert.equal(engine.clampVolume(120, 75), 100);
 assert.equal(engine.clampVolume(-20, 65), 0);
