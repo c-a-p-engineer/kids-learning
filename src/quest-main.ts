@@ -83,7 +83,7 @@ function storeKey(): string { return STORAGE_KEY + '_player_' + slot; }
 /** No reload or session reset: font changes take effect on every game screen immediately. */
 function applyTextSize(): void {
   const size = clampTextSize(save.settings.textSize);
-  document.documentElement.style.setProperty('--learning-text-scale', String(size / 100));
+  document.documentElement.style.setProperty('--learning-font-percent', size + '%');
   document.body.classList.toggle('learning-text-large', size >= 130);
 }
 
