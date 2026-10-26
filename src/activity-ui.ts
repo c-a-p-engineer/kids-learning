@@ -165,7 +165,7 @@ export function activityClick(q: Question, state: ActivityState, action: string,
       state.feedback = '';
     }
     if (action === 'train-back') { state.usedTiles.pop(); state.feedback = ''; }
-  } else if (q.gameId === 'trace' || q.gameId === 'lines') {
+  } else if (q.gameId === 'trace' || q.gameId === 'lines' || q.gameId === 'digits') {
     const guide = TRACE_GUIDES[q.visual.symbol ?? ''];
     if (!guide) return { kind: 'progress' };
     if (action === 'trace-reset') {
