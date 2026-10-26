@@ -45,7 +45,7 @@ function scheduleAdvance(): void {
   autoAdvanceTimer = window.setTimeout(() => {
     autoAdvanceTimer = undefined;
     if (page === 'game' && session === current && current.index === index && current.phase === 'solved') next();
-  }, AUTO_ADVANCE_MS);
+  }, Math.round(AUTO_ADVANCE_MS * Math.max(1, clampTextSize(save.settings.textSize) / 100)));
 }
 const CATEGORIES = [
   { id: 'all', label: 'ぜんぶ', icon: '🌈' },
