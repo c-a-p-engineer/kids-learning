@@ -65,3 +65,11 @@
 @media(max-width:390px){.workshop-btn{min-width:80px;padding:12px 8px}.split-baskets{gap:7px}
   .split-basket{padding:9px 6px}.split-basket .workshop-btn{font-size:.82rem}}
 @media(prefers-reduced-motion:reduce){.workshop *,.station-world *{animation:none!important;transition:none!important}}
+
+/* Existing 'find the odd one' is now tap-the-picture instead of a numbered quiz. */
+.odd-pick{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;width:100%;max-width:550px}
+.odd-picture-card{min-height:105px;border:3px solid #d5def2;border-bottom-width:6px;border-radius:21px;
+  background:#fff;font-size:clamp(2.4rem,8vw,4.1rem);display:flex;align-items:center;justify-content:center}
+.odd-picture-card:focus-visible{outline:4px solid #ffb840;outline-offset:3px}
+.odd-picture-card:disabled{opacity:.7}
+@media(max-width:380px){.odd-pick{gap:7px}.odd-picture-card{min-height:90px}}
