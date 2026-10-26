@@ -12,7 +12,7 @@
 .activity-undo{background:#f0f4ff;font-size:.94rem;padding:10px 18px}
 .trace-board{width:min(100%,340px);padding:10px;border-radius:24px;background:linear-gradient(155deg,#eef8ff,#f7fffa);
   border:3px solid #beddee;box-shadow:0 8px 0 #d3e2f1;overflow:hidden}
-.trace-board svg{display:block;aspect-ratio:1/1;width:100%;height:auto;touch-action:none;user-select:none;-webkit-user-select:none}
+.trace-board svg{display:block;aspect-ratio:1/1;width:100%;height:auto;pointer-events:all;touch-action:none;user-select:none;-webkit-user-select:none}
 .trace-board svg circle,.trace-board svg path{pointer-events:none}
 .activity-counter{font-size:1.05rem;color:#3b6582;font-weight:900;margin:0}
 .trace-access{width:100%;max-width:420px;border:2px solid #d9e5f9;background:#f7faff;border-radius:17px;padding:12px 16px}
