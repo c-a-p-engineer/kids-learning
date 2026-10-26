@@ -1,5 +1,6 @@
 import { isActivity, makeActivityQuestion } from './activity-content';
 import { isTouchGame, makeTouchQuestion } from './touch-content';
+import { isWorkshop, makeWorkshopQuestion } from './workshop-content';
 
 export const GAMES = [
   { id: 'count', title: 'かずシールド', icon: '🛡️', subject: 'さんすう', description: 'ドットを かぞえて シールドを こわそう', color: '#19b69e' },
@@ -24,7 +25,11 @@ export const GAMES = [
   { id: 'move', title: 'からだ まねっこ', icon: '🙌', subject: 'うんどう', description: 'おててや あしを ゆっくり うごかそう', color: '#d38ddc' },
   { id: 'connect', title: 'てんを つなごう', icon: '🖊️', subject: 'うんぴつ', description: '1から じゅんに ゆびで せんを なぞろう', color: '#e99975' },
   { id: 'maze', title: 'でんしゃの めいろ', icon: '🚂', subject: 'かんがえる', description: 'でんしゃを ゆびで なぞって ゴールへ', color: '#7cbdb3' },
-  { id: 'clockhands', title: 'とけいを つくろう', icon: '🕰️', subject: 'せいかつ', description: 'とけいの はりを つかんで うごかそう', color: '#7f9bdc' }
+  { id: 'clockhands', title: 'とけいを つくろう', icon: '🕰️', subject: 'せいかつ', description: 'とけいの はりを つかんで うごかそう', color: '#7f9bdc' },
+  { id: 'shop', title: 'おかいもの ごっこ', icon: '🛒', subject: 'さんすう', description: '1・5・10えんで おかねを つくろう', color: '#efa368' },
+  { id: 'routine', title: 'じゅんばん めいじん', icon: '🧼', subject: 'せいかつ', description: 'おでかけや てあらいの じゅんばん', color: '#89c9b5' },
+  { id: 'split', title: 'かずの はこわけ', icon: '🧺', subject: 'さんすう', description: 'いしを 2つの はこに わけよう', color: '#d7a56c' },
+  { id: 'rhythm', title: 'リズム たいこ', icon: '🥁', subject: 'うんどう', description: 'いろを みて たいこを たたこう', color: '#d18bd9' }
 ] as const;
 
 export const MAX_LEVEL = 5;
@@ -41,7 +46,7 @@ export function progressFor(clears: number): { level: number; current: number; t
 
 export type GameId = (typeof GAMES)[number]['id'];
 export type Visual = {
-  kind: 'dots' | 'add' | 'subtract' | 'sequence' | 'compare' | 'picture' | 'shape' | 'clock' | 'memory' | 'bond' | 'pattern' | 'category' | 'odd' | 'color' | 'trace' | 'lines' | 'blocks' | 'train' | 'move' | 'connect' | 'maze' | 'clockhands';
+  kind: 'dots' | 'add' | 'subtract' | 'sequence' | 'compare' | 'picture' | 'shape' | 'clock' | 'memory' | 'bond' | 'pattern' | 'category' | 'odd' | 'color' | 'trace' | 'lines' | 'blocks' | 'train' | 'move' | 'connect' | 'maze' | 'clockhands' | 'shop' | 'routine' | 'split' | 'rhythm';
   a?: number; b?: number; step?: number; numbers?: number[];
   symbol?: string; hour?: number; minute?: number; preview?: string[]; answerIndex?: number;
 };
@@ -125,6 +130,7 @@ export function makeQuestion(gameId: GameId, index: number, level = 1): Question
   const id = gameId + (lv > 1 ? ':L' + lv : '') + ':' + i;
   if (isActivity(gameId)) return makeActivityQuestion(gameId, i, lv);
   if (isTouchGame(gameId)) return makeTouchQuestion(gameId, i, lv);
+  if (isWorkshop(gameId)) return makeWorkshopQuestion(gameId, i, lv);
   if (gameId === 'count') {
     const a = lv === 1 ? (i % 10) + 1 :
       lv === 2 ? (i % 15) + 1 :
