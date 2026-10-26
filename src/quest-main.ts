@@ -441,8 +441,8 @@ function render(): void {
 function startGame(id: GameId, requestedLevel?: number): void {
   stopTimers();
   const unlocked = unlockedLevel(save.completed[id] ?? 0);
-  const level = Number.isInteger(requestedLevel) && requestedLevel! >= 1 &&
-    requestedLevel! <= unlocked ? requestedLevel! : unlocked;
+  const level = typeof requestedLevel === 'number' && Number.isInteger(requestedLevel) &&
+    requestedLevel >= 1 && requestedLevel <= unlocked ? requestedLevel : unlocked;
   const deck = chooseRound(id, save, Date.now(), 5, level);
   activityState = isActivity(id) ? newActivityState(deck[0]) : null;
   session = { gameId: id, level, deck, index: 0, right: 0, helped: 0, wrong: 0, phase: deck[0].visual.kind === 'memory' ? 'preview' : 'answer',
