@@ -489,6 +489,22 @@ assert.throws(() => storage.parseBackup(JSON.stringify({ exportedAt: '2026-10-26
 const blocked = { setItem: () => { throw new Error('QuotaExceededError'); } };
 assert.throws(() => storage.persistSlot(blocked, 2, saved));
 assert.equal(storage.loadSlot(store, 2).xp, 123, 'failed write must not overwrite existing save');
+const rawFirst = storage.readSlotSnapshot(store, 2);
+const nextSaved = { ...saved, xp: 144 };
+const rawSecond = storage.persistSlotIfUnchanged(store, 2, nextSaved, rawFirst);
+assert.equal(storage.loadSlot(store, 2).xp, 144);
+assert.equal(rawSecond, storage.readSlotSnapshot(store, 2));
+assert.throws(() => storage.persistSlotIfUnchanged(store, 2, { ...saved, xp: 999 }, rawFirst),
+  storage.StaleSlotError, 'stale tab must not overwrite another tab');
+assert.equal(storage.loadSlot(store, 2).xp, 144);
+const otherSlotBefore = storage.readSlotSnapshot(store, 1);
+storage.persistSlotIfUnchanged(store, 1, { ...saved, xp: 77 }, otherSlotBefore);
+assert.equal(storage.loadSlot(store, 1).xp, 77);
+assert.equal(storage.loadSlot(store, 2).xp, 144, 'one character must not overwrite another');
+const noCapacity = { getItem: key => store.getItem(key), setItem: () => { throw Error('QuotaExceededError'); } };
+assert.throws(() => storage.persistSlotIfUnchanged(noCapacity, 2, nextSaved, rawSecond));
+assert.equal(storage.loadSlot(store, 2).xp, 144);
+
 const sanitized = storage.normalizeSave({ ...saved, xp: 'not a number', daily: { '2026-10-26': { answered: 3 } } });
 assert.equal(sanitized.xp, 0);
 assert.equal(sanitized.daily['2026-10-26'].answered, 3);
@@ -551,6 +567,34 @@ for (const [clears, nextLevel] of [[0, 1], [1, 1], [2, 2], [3, 2],
   assert.equal(engine.unlockedLevel(clears), nextLevel,
     'latest replay destination for ' + clears + ' clears');
 }
+
+const reviewNow = Date.UTC(2026, 9, 27, 11);
+const revisionSave = engine.freshSave();
+revisionSave.completed.add = 6;
+for (let i = 0; i < 4; i++) {
+  const q = engine.makeQuestion('add', i, 3);
+  revisionSave.reviews[q.id] = {
+    question: q, stage: 0, dueAt: reviewNow - 3600000 * (i + 1),
+    lastAnsweredAt: reviewNow - 2 * 86400000, correct: false
+  };
+}
+const suggestion = progress.reviewSuggestion(revisionSave, 'add', reviewNow);
+assert.equal(suggestion.level, 3, 'gently suggest one lower unlocked level');
+assert.equal(suggestion.hasStruggle, true);
+assert.equal(suggestion.due, 4);
+assert.equal(engine.unlockedLevel(revisionSave.completed.add), 4, 'unlocked level stays 4');
+const recallRound = engine.chooseRound('add', revisionSave, reviewNow, 5, 4);
+assert.equal(recallRound.length, 5);
+assert.equal(recallRound.filter(q => revisionSave.reviews[q.id]).length, 3,
+  'review backlog should use three of five questions');
+assert(progressUi.skillTreeHtml(revisionSave, 'きつね', 'math').includes(
+  'data-skill-play="add" data-level="3"'), 'optional easy-practice button accessible');
+for (const r of Object.values(revisionSave.reviews)) r.correct = true;
+assert.equal(progress.reviewSuggestion(revisionSave, 'add', reviewNow).hasStruggle, false,
+  'independent recall clears the extra easy-practice suggestion');
+const historical = revisionSave.reviews[Object.keys(revisionSave.reviews)[0]];
+historical.lastAnsweredAt = reviewNow - 40 * 86400000;
+assert.equal(progress.reviewSuggestion(engine.freshSave(), 'add', reviewNow).level, 1);
 console.log('PASS: replay follows latest unlocked level after clearing 2/4/6/8 quests');
 
 console.log('PASS: pure session transitions and scoring; old saves and recovery checks');
@@ -694,6 +738,12 @@ assert.equal(haptics.emitHaptic('correct', enabled, { vibrate, reducedMotion: tr
 assert.equal(haptics.emitHaptic('correct', enabled, {}), false);
 assert.equal(haptics.emitHaptic('correct', enabled, { vibrate: () => { throw Error('unsupported'); } }), false);
 assert.equal(emitted.length, 3);
+const sourceControl = readFileSync(new URL('../src/quest-main.ts', import.meta.url), 'utf8');
+assert(sourceControl.includes('persistSlotIfUnchanged'), 'all app saves use stale-tab guard');
+assert(!sourceControl.includes('persistSlot(localStorage'), 'unguarded app writes are forbidden');
+assert(sourceControl.includes("window.addEventListener('storage'"), 'tab changes trigger safety screen');
+assert(sourceControl.includes("data-action=\"sync-reload\""), 'stale users get a reload option');
+assert(!sourceControl.includes('こたえを ひとつ えらんでね'), 'duplicated answer instructions should be gone');
 const codeWithHaptics = readFileSync(new URL('../src/quest-main.ts', import.meta.url), 'utf8');
 assert(codeWithHaptics.includes('data-action="haptics"'));
 assert(codeWithHaptics.includes("action === 'test-haptics'"));
