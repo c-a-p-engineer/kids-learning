@@ -1,13 +1,13 @@
 import type { GameId, Question } from './engine';
 
 /** 学習操作そのものが回答。Choiceクイズとは別の入力形式で扱う。 */
-export type ActivityKind = 'trace' | 'lines' | 'blocks' | 'train' | 'move';
-export type ActivityId = Extract<GameId, 'trace' | 'lines' | 'blocks' | 'train' | 'move'>;
+export type ActivityKind = 'trace' | 'lines' | 'digits' | 'blocks' | 'train' | 'move';
+export type ActivityId = Extract<GameId, 'trace' | 'lines' | 'digits' | 'blocks' | 'train' | 'move'>;
 export const isActivity = (id: GameId): id is ActivityId =>
-  id === 'trace' || id === 'lines' || id === 'blocks' || id === 'train' || id === 'move';
+  id === 'trace' || id === 'lines' || id === 'digits' || id === 'blocks' || id === 'train' || id === 'move';
 
 // Keep teaching content separate from stroke geometry and input validation.
-import { TRACE_GUIDES, PREWRITING, KANA } from './trace-guides';
+import { TRACE_GUIDES, PREWRITING, KANA, NUMERALS } from './trace-guides';
 export { TRACE_GUIDES } from './trace-guides';
 export type { TraceGlyph } from './trace-guides';
 
@@ -44,12 +44,13 @@ export const MOVE_CARDS = [
 /** Deterministic per-game prompt; no camera, motion inference or third-party data. */
 export function makeActivityQuestion(gameId: ActivityId, i: number, level: number): Question {
   const id = gameId + (level > 1 ? ':L' + level : '') + ':' + i;
-  if (gameId === 'trace' || gameId === 'lines') {
-    const names = gameId === 'lines' ? PREWRITING : KANA;
+  if (gameId === 'trace' || gameId === 'lines' || gameId === 'digits') {
+    const names: readonly string[] = gameId === 'lines' ? PREWRITING : gameId === 'digits' ? NUMERALS : KANA;
     const symbol = names[(i + (level - 1) * 2) % names.length];
     const guide = TRACE_GUIDES[symbol];
     return { id, gameId, prompt: gameId === 'lines' ?
-      'ゆびで ' + guide.label + 'を なぞろう！' : '「' + symbol + '」を かこう！',
+      'ゆびで ' + guide.label + 'を なぞろう！' : gameId === 'digits' ?
+      'すうじの ' + symbol + ' を なぞろう！' : '「' + symbol + '」を かこう！',
       visual: { kind: 'trace', symbol }, choices: [symbol, 'やりなおす'],
       answer: symbol, explanation: guide.label + 'を かけたね！' };
   }
