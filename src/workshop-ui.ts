@@ -42,25 +42,30 @@ export function workshopHtml(q: Question, state: WorkshopState, disabled: boolea
     const arranged = state.sequence.map(i => labels[i]);
     return '<div class="workshop"><div class="routine-order">' +
       Array.from({ length: labels.length }, (_, i) =>
-        '<span class="routine-step">' + (arranged[i] ? escape(arranged[i]) : '❔ ' + (i + 1)) + '</span>').join('') +
+        (arranged[i] ? '<button type="button" class="routine-step selected" data-workshop="routine-remove" data-index="' + i +
+          '" aria-label="' + escape(arranged[i]) + ' を もどす"' + (disabled ? ' disabled' : '') +
+          '>' + escape(arranged[i]) + '</button>' :
+          '<span class="routine-step">❔ ' + (i + 1) + '</span>')).join('') +
       '</div><div class="routine-options">' +
       labels.map((s, i) => btn('routine', s, disabled || state.sequence.includes(i), i)).join('') +
-      '</div>' + btn('undo', '↩ ひとつ もどす', disabled || !state.sequence.length) + message + '</div>';
+      '</div>' + message + '</div>';
   }
   if (q.gameId === 'split') {
     const leftTarget = q.visual.a ?? 0, rightTarget = q.visual.b ?? 0;
     const total = leftTarget + rightTarget, remaining = total - state.left - state.right;
     return '<div class="workshop"><div class="split-baskets">' +
       '<div class="split-basket"><strong>🔴 ' + leftTarget + 'こ の はこ</strong>' +
-      '<div class="split-dots">' + '🔴'.repeat(state.left) + '</div><b>' + state.left + '/' + leftTarget + '</b>' +
+      '<button type="button" class="split-dots" data-workshop="left-undo" aria-label="あかい はこから 1こ もどす"' +
+      (disabled || !state.left ? ' disabled' : '') + '>' + ('🔴'.repeat(state.left) || '＋') + '</button>' +
+      '<b>' + state.left + '/' + leftTarget + '</b>' +
       btn('left', '＋1こ', disabled || !remaining) +
-      btn('left-five', '＋5こ', disabled || remaining < 5 || state.left + 5 > leftTarget) +
-      btn('left-undo', '↩ もどす', disabled || !state.left) + '</div>' +
+      btn('left-five', '＋5こ', disabled || remaining < 5 || state.left + 5 > leftTarget) + '</div>' +
       '<div class="split-basket"><strong>🔵 ' + rightTarget + 'こ の はこ</strong>' +
-      '<div class="split-dots">' + '🔵'.repeat(state.right) + '</div><b>' + state.right + '/' + rightTarget + '</b>' +
+      '<button type="button" class="split-dots" data-workshop="right-undo" aria-label="あおい はこから 1こ もどす"' +
+      (disabled || !state.right ? ' disabled' : '') + '>' + ('🔵'.repeat(state.right) || '＋') + '</button>' +
+      '<b>' + state.right + '/' + rightTarget + '</b>' +
       btn('right', '＋1こ', disabled || !remaining) +
-      btn('right-five', '＋5こ', disabled || remaining < 5 || state.right + 5 > rightTarget) +
-      btn('right-undo', '↩ もどす', disabled || !state.right) + '</div></div>' +
+      btn('right-five', '＋5こ', disabled || remaining < 5 || state.right + 5 > rightTarget) + '</div></div>' +
       '<p class="workshop-hint">あと ' + remaining + 'こ のこっているよ</p>' + message + '</div>';
   }
   const pattern = q.visual.preview ?? [];
@@ -90,8 +95,9 @@ export function workshopClick(q: Question, state: WorkshopState, action: string,
     state.message = '';
     return money(state.coins) === target ? { finished: true, value: q.answer } : { finished: false };
   }
-  if (action === 'undo' && q.gameId === 'routine') {
-    state.sequence.pop();
+  if (q.gameId === 'routine' && action === 'routine-remove') {
+    if (Number.isInteger(index) && index >= 0 && index < state.sequence.length)
+      state.sequence.splice(index, 1);
     state.message = '';
     return { finished: false };
   }
