@@ -2,6 +2,8 @@ import './game.css';
 import './activity.css';
 import './progress.css';
 import './touch.css';
+import { createSession, advanceSession, attemptOutcome } from './session';
+import type { Session, AnswerMode } from './session';
 import { isTouchGame } from './touch-content';
 import { touchHtml, touchClick, freshTouch } from './touch-ui';
 import type { TouchState } from './touch-ui';
@@ -21,24 +23,6 @@ import type { GameId, LearningSave, Question, Visual } from './engine';
 const app = document.getElementById('app');
 if (!app) throw new Error('Root #app not found');
 
-type Phase = 'preview' | 'answer' | 'solved';
-interface Session {
-  gameId: GameId;
-  level: number;
-  deck: Question[];
-  index: number;
-  right: number;
-  helped: number;
-  practiced: number;
-  skipped: number;
-  wrong: number;
-  phase: Phase;
-  attempts: number;
-  hints: number;
-  feedback: string;
-  locked: boolean;
-  committed: Set<string>;
-}
 type AppPage = 'home' | 'game' | 'result' | 'parent' | 'options' | 'stats' | 'skills';
 let page: AppPage = 'home';
 let beforeOptions: Exclude<AppPage, 'options'> = 'home';
@@ -429,8 +413,7 @@ function startGame(id: GameId, requestedLevel?: number): void {
   const deck = chooseRound(id, save, Date.now(), 5, level);
   activityState = isActivity(id) ? newActivityState(deck[0]) : null;
   touchState = isTouchGame(id) ? freshTouch() : null;
-  session = { gameId: id, level, deck, index: 0, right: 0, helped: 0, wrong: 0, phase: deck[0].visual.kind === 'memory' ? 'preview' : 'answer',
-    attempts: 0, hints: 0, feedback: '', locked: false, practiced: 0, skipped: 0, committed: new Set() };
+  session = createSession(id, level, deck);
   page = 'game';
   gameAudio.effect('select');
   render();
@@ -463,7 +446,7 @@ function makeHint(q: Question): string {
     case 'clockhands': return 'みじかい はりが なんじ、ながい はりが なんふん。';
   }
 }
-function answer(choice: string, mode?: 'practice' | 'skip'): void {
+function answer(choice: string, mode?: AnswerMode): void {
   if (!session || session.phase !== 'answer' || session.locked || page !== 'game') return;
   const q = session.deck[session.index];
   if (!isActivity(q.gameId) && !isTouchGame(q.gameId) && !q.choices.includes(choice)) return;
@@ -492,20 +475,17 @@ function answer(choice: string, mode?: 'practice' | 'skip'): void {
   const event = q.id + '|' + session.index;
   if (session.committed.has(event)) return;
   session.committed.add(event);
+  const { independent, earned, kind } = attemptOutcome(session.attempts, session.hints, mode);
   const practice = mode !== undefined;
-  const independent = !practice && session.attempts === 1 && session.hints === 0;
-  if (practice) {
-    if (mode === 'skip') session.skipped++; else session.practiced++;
-  } else if (independent) session.right++;
+  if (mode === 'skip') session.skipped++;
+  else if (mode === 'practice') session.practiced++;
+  else if (independent) session.right++;
   else session.helped++;
   const recalled = !practice && Boolean(save.reviews[q.id]?.dueAt && save.reviews[q.id].dueAt <= Date.now());
   // Tracing and self-reported movement are practice, NOT validated recall or motor proficiency.
   if (!practice) save.reviews[q.id] = nextReview(save.reviews[q.id], q, independent, Date.now());
-  const earned = mode === 'skip' ? 0 : practice ? 5 : independent ? 10 : 5;
   save.xp += earned;
-  recordDaily(save, new Date(), q.gameId,
-    mode === 'skip' ? 'rest' : practice ? 'practice' :
-    independent ? 'independent' : 'supported', earned);
+  recordDaily(save, new Date(), q.gameId, kind, earned);
   saveNow();
   session.phase = 'solved';
   session.feedback = mode === 'skip' ? '🌱 みてくれて ありがとう。つぎへ いこう！' :
@@ -529,11 +509,9 @@ function next(): void {
     page = 'result';
     gameAudio.effect('clear');
   } else {
-    session.index++;
+    session = advanceSession(session);
     activityState = isActivity(session.gameId) ? newActivityState(session.deck[session.index]) : null;
     touchState = isTouchGame(session.gameId) ? freshTouch() : null;
-    session.attempts = 0; session.hints = 0; session.feedback = ''; session.locked = false;
-    session.phase = session.deck[session.index].visual.kind === 'memory' ? 'preview' : 'answer';
   }
   render();
   if (page === 'result') burst('clear');
