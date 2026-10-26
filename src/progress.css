@@ -185,3 +185,8 @@ details.growth-note{padding:12px 14px}
 details.growth-note summary{cursor:pointer;font-weight:900;color:#516b9e;min-height:38px;display:flex;align-items:center}
 details.growth-note p{margin:6px 0;line-height:1.65}
 details.growth-note summary:focus-visible{outline:3px solid #ffb23c;outline-offset:2px}
+
+/* Optional fallback practice stays secondary to the main game start. */
+.skill-practice{margin-top:8px;width:100%;min-height:45px;border:2px solid #c9ddc6;
+  border-radius:13px;background:#f0faef;color:#3d754f;font:inherit;font-size:.88rem;font-weight:900}
+.skill-practice:focus-visible{outline:4px solid #f5b840;outline-offset:3px}

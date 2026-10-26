@@ -108,3 +108,19 @@ export function recentSummary(logs: LearningSave['daily'], end: Date, count = 7)
     xp: days.reduce((sum, d) => sum + d.log.xp, 0)
   };
 }
+
+/** Gentle, optional practice suggestion. No score diagnosis or forced level downgrade. */
+export function reviewSuggestion(save: LearningSave, gameId: GameId, now: number): {
+  level: number; hasStruggle: boolean; due: number;
+} {
+  const unlocked = unlockedLevel(save.completed[gameId] ?? 0);
+  const items = Object.values(save.reviews).filter(r =>
+    r.question.gameId === gameId && Number.isFinite(r.lastAnsweredAt) &&
+    r.lastAnsweredAt <= now && r.lastAnsweredAt >= now - 14 * 86400000);
+  const recent = items.sort((a, b) => b.lastAnsweredAt - a.lastAnsweredAt).slice(0, 5);
+  const hasStruggle = unlocked > 1 && recent.length >= 3 &&
+    recent.filter(record => !record.correct).length >= 3;
+  const due = Object.values(save.reviews).filter(r =>
+    r.question.gameId === gameId && r.dueAt <= now).length;
+  return { level: hasStruggle ? unlocked - 1 : unlocked, hasStruggle, due };
+}

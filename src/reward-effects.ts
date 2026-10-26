@@ -22,7 +22,7 @@ export function burst(kind: BurstKind, xp?: number): void {
   layer.setAttribute('aria-hidden', 'true');
   const symbols = kind === 'clear' ? ['🎉','⭐','✨','🌟','🎊'] :
     kind === 'review' ? ['🌈','⭐','💎','✨'] : ['⭐','✨','💛','🌟'];
-  const count = kind === 'clear' ? 32 : kind === 'tap' ? 5 : 17;
+  const count = kind === 'clear' ? 16 : kind === 'tap' ? 3 : 9;
   for (let i = 0; i < count; i++) {
     const p = document.createElement('span');
     p.className = 'reward-particle';

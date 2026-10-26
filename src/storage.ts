@@ -69,6 +69,23 @@ export function loadSlot(storage: Pick<Storage, 'getItem'>, slot: number): Learn
 export function persistSlot(storage: Pick<Storage, 'setItem'>, slot: number, save: LearningSave): void {
   storage.setItem(slotKey(slot), JSON.stringify(save));
 }
+/** Optimistic guard for already-open tabs. No silent stale snapshot overwrites. */
+export class StaleSlotError extends Error {
+  constructor() { super('The selected character changed in another tab.'); this.name = 'StaleSlotError'; }
+}
+export function readSlotSnapshot(storage: Pick<Storage, 'getItem'>, slot: number): string | null {
+  return storage.getItem(slotKey(slot));
+}
+/** Compare the exact raw snapshot so legacy V2 JSON is not spuriously considered modified. */
+export function persistSlotIfUnchanged(
+  storage: Pick<Storage, 'getItem' | 'setItem'>,
+  slot: number, save: LearningSave, snapshot: string | null
+): string {
+  if (readSlotSnapshot(storage, slot) !== snapshot) throw new StaleSlotError();
+  const serialized = JSON.stringify(save);
+  storage.setItem(slotKey(slot), serialized);
+  return serialized;
+}
 export interface Backup {
   exportedAt: string;
   slot: number;
