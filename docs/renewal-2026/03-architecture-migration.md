@@ -1,5 +1,8 @@
 # PROJECT DOPAGAKI — アーキテクチャ刷新・移行計画
 
+**実装との差分（2026-10-26）:** V2最初の10ゲームは、フレームワーク追加を避けたVanilla TypeScript + Viteで構築。Preact/IndexedDBは未採用、記録は新localStorageキーで管理。完全版は引き続き候補です。現行アーキテクチャは docs/architecture.md を正とします。現行11ゲームは退避ブランチに保存し、新版から旧ソースを撤去済み。旧データ移行・長編RPG・ユーザー評価は今後の課題です。
+
+
 状態: 2026-10-26 初期設計決定 / 実装未着手
 基準: master @ 85a5d2cf5f7c5bc709bb267fb1601f7224defdb5
 教育成果物: 02-game-design.md / 現行資産: 00-legacy-inventory.md
