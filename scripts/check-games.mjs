@@ -56,7 +56,7 @@ assert.equal(engine.clampVolume(-20, 65), 0);
 assert.equal(engine.clampVolume(Number.NaN, 65), 65);
 assert.equal(engine.clampVolume('50', 75), 75);
 
-assert.equal(new Set(engine.GAMES.map(g => g.id)).size, 23);
+assert.equal(new Set(engine.GAMES.map(g => g.id)).size, 27);
 const memoryTargets = new Set();
 for (const game of engine.GAMES) {
   for (let i = 0; i < 80; i++) {
