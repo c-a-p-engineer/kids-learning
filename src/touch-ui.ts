@@ -62,7 +62,6 @@ function routeHtml(q: Question, state: TouchState, disabled: boolean): string {
     (maze ? i === 0 ? '🚂' : i === points.length - 1 ? '★' : '·' : i + 1) +
     '</text></g>').join('');
   const ink = state.ink.map(pointString).join(' ');
-  const next = state.done.length ? state.done.length + 1 : 1;
   return '<div class="touch-activity"><p class="touch-tip">' +
     (maze ? '🚂 から ★ まで ゆびで みちを なぞろう' :
       '1から じゅんに ゆびで せんを なぞろう') + '</p>' +
@@ -78,11 +77,7 @@ function routeHtml(q: Question, state: TouchState, disabled: boolean): string {
     dots + '</svg></div>' +
     '<p class="touch-tip" role="status">' + (state.message || 'はじめの まるから さいごまで、ゆびを はなさずに！') + '</p>' +
     '<button type="button" class="touch-reset" data-touch="restart"' + (disabled ? ' disabled' : '') +
-    '>↻ やりなおす</button>' +
-    '<details class="touch-fallback"' + (state.altOpen ? ' open' : '') +
-    '><summary>なぞるのが むずかしいとき</summary><p>じゅんばんに タップしても いいよ</p>' +
-    '<button type="button" data-touch="path-step"' + (disabled ? ' disabled' : '') +
-    '>● ' + next + ' ばんめの てん</button></details></div>';
+    '>↻ やりなおす</button></div>';
 }
 function clockAngle(hour: number, minute: number): number { return ((hour % 12) + minute / 60) * 30; }
 function clockSvg(hour: number, minute: number): string {
@@ -134,24 +129,12 @@ function resetRoute(state: TouchState, message = ''): TouchResult {
   state.last = null; state.message = message;
   return { finished: false, refresh: true };
 }
-/** Used by the accessible step-by-step alternative; the main control is finger tracing. */
-export function touchClick(q: Question, state: TouchState, action: string, index = -1): TouchResult {
+/** Buttons are reserved for restart and the separate clock-hand accessibility controls. */
+export function touchClick(q: Question, state: TouchState, action: string): TouchResult {
   if (!isTouchGame(q.gameId)) return { finished: false };
   if (action === 'restart') return resetRoute(state);
-  if (q.gameId === 'connect' || q.gameId === 'maze') {
-    const points = routePoints(q);
-    const next = state.done.length;
-    const requested = action === 'path-step' ? next :
-      q.gameId === 'connect' && action === 'connect' ? index - 1 :
-      q.gameId === 'maze' && action === 'maze' ? (q.visual.numbers ?? []).indexOf(index) : -1;
-    if (requested !== next || next >= points.length)
-      return { finished: false, refresh: true };
-    state.altOpen = true; state.done.push(next);
-    state.message = '';
-    if (state.done.length === points.length)
-      return { finished: true, value: q.answer, practice: true };
-    return { finished: false, refresh: true };
-  }
+  // Route tracing only accepts continuous pointer input; restart remains available.
+  if (q.gameId === 'connect' || q.gameId === 'maze') return { finished: false };
   const step = q.visual.step ?? 30;
   if (['hour-plus', 'hour-minus', 'minute-plus', 'minute-minus'].includes(action)) state.altOpen = true;
   if (action === 'hour-plus') state.hour = state.hour % 12 + 1;

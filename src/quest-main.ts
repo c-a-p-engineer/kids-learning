@@ -704,7 +704,11 @@ function onTracePointer(event: PointerEvent, phase: 'down' | 'move' | 'up' | 'ca
   const svg = event.target instanceof Element ? event.target.closest<SVGSVGElement>('[data-trace-board]') : null;
   if (!svg) return;
   if (phase === 'down' || phase === 'move') event.preventDefault();
+  const previousStroke = activityState.traceIndex;
   const result = tracePointer(session.deck[session.index], activityState, phase, event, svg);
+  // One gentle pulse after a completed stroke, never on every pointer movement.
+  if (activityState.traceIndex > previousStroke && result.kind !== 'submit')
+    haptic('tap', save.settings);
   if (result.kind === 'submit') completeActivity(result);
   else if (result.refresh || phase === 'up' || phase === 'cancel') render();
 }
@@ -775,8 +779,7 @@ app.addEventListener('click', event => {
   if (touchButton && page === 'game' && session?.phase === 'answer' && !session.locked &&
       touchState && isTouchGame(session.gameId)) {
     const q = session.deck[session.index];
-    const result = touchClick(q, touchState, touchButton.dataset.touch ?? '',
-      Number(touchButton.dataset.index ?? -1));
+    const result = touchClick(q, touchState, touchButton.dataset.touch ?? '');
     if (result.finished && result.value) answer(result.value, result.practice ? 'practice' : undefined);
     else render();
     return;
@@ -820,7 +823,7 @@ app.addEventListener('click', event => {
   if (action === 'home') { window.speechSynthesis?.cancel(); dismissEffects(); stopTimers();
     page = 'home'; session = null; activityState = null; touchState = null; workshopState = null; backupDraft = null; resetArmed = false; render(); }
   else if (action === 'stats' || action === 'skills' || action === 'world') {
-    dismissEffects(); stopTimers(); gameAudio.effect('tap');
+    dismissEffects(); stopTimers(); gameAudio.effect('tap'); haptic('tap', save.settings);
     page = action; render(); window.scrollTo({ top: 0, behavior: 'auto' });
   }
   else if (action === 'parent') { dismissEffects(); stopTimers(); page = 'parent';

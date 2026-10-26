@@ -31,60 +31,77 @@ const friendlyDay = (key: string): string => {
   const [year, month, day] = key.split('-').map(Number);
   return year + '/' + month + '/' + day;
 };
-/** 14-day chart with actual counts; includes zero days and full text fallback table. */
+/** Mobile-first growth dashboard. Seven readable days; detailed records are opt-in. */
 export function statusHtml(save: LearningSave, profileName: string, now: Date): string {
   const seven = recentSummary(save.daily, now, 7);
   const fourteen = recentDays(save.daily, now, 14);
+  const week = fourteen.slice(-7);
   const thirty = recentDays(save.daily, now, 30).reverse();
-  const max = Math.max(1, ...fourteen.map(x => x.log.answered));
-  const today = fourteen[13];
-  const todayGames = GAMES.filter(g => today.log.games[g.id]).map(g =>
-    '<span class="today-game">' + g.icon + ' ' + escape(g.title) + ' ×' + today.log.games[g.id] +
-    '</span>').join('');
-  const due = GAMES.reduce((n, g) => n + countDue(g.id, save, now.getTime()), 0);
+  const max = Math.max(1, ...week.map(day => day.log.answered));
+  const today = week[week.length - 1];
   const skills = skillSummary(save);
-  const bars = fourteen.map((day, index) => {
-    const n = day.log.answered;
-    const pct = n === 0 ? 0 : Math.max(5, Math.round(n / max * 100));
-    const label = friendlyDay(day.key) + ' ' + n + 'もん';
-    return '<div class="history-day' + (index === 13 ? ' is-today' : '') + '">' +
-      '<span class="history-number">' + (n || '') + '</span>' +
-      '<div class="history-rail"><span style="height:' + pct + '%"></span></div>' +
-      '<span class="history-date">' + Number(day.key.slice(-2)) + '日</span>' +
-      '<span class="sr-only">' + label + '</span></div>';
+  const due = GAMES.reduce((n, game) => n + countDue(game.id, save, now.getTime()), 0);
+  const todayGames = GAMES.filter(game => today.log.games[game.id]).map(game =>
+    '<span class="today-game">' + game.icon + ' ' + escape(game.title) + ' ×' + today.log.games[game.id] +
+    '</span>').join('');
+  const bars = week.map((day, index) => {
+    const count = day.log.answered;
+    const height = count ? Math.max(8, Math.round(count / max * 100)) : 0;
+    const label = friendlyDay(day.key) + ' ' + count + 'もん';
+    return '<div class="history-day' + (index === week.length - 1 ? ' is-today' : '') +
+      '" role="listitem" aria-label="' + label + '">' +
+      '<strong class="history-number">' + (count || '·') + '</strong>' +
+      '<div class="history-rail"><span style="height:' + height + '%"></span></div>' +
+      '<span class="history-date">' + Number(day.key.slice(-2)) + '<small>日</small></span></div>';
   }).join('');
-  const rows = thirty.filter(day => day.log.answered || day.log.clears || day.log.mistakes).map(({ key, log }) =>
-    '<tr><th scope="row">' + friendlyDay(key) + '</th><td>' + log.answered +
-    '</td><td>' + log.independent + '</td><td>' + log.practiced +
-    '</td><td>' + log.clears + '</td><td>' + log.xp + '</td><td>' +
-    (GAMES.filter(g => log.games[g.id]).map(g => g.icon + ' ' + escape(g.title)).join('・') || '—') +
-    '</td></tr>').join('');
-  return '<section class="growth-page"><button type="button" class="growth-back" data-action="home">← ホームへ</button>' +
-    '<h1>📊 ' + escape(profileName) + 'の ステータス</h1>' +
-    '<p class="growth-lead">がんばったことを たしかめよう。くらべるのは きのうの じぶん。</p>' +
+  const daysWithHistory = thirty.filter(day =>
+    day.log.answered || day.log.clears || day.log.mistakes || day.log.xp);
+  const records = daysWithHistory.map(({ key, log }) => {
+    const gameNames = GAMES.filter(game => log.games[game.id])
+      .map(game => game.icon + ' ' + escape(game.title)).join('・') || '—';
+    return '<details class="daily-record"><summary><span class="daily-record-date">' +
+      friendlyDay(key) + '</span><strong>' + log.answered + ' もん</strong>' +
+      '<span class="daily-record-reward">⭐ ' + log.xp + ' XP</span>' +
+      '<span class="daily-record-chevron" aria-hidden="true">⌄</span></summary>' +
+      '<div class="daily-record-body"><span>🙌 ひとりで ' + log.independent + '</span>' +
+      '<span>✍️ れんしゅう ' + log.practiced + '</span>' +
+      '<span>🏆 クリア ' + log.clears + '</span>' +
+      '<p>あそんだ ゲーム：' + gameNames + '</p></div></details>';
+  }).join('');
+  const cheer = today.log.answered
+    ? 'きょうも ぼうけんしたね！'
+    : 'きょうの ぼうけんを はじめよう！';
+  return '<section class="growth-page growth-dashboard">' +
+    '<button type="button" class="growth-back" data-action="home">← ホームへ</button>' +
+    '<header class="growth-hero"><span class="growth-hero-icon" aria-hidden="true">🚀</span>' +
+    '<div><p class="growth-kicker">MY ADVENTURE</p><h1>' + escape(profileName) +
+    'の せいちょう</h1><p class="growth-lead">' + cheer + '</p></div></header>' +
     buttons('stats') +
-    '<h2>いまの せいちょう</h2><div class="growth-stats">' +
-    stat(save.xp, 'ぜんぶの XP') + stat(save.sessions, 'あそんだ クエスト') +
-    stat(skills.unlocked + '/' + skills.total, 'ひらいた スキル') + stat(due, 'ふくしゅう まち') +
-    '</div><h2>きょうの きろく</h2><div class="growth-stats">' +
-    stat(today.log.answered, 'こたえた・やってみた') +
-    stat(today.log.independent, 'ひとりで せいかい') +
-    stat(today.log.practiced, 'からだ・なぞり') +
-    stat(today.log.clears, 'クリア') + '</div>' +
-    '<div class="today-games" aria-label="きょうクリアしたゲーム">' +
-    (todayGames || '<span class="growth-help">まだ クリアきろくは ないよ。</span>') + '</div>' +
-    '<h2>この 7にちかん</h2><div class="growth-stats">' +
-    stat(seven.days + '/7', 'あそんだ ひ') +
-    stat(seven.questions, 'とりくんだ かず') +
-    stat(seven.clears, 'クリア') + stat(seven.xp, 'ふえた XP') +
-    '</div><h2>まいにちの きろく</h2><p class="growth-help">さいきん14にちかん。ぼうグラフは こたえた・やってみた かず。</p>' +
-    '<div class="history-chart" role="img" aria-label="最近14日間の学習数">' + bars + '</div>' +
-    '<h2>さいきん30にちの きろく</h2><div class="daily-table-wrap"><table class="daily-table">' +
-    '<thead><tr><th>ひづけ</th><th>とりくみ</th><th>ひとりで</th><th>れんしゅう</th><th>クリア</th><th>XP</th><th>ゲーム</th></tr></thead>' +
-    '<tbody>' + (rows || '<tr><td colspan="7">まだ きろくが ないよ。クエストから はじめよう！</td></tr>') +
-    '</tbody></table></div>' +
-    '<p class="growth-note">※ この日別きろくは V2.6 からの分だけ。以前のXP・クリアは合計に残りますが、日付を後から推測しません。' +
-    'きろくはこの端末の、選んだキャラだけ。なぞりや運動の完了は学力の正答とは別です。</p></section>';
+    '<section class="growth-panel growth-overview" aria-label="これまでの せいちょう">' +
+    '<h2>✨ いままでの ぼうけん</h2><div class="growth-stats">' +
+    stat(save.xp, 'ためた XP') + stat(save.sessions, 'クエスト') +
+    stat(skills.unlocked + '/' + skills.total, 'スキル') + stat(due, 'ふくしゅう') +
+    '</div></section>' +
+    '<section class="growth-panel growth-today" aria-label="きょうの きろく">' +
+    '<h2>🌞 きょうの がんばり</h2><div class="growth-stats">' +
+    stat(today.log.answered, 'とりくみ') + stat(today.log.independent, 'ひとりで') +
+    stat(today.log.practiced, 'れんしゅう') + stat(today.log.clears, 'クリア') +
+    '</div><div class="today-games">' +
+    (todayGames || '<span class="growth-help">あそんだ ゲームが ここに でるよ。</span>') +
+    '</div></section>' +
+    '<section class="growth-panel growth-week" aria-label="7にちかんの がんばり">' +
+    '<h2>📈 7にちの ぼうけん</h2><p class="growth-help">ぼうが たかいほど たくさん がんばったよ！</p>' +
+    '<div class="history-chart" role="list" aria-label="最近7日間の取り組み数">' + bars + '</div>' +
+    '<div class="growth-week-total"><span>🌟 ' + seven.days + '/7 にち あそんだ</span>' +
+    '<span>✍️ ' + seven.questions + ' もん</span><span>🏆 ' + seven.clears + ' クリア</span>' +
+    '<span>✨ +' + seven.xp + ' XP</span></div></section>' +
+    '<section class="growth-panel growth-records" aria-label="日ごとの きろく">' +
+    '<h2>📒 さいきん30にちの きろく</h2>' +
+    '<p class="growth-help">ひづけを ひらくと くわしく みられるよ。</p>' +
+    '<div class="daily-record-list">' + (records || '<p class="growth-empty">まだ きろくが ないよ。あそんで ためよう！</p>') +
+    '</div></section>' +
+    '<p class="growth-note">※ 日別きろくは V2.6 から。以前のXP・クリアは合計に残りますが、日付は推測しません。' +
+    'きろくはこの端末の選んだキャラだけ。なぞり・運動の練習は、学力の正答と分けて集計しています。</p></section>';
 }
 export function skillTreeHtml(save: LearningSave, profileName: string, selected: ProgressCategory): string {
   const summary = skillSummary(save);

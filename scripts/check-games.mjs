@@ -245,10 +245,14 @@ for (const gameId of ['lines', 'trace']) {
     const guide = activity.TRACE_GUIDES[q.answer];
     assert(guide?.strokes.length >= 1);
     const state = activityUi.newActivityState(q);
+    assert(!activityUi.activityHtml(q, state).includes('trace-point'),
+      'tracing must not offer a tap-through shortcut');
+    assert.equal(activityUi.activityClick(q, state, 'trace-point', 0).kind, 'progress');
     let last;
     for (const stroke of guide.strokes) {
       for (let index = 0; index < stroke.length; index++) {
-        last = activityUi.activityClick(q, state, 'trace-point', index);
+        last = activityUi.traceSample(q, state,
+          index === 0 ? 'down' : index === stroke.length - 1 ? 'up' : 'move', stroke[index]);
       }
     }
     assert.equal(last.kind, 'submit', q.id);
@@ -365,8 +369,11 @@ assert.equal(progress.skillNodes('add', personOne.completed)[1].opened, true);
 assert.equal(progress.skillNodes('add', personOne.completed)[2].opened, false);
 assert.equal(progress.skillNodes('add', personOne.completed)[2].requiredClears, 4);
 const renderedStatus = progressUi.statusHtml(personOne, 'きつね', new Date(2026, 9, 26));
-assert(renderedStatus.includes('まいにちの きろく'));
+assert(renderedStatus.includes('7にちの ぼうけん'));
 assert(renderedStatus.includes('2026/10/26'));
+assert(renderedStatus.includes('daily-record-list'));
+assert(!renderedStatus.includes('daily-table'), 'status history should use narrow-screen cards');
+assert.equal((renderedStatus.match(/class="history-day/g) || []).length, 7);
 const renderedSkills = progressUi.skillTreeHtml(personOne, 'きつね', 'math');
 assert(renderedSkills.includes('たしざんロケット'));
 assert(!renderedSkills.includes('ことばトレジャー'));
@@ -416,12 +423,11 @@ for (let level = 1; level <= 5; level++) for (let i = 0; i < 80; i++) {
     const escaped = touchUi.traceRouteSample(q, out, 'move', [0, 0]);
     assert.equal(escaped.finished, false);
     assert.equal(out.drawing, false, 'going off the route must reset without a penalty');
-    // Accessible numbered fallback still completes the same question.
-    const accessible = touchUi.freshTouch();
-    let last;
-    for (let n = 0; n < pts.length; n++) last = touchUi.touchClick(q, accessible, 'path-step');
-    assert.equal(last.finished, true);
-    assert.equal(last.value, q.answer);
+    // Buttons cannot bypass tracing or silently finish the route.
+    assert(!touchUi.touchHtml(q, state, false).includes('path-step'));
+    const bypass = touchUi.freshTouch();
+    assert.equal(touchUi.touchClick(q, bypass, 'path-step').finished, false);
+    assert.equal(bypass.done.length, 0);
   }
   const q = engine.makeQuestion('clockhands', i, level);
   const clock = touchUi.freshTouch();
@@ -567,16 +573,18 @@ for (let lv = 1; lv <= 5; lv++) for (let i = 0; i < 80; i++) {
   const guide = activity.TRACE_GUIDES[q.answer];
   assert(guide.strokes.length >= 1);
   const state = activityUi.newActivityState(q);
+  assert(!activityUi.activityHtml(q, state).includes('trace-point'));
   let result;
   for (const stroke of guide.strokes) {
     for (let j = 0; j < stroke.length; j++)
-      result = activityUi.activityClick(q, state, 'trace-point', j);
+      result = activityUi.traceSample(q, state,
+        j === 0 ? 'down' : j === stroke.length - 1 ? 'up' : 'move', stroke[j]);
   }
   assert.equal(result.kind, 'submit', 'digit '+q.id);
   assert.equal(result.assisted, true);
 }
 assert.equal(activity.TRACE_GUIDES['4'].strokes.length, 2);
-console.log('PASS: 0-9 number tracing, stroke order and accessibility across 400 questions');
+console.log('PASS: 0-9 number tracing and stroke order across 400 questions, no tap bypass');
 
 
 // Persistent commits must be immutable; callers can safely recover from QuotaExceededError.

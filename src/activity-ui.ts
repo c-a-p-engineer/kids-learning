@@ -65,11 +65,6 @@ function traceHtml(q: Question, state: ActivityState, disabled: boolean): string
     '<circle cx="' + x + '" cy="' + y + '" r="' + (i === state.waypointIndex ? 10 : 6) +
     '" fill="' + (i < state.waypointIndex ? '#32ac8e' : '#f5b548') +
     '" stroke="#fff" stroke-width="2"/>').join('');
-  const alt = activeStroke.map((_, i) =>
-    '<button type="button" data-activity="trace-point" data-index="' + i + '"' +
-    (disabled || i !== state.altIndex ? ' disabled' : '') +
-    ' aria-label="' + (i + 1) + 'ばんめの てんを たどる" class="trace-step' +
-    (i < state.altIndex ? ' reached' : '') + '">' + (i + 1) + '</button>').join('');
   return '<div class="interactive trace-interactive"><p class="activity-instructions">' +
     (q.gameId === 'lines' ? 'まずは せんを なぞる れんしゅう！' : 'かく じゅんばんに ゆびで なぞろう！') +
     '</p><div class="trace-stroke-count" role="status"><strong>' + guide.label +
@@ -82,9 +77,7 @@ function traceHtml(q: Question, state: ActivityState, disabled: boolean): string
     '<p class="trace-rule">きいろい わくから でたら、いまの 1かくだけ やりなおしだよ。</p>' +
     '<button type="button" class="activity-undo" data-activity="trace-reset"' +
     (disabled ? ' disabled' : '') + '>↻ はじめから</button>' +
-    '<details class="trace-access"' + (state.altOpen ? ' open' : '') + '><summary>ゆびで なぞるのが むずかしいとき</summary>' +
-    '<p>てんを 1から じゅんばんに おしても いいよ。</p>' +
-    '<div class="trace-steps">' + alt + '</div></details></div>';
+    '</div>';
 }
 function blocksHtml(q: Question, state: ActivityState, disabled: boolean): string {
   const target = q.visual.a ?? 10;
@@ -173,17 +166,8 @@ export function activityClick(q: Question, state: ActivityState, action: string,
       state.visited.clear(); state.strokes = []; state.stroke = []; state.distance = 0;
       state.drawing = false; state.pointerId = null; state.lastPoint = null;
       state.altOpen = false; state.assisted = false; state.feedback = '';
-    } else if (action === 'trace-point') {
-      const stroke = guide.strokes[state.traceIndex];
-      if (stroke && index === state.altIndex) {
-        state.altOpen = true; state.assisted = true; state.altIndex++; state.waypointIndex = state.altIndex;
-        state.feedback = '';
-        if (state.altIndex === stroke.length) {
-          const result = finishTraceStroke(q, state);
-          if (result.kind === 'submit') return result;
-        }
-      } else state.feedback = '1から じゅんばんに てんを おそう。';
     }
+
   } else if (q.gameId === 'move') {
     if (action === 'move-done') return { kind: 'submit', value: q.answer, assisted: true };
     if (action === 'move-skip') return { kind: 'submit', value: q.answer, assisted: true, skipped: true };
