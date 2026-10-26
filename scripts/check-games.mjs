@@ -100,4 +100,57 @@ for (const game of engine.GAMES) {
   assert.equal(new Set(withDue.map(x => x.id)).size, 5);
 }
 assert.deepEqual([...memoryTargets].sort(), [0, 1, 2]);
+
+assert.equal(engine.MAX_LEVEL, 5);
+assert.equal(engine.CLEARS_PER_LEVEL, 2);
+for (let c = 0; c <= 15; c++) {
+  const expected = Math.min(5, 1 + Math.floor(c / 2));
+  assert.equal(engine.unlockedLevel(c), expected);
+  const p = engine.progressFor(c);
+  assert.equal(p.level, expected);
+  assert.equal(p.target, 2);
+  if (!p.maxed) assert.equal(p.current, c % 2);
+}
+// All 15 games must generate five distinct items with a correct option at levels 2–5.
+let advancedQuestions = 0;
+for (const game of engine.GAMES) {
+  for (let level = 2; level <= 5; level++) {
+    for (let i = 0; i < 80; i++) {
+      const q = engine.makeQuestion(game.id, i, level);
+      advancedQuestions++;
+      assert.equal(q.id, game.id + ':L' + level + ':' + i);
+      assert(q.choices.includes(q.answer), q.id + ': answer missing');
+      assert.equal(q.choices.length, new Set(q.choices).size, q.id + ': duplicate options');
+      if (['add','subtract','count','bond'].includes(game.id)) {
+        const a = q.visual.a, b = q.visual.b || 0;
+        const correct = Number(q.answer);
+        assert(correct >= 0 && correct <= 20);
+        if (game.id === 'add') assert.equal(a + b, correct);
+        if (game.id === 'subtract') assert.equal(a - b, correct);
+        if (game.id === 'count') assert.equal(a, correct);
+        if (game.id === 'bond') assert.equal(a + correct, b);
+      }
+      if (game.id === 'sequence') {
+        assert.equal(q.visual.numbers[0] + q.visual.step * 2, Number(q.answer));
+      }
+      if (game.id === 'clock') assert([0,5,10,15,20,25,30,35,40,45,50,55].includes(q.visual.minute));
+      if (game.id === 'memory') assert(q.visual.preview.includes(q.answer));
+      if (game.id === 'pattern') {
+        const xs = q.visual.preview;
+        const period = level >= 4 ? 3 : 2;
+        assert.equal(q.answer, xs[(xs.length) % period]);
+      }
+      if (game.id === 'odd') assert.equal(q.visual.preview.length, level >= 4 ? 5 : 4);
+    }
+    const save = engine.freshSave();
+    save.completed[game.id] = (level - 1) * 2;
+    assert.equal(engine.unlockedLevel(save.completed[game.id]), level);
+    const round = engine.chooseRound(game.id, save, now, 5, level);
+    assert.equal(round.length, 5);
+    assert.equal(round.length, new Set(round.map(q => q.id)).size);
+    assert(round.every(q => q.id.includes(':L' + level + ':')));
+  }
+}
+console.log('PASS: advanced levels ' + advancedQuestions + ' questions and earned unlock gates');
+
 console.log('PASS: 15 games × 80 cases, answer validity, arithmetic, finite rounds, recall scheduler');
