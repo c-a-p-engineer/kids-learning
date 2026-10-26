@@ -40,3 +40,9 @@ home → 5問中の1問 → （記憶ならpreview）→ answer → solved → �
 https://github.com/c-a-p-engineer/kids-learning/tree/archive/pre-dopagaki-20261026
 
 旧版の11ゲーム関連ソース52ファイルは現行ブランチから退役済み。復旧は退避ブランチまたは旧コミットで行う。
+
+
+## 2026-10-26 設定と表示の改善
+
+- src/game-audio.ts: WebAudioでBGM/効果音を合成。画面遷移・表示状態・利用者操作に連動して開始停止。独立音量を反映し、回答時やスライダー操作時には楽曲ループを再始動しない。
+- 設定画面（options）: BGM/SEのON/OFF、音量、演出ON/OFF。画面遷移前のクエスト状態を保持して戻る。音量値はV2既存データへのoptionalフィールド追加で、clampVolumeによる不正値補正を実施。
