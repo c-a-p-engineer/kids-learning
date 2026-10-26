@@ -8,7 +8,7 @@ import ts from 'typescript';
 
 // Transpile each dependency to a temporary ESM module: no extra runtime or test framework.
 const temp = mkdtempSync(join(tmpdir(), 'kids-learning-test-'));
-for (const moduleName of ['engine', 'activity-content', 'activity-ui', 'progression', 'progress-ui', 'touch-content', 'touch-ui', 'storage', 'trace-guides', 'session', 'workshop-content', 'workshop-ui', 'growth-world', 'parent-report', 'learning-commit']) {
+for (const moduleName of ['engine', 'activity-content', 'activity-ui', 'progression', 'progress-ui', 'touch-content', 'touch-ui', 'storage', 'trace-guides', 'session', 'workshop-content', 'workshop-ui', 'growth-world', 'parent-report', 'learning-commit', 'haptics']) {
   const source = readFileSync(new URL('../src/' + moduleName + '.ts', import.meta.url), 'utf8');
   const js = ts.transpileModule(source, {
     compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.ESNext }
@@ -29,6 +29,7 @@ const workshopUi = await import(pathToFileURL(join(temp, 'workshop-ui.mjs')).hre
 const world = await import(pathToFileURL(join(temp, 'growth-world.mjs')).href);
 const reporting = await import(pathToFileURL(join(temp, 'parent-report.mjs')).href);
 const commit = await import(pathToFileURL(join(temp, 'learning-commit.mjs')).href);
+const haptics = await import(pathToFileURL(join(temp, 'haptics.mjs')).href);
 const now = Date.UTC(2026, 9, 26);
 
 assert.equal(engine.GAMES.length, 28);
@@ -607,6 +608,32 @@ const restSession = session.createSession('move', 1, [engine.makeQuestion('move'
 const rested = commit.prepareClear(oldSave, restSession, oldDate);
 assert.equal(rested.completed.move, undefined, 'rest-only movement cannot unlock levels');
 console.log('PASS: immutable persistence candidates protect XP, daily logs, unlocks and rest outcomes');
+
+
+// Optional tactile feedback: disabled or unsupported devices are strictly no-op.
+assert.equal(engine.freshSave().settings.haptics, true);
+const migrated = storage.normalizeSave({ schema: 2, settings: { sound: true, bgm: true } });
+assert.equal(migrated.settings.haptics, true, 'existing V2 records must keep working');
+assert.equal(storage.normalizeSave({
+  schema: 2, settings: { haptics: false }
+}).settings.haptics, false, 'haptic preference must persist after reload');
+const emitted = [];
+const vibrate = pattern => { emitted.push(pattern); return true; };
+const enabled = { haptics: true, quiet: false };
+assert.equal(haptics.emitHaptic('correct', enabled, { vibrate }), true);
+assert.equal(haptics.emitHaptic('retry', enabled, { vibrate }), true);
+assert.equal(haptics.emitHaptic('level', enabled, { vibrate }), true);
+assert.deepEqual(emitted, [32, [35,45,35], [35,50,45,50,75]]);
+assert.equal(haptics.emitHaptic('tap', { haptics: false, quiet: false }, { vibrate }), false);
+assert.equal(haptics.emitHaptic('clear', { haptics: true, quiet: true }, { vibrate }), false);
+assert.equal(haptics.emitHaptic('correct', enabled, { vibrate, reducedMotion: true }), false);
+assert.equal(haptics.emitHaptic('correct', enabled, {}), false);
+assert.equal(haptics.emitHaptic('correct', enabled, { vibrate: () => { throw Error('unsupported'); } }), false);
+assert.equal(emitted.length, 3);
+const codeWithHaptics = readFileSync(new URL('../src/quest-main.ts', import.meta.url), 'utf8');
+assert(codeWithHaptics.includes('data-action="haptics"'));
+assert(codeWithHaptics.includes("action === 'test-haptics'"));
+console.log('PASS: haptics toggle, settings migration, device fallback, sensory reduction and feedback patterns');
 
 rmSync(temp, { recursive: true, force: true });
 
