@@ -278,8 +278,11 @@ export function nextReview(record: ReviewRecord | undefined, question: Question,
   return { question, stage, dueAt: now + intervals[stage] * 86400000, lastAnsweredAt: now, correct: independent };
 }
 export function chooseRound(gameId: GameId, save: LearningSave, now: number, size = 5, level = 1): Question[] {
-  const due = Object.values(save.reviews).filter(r => r.question.gameId === gameId && r.dueAt <= now)
-    .sort((a, b) => a.dueAt - b.dueAt).slice(0, 2).map(r => r.question);
+  const overdue = Object.values(save.reviews).filter(r => r.question.gameId === gameId && r.dueAt <= now)
+    .sort((a, b) => a.dueAt - b.dueAt);
+  // When the review backlog grows, increase recall opportunities without filling the whole round.
+  const due = overdue.slice(0, Math.min(Math.max(0, size - 1), overdue.length >= 3 ? 3 : 2))
+    .map(r => r.question);
   const seen = new Set(due.map(q => q.id));
   const result = [...due];
   const offset = save.completed[gameId] || 0;
