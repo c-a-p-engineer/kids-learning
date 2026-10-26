@@ -134,9 +134,9 @@ export function makeQuestion(gameId: GameId, index: number, level = 1): Question
     return { id, gameId, prompt: '「？」に はいる かずは？', visual: { kind: 'sequence', numbers: [a, a + step, -1, a + 3 * step], step }, choices: numberChoices(answer, i, lv === 1 ? 20 : 40), answer: String(answer), explanation: step + 'ずつ ふえているよ。' + answer + 'が はいるね！' };
   }
   if (gameId === 'compare') {
-    const max = lv <= 2 ? (lv === 1 ? 9 : 12) : 20;
+    const max = lv <= 2 ? (lv === 1 ? 9 : 12) : lv === 3 ? 16 : 20;
     const a = (i % max) + 1;
-    let b = ((i * 5 + 2 + Math.floor(i / max)) % max) + 1;
+    let b = lv === 5 ? (a === max ? max - 1 : a + 1) : ((i * 5 + 2 + Math.floor(i / max)) % max) + 1;
     if (a === b) b = a === max ? max - 1 : a + 1;
     const answer = a > b ? 'ひだり' : 'みぎ';
     return { id, gameId, prompt: 'おおきい かずは どっち？', visual: { kind: 'compare', a, b }, choices: ['ひだり', 'みぎ'], answer, explanation: String(Math.max(a, b)) + 'の ほうが おおきいね！' };
@@ -144,19 +144,19 @@ export function makeQuestion(gameId: GameId, index: number, level = 1): Question
   if (gameId === 'kana') {
     const item = ITEMS[i % ITEMS.length];
     const other = [...new Set(ITEMS.map(x => x.first).filter(x => x !== item.first))];
-    const choices = rotated([item.first, ...rotated(other, i).slice(0, Math.min(4, lv + 1))], i);
+    const choices = rotated([item.first, ...rotated(other, i).slice(0, Math.min(5, lv + 1))], i);
     return { id, gameId, prompt: 'この えの なまえ。はじめの もじは？', visual: { kind: 'picture', symbol: item.emoji }, choices, answer: item.first, explanation: '「' + item.word + '」の はじめは 「' + item.first + '」！' };
   }
   if (gameId === 'words') {
     const item = ITEMS[i % ITEMS.length];
     const distractors = ITEMS.filter(x => x.word !== item.word).map(x => x.word);
-    const choices = rotated([item.word, ...rotated(distractors, i).slice(0, Math.min(4, lv + 1))], i);
+    const choices = rotated([item.word, ...rotated(distractors, i).slice(0, Math.min(5, lv + 1))], i);
     return { id, gameId, prompt: 'この えと おなじ ことばは？', visual: { kind: 'picture', symbol: item.emoji }, choices, answer: item.word, explanation: item.emoji + 'は 「' + item.word + '」だね！' };
   }
   if (gameId === 'shapes') {
     const symbol = SHAPES[i % SHAPES.length];
     const distractors = SHAPES.filter(s => s !== symbol);
-    const choices = rotated([symbol, ...rotated(distractors, i).slice(0, Math.min(4, lv + 1))], i);
+    const choices = rotated([symbol, ...rotated(distractors, i).slice(0, Math.min(5, lv + 1))], i);
     return { id, gameId, prompt: 'おなじ かたちは どれ？', visual: { kind: 'shape', symbol }, choices, answer: symbol, explanation: 'この かたちが ぴったり！' };
   }
   if (gameId === 'memory') {
@@ -164,13 +164,13 @@ export function makeQuestion(gameId: GameId, index: number, level = 1): Question
     const span = lv <= 2 ? 3 : lv === 3 ? 4 : 5;
     const preview = Array.from({ length: span }, (_, j) => MEMORY[(at + j) % MEMORY.length]);
     const answer = preview[(i + Math.floor(i / 12)) % span];
-    const choices = rotated([answer, ...MEMORY.filter(x => !preview.includes(x)).slice(0, Math.min(4, lv + 1))], i);
+    const choices = rotated([answer, ...MEMORY.filter(x => !preview.includes(x)).slice(0, Math.min(5, lv + 1))], i);
     return { id, gameId, prompt: 'さっき あった えは どれ？', visual: { kind: 'memory', preview }, choices, answer, explanation: 'よく おぼえていたね！ ' + answer + 'が あったよ。' };
   }
   if (gameId === 'clock') {
     const hour = (i % 12) + 1;
     const minute = lv <= 2 ? (Math.floor(i / 12) % 2) * 30 :
-      lv === 3 ? (Math.floor(i / 12) % 4) * 15 : (Math.floor(i / 12) % 12) * 5;
+      lv <= 4 ? (Math.floor(i / 12) % 4) * 15 : (Math.floor(i / 12) % 12) * 5;
     const suffix = (mins: number) => mins === 0 ? '' : mins === 30 ? 'はん' : String(mins) + 'ふん';
     const answer = String(hour) + 'じ' + suffix(minute);
     const next = hour === 12 ? 1 : hour + 1;
@@ -192,10 +192,10 @@ export function makeQuestion(gameId: GameId, index: number, level = 1): Question
     const a = symbols[i % symbols.length], b = symbols[(i + 3) % symbols.length];
     const c = symbols[(i + 5) % symbols.length];
     const series = lv >= 4 ? [a,b,c] : [a,b];
-    const prefix = Array.from({ length: lv >= 3 ? 5 : (i % 2 === 0 ? 3 : 4) },
+    const prefix = Array.from({ length: lv === 5 ? 7 : lv >= 3 ? 5 : (i % 2 === 0 ? 3 : 4) },
       (_, j) => series[j % series.length]);
     const answer = series[prefix.length % series.length];
-    const choices = rotated([answer, ...symbols.filter(x => !series.includes(x)).slice(0, Math.min(4, lv + 1))], i);
+    const choices = rotated([answer, ...symbols.filter(x => !series.includes(x)).slice(0, Math.min(5, lv + 1))], i);
     return { id, gameId, prompt: 'ならびかたを みて、つぎは？',
       visual: { kind: 'pattern', preview: prefix }, choices, answer,
       explanation: 'おなじ ならびが くりかえされているね！ ' + answer + 'が つぎ！' };
@@ -216,7 +216,7 @@ export function makeQuestion(gameId: GameId, index: number, level = 1): Question
   if (gameId === 'odd') {
     const icons = ['🐱','🍎','🚂','🐰','🌻','🐟','🎈','🚌'];
     const a = icons[i % icons.length], b = icons[(i + 3) % icons.length];
-    const count = lv >= 4 ? 5 : 4;
+    const count = lv === 5 ? 6 : lv >= 4 ? 5 : 4;
     const answerIndex = (i * 3 + Math.floor(i / 4)) % count;
     const preview = Array.from({ length: count }, (_, pos) => pos === answerIndex ? b : a);
     const answer = String(answerIndex + 1);
@@ -231,7 +231,7 @@ export function makeQuestion(gameId: GameId, index: number, level = 1): Question
       { name:'むらさき', color:'#9c65ce' }, { name:'オレンジ', color:'#f28a37' }
     ];
     const chosen = swatches[i % swatches.length];
-    const choices = rotated([chosen.name, ...swatches.filter(x => x.name !== chosen.name).slice(0, Math.min(4, lv + 1)).map(x => x.name)], i);
+    const choices = rotated([chosen.name, ...swatches.filter(x => x.name !== chosen.name).slice(0, Math.min(5, lv + 1)).map(x => x.name)], i);
     return { id, gameId, prompt: 'この いろの なまえは？',
       visual: { kind: 'color', symbol: chosen.color }, choices, answer: chosen.name,
       explanation: 'この いろは 「' + chosen.name + '」！' };
