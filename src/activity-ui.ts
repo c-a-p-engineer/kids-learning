@@ -15,12 +15,14 @@ export interface ActivityState {
   lastPoint: [number, number] | null;
   distance: number;
   assisted: boolean;
+  altIndex: number;
+  altOpen: boolean;
   feedback: string;
 }
 export type ActivityResult = { kind: 'progress' | 'submit'; value?: string; assisted?: boolean; skipped?: boolean };
 export function newActivityState(q: Question): ActivityState {
   return { id: q.id, count: 0, usedTiles: [], visited: new Set(), strokes: [], stroke: [],
-    drawing: false, pointerId: null, lastPoint: null, distance: 0, assisted: false, feedback: '' };
+    drawing: false, pointerId: null, lastPoint: null, distance: 0, assisted: false, altIndex: 0, altOpen: false, feedback: '' };
 }
 const esc = (s: string): string => s.replace(/[&<>"']/g, c =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] ?? c);
@@ -60,7 +62,7 @@ function traceHtml(q: Question, state: ActivityState, disabled: boolean): string
     '<p class="activity-counter" role="status">てんを たどったよ：' + reached + '/' + total + '</p>' +
     '<button type="button" class="activity-undo" data-activity="trace-reset"' + (disabled ? ' disabled' : '') +
     '>↻ もういちど なぞる</button>' +
-    '<details class="trace-access"><summary>ゆびで かくのが むずかしいとき</summary>' +
+    '<details class="trace-access"' + (state.altOpen ? ' open' : '') + '><summary>ゆびで かくのが むずかしいとき</summary>' +
     '<p>てんを ばんごうじゅんに おしても れんしゅうできるよ。</p>' +
     '<div class="trace-steps">' + alt + '</div></details></div>';
 }
@@ -146,14 +148,14 @@ export function activityClick(q: Question, state: ActivityState, action: string,
   } else if (q.gameId === 'trace') {
     if (action === 'trace-reset') {
       state.visited.clear(); state.strokes = []; state.stroke = []; state.distance = 0;
-      state.assisted = false; state.feedback = '';
+      state.assisted = false; state.altIndex = 0; state.altOpen = false; state.feedback = '';
     } else if (action === 'trace-point') {
       const symbol = q.visual.symbol as TraceGlyph;
       const guide = TRACE_GUIDES[symbol];
-      if (guide && index === state.visited.size) {
-        state.visited.add(index); state.assisted = true;
+      if (guide && index === state.altIndex) {
+        state.visited.add(index); state.altIndex++; state.altOpen = true; state.assisted = true;
         state.feedback = 'てんを じゅんばんに たどろう！';
-        if (state.visited.size === guide.points.length)
+        if (state.altIndex === guide.points.length)
           return { kind: 'submit', value: q.answer, assisted: true };
       }
     }
