@@ -1,7 +1,7 @@
 import './game.css';
 import { gameAudio } from './game-audio';
 import { burst, dismissEffects } from './reward-effects';
-import { GAMES, STORAGE_KEY, clampVolume, chooseRound, countDue, evaluate, freshSave, isGameId, nextReview } from './engine';
+import { GAMES, STORAGE_KEY, MAX_LEVEL, CLEARS_PER_LEVEL, progressFor, unlockedLevel, clampVolume, chooseRound, countDue, evaluate, freshSave, isGameId, nextReview } from './engine';
 import type { GameId, LearningSave, Question, Visual } from './engine';
 
 const app = document.getElementById('app');
@@ -10,6 +10,7 @@ if (!app) throw new Error('Root #app not found');
 type Phase = 'preview' | 'answer' | 'solved';
 interface Session {
   gameId: GameId;
+  level: number;
   deck: Question[];
   index: number;
   right: number;
@@ -19,12 +20,46 @@ interface Session {
   attempts: number;
   hints: number;
   feedback: string;
+  locked: boolean;
   committed: Set<string>;
 }
 type AppPage = 'home' | 'game' | 'result' | 'parent' | 'options';
 let page: AppPage = 'home';
 let beforeOptions: Exclude<AppPage, 'options'> = 'home';
 let session: Session | null = null;
+let categoryFilter = 'all';
+let resetArmed = false;
+let autoAdvanceTimer: number | undefined;
+let unlockAnswerTimer: number | undefined;
+const AUTO_ADVANCE_MS = 1750;
+function stopTimers(): void {
+  if (autoAdvanceTimer !== undefined) window.clearTimeout(autoAdvanceTimer);
+  if (unlockAnswerTimer !== undefined) window.clearTimeout(unlockAnswerTimer);
+  autoAdvanceTimer = undefined;
+  unlockAnswerTimer = undefined;
+}
+function scheduleAdvance(): void {
+  if (!session || session.phase !== 'solved' || page !== 'game') return;
+  if (autoAdvanceTimer !== undefined) window.clearTimeout(autoAdvanceTimer);
+  const current = session, index = current.index;
+  autoAdvanceTimer = window.setTimeout(() => {
+    autoAdvanceTimer = undefined;
+    if (page === 'game' && session === current && current.index === index && current.phase === 'solved') next();
+  }, AUTO_ADVANCE_MS);
+}
+const CATEGORIES = [
+  { id: 'all', label: 'ぜんぶ', icon: '🌈' },
+  { id: 'math', label: 'かず・さんすう', icon: '🔢' },
+  { id: 'language', label: 'ことば', icon: '📖' },
+  { id: 'logic', label: 'かたち・きおく', icon: '🧩' },
+  { id: 'life', label: 'せいかつ', icon: '🌱' }
+] as const;
+function categoryOf(subject: string): string {
+  if (subject === 'さんすう') return 'math';
+  if (subject === 'こくご' || subject === 'ことば') return 'language';
+  if (subject === 'ずけい' || subject === 'きおく' || subject === 'かんがえる') return 'logic';
+  return 'life';
+}
 let slot = getSlot();
 let storageWarning = '';
 let save = loadSave();
@@ -110,6 +145,8 @@ function saveNow(): void {
 function setSlot(next: number): void {
   if (!Number.isInteger(next) || next < 1 || next > 4) return;
   dismissEffects();
+  stopTimers();
+  resetArmed = false;
   gameAudio.effect('profile');
   slot = next;
   try { localStorage.setItem('kids_learning_active_slot_v2', String(slot)); } catch { /* in-memory only */ }
@@ -137,14 +174,26 @@ function homeHtml(): string {
     '" style="--profile-color:' + p.color + '" data-slot="' + p.id +
     '" aria-pressed="' + (p.id === slot) + '"><span aria-hidden="true">' + p.icon +
     '</span><strong>' + p.name + '</strong></button>').join('');
-  const cards = GAMES.map((game, i) => {
+  const categories = CATEGORIES.map(category => {
+    const total = category.id === 'all' ? GAMES.length :
+      GAMES.filter(game => categoryOf(game.subject) === category.id).length;
+    return '<button type="button" class="category-chip' + (category.id === categoryFilter ? ' chosen' : '') +
+      '" data-category="' + category.id + '" aria-pressed="' + (category.id === categoryFilter) +
+      '">' + category.icon + ' ' + category.label + '<span>' + total + '</span></button>';
+  }).join('');
+  const visible = GAMES.filter(game => categoryFilter === 'all' || categoryOf(game.subject) === categoryFilter);
+  const cards = visible.map(game => {
     const dueCount = countDue(game.id, save, Date.now()), total = save.completed[game.id] ?? 0;
+    const progress = progressFor(total);
+    const short = progress.maxed ? '🏆 さいこうレベル！' : '🔓 つぎまで ' + progress.current + '/' + progress.target;
     return '<button type="button" class="quest-card" style="--accent:' + game.color + '" data-game="' + game.id +
-      '"><span class="quest-number">' + safe(game.subject) + ' · QUEST ' + String(i + 1).padStart(2, '0') + '</span>' +
+      '"><span class="quest-number">' + safe(game.subject) + '</span>' +
       '<span class="quest-icon">' + game.icon + '</span><span class="quest-title">' + safe(game.title) + '</span>' +
       '<span class="quest-description">' + safe(game.description) + '</span>' +
-      '<span class="quest-meta">' + (dueCount ? '🔁 ふくしゅう ' + dueCount + 'こ' : '🌱 5もんチャレンジ') +
-      ' · ' + (total ? '🏅 ' + total + 'かいクリア' : 'はじめての ぼうけん') + '</span></button>';
+      '<span class="quest-level">⭐ レベル ' + progress.level + '/' + MAX_LEVEL + '</span>' +
+      '<div class="level-progress" aria-label="レベル解放までのクリア進捗 ' + progress.current + '/' + progress.target +
+      '"><span style="width:' + Math.round(progress.current / progress.target * 100) + '%"></span></div>' +
+      '<span class="quest-meta">' + short + (dueCount ? ' · 🔁 ' + dueCount + 'もん' : '') + '</span></button>';
   }).join('');
   return layout('<section class="hero"><div class="hero-content"><p class="eyebrow">HELLO, LITTLE HERO!</p>' +
     '<h1>きょうの <span>ぼうけん</span>に<br>しゅっぱつ！</h1>' +
@@ -155,12 +204,20 @@ function homeHtml(): string {
     '<section class="select-profile" aria-label="ぼうけんの なかまを えらぶ"><strong>ぼうけんの なかまを えらぼう！</strong><div class="profile-row">' +
     profiles + '</div></section>' +
     '<section class="quests"><div class="section-header"><h2>クエストを えらぼう</h2><p>すきなものから はじめていいよ！</p></div>' +
+    '<nav class="category-tabs" aria-label="がくしゅう ぶんや">' + categories + '</nav>' +
     '<div class="quest-grid">' + cards + '</div></section>' +
     '<div class="home-bottom">⏱ 1ゲーム 5もんで おしまい。いつでも おわって いいよ。</div>');
 }
 function dots(n: number, faded = 0): string {
-  let html = '<div class="dot-row" aria-hidden="true">';
-  for (let i = 0; i < n; i++) html += '<span class="dot' + (i >= n - faded ? ' dot-faded' : '') + '"></span>';
+  // Exactly five per group, including 10/15/20. On phones groups wrap rather than shrinking dots.
+  let html = '<div class="dot-row dot-groups" aria-hidden="true">';
+  for (let start = 0; start < n; start += 5) {
+    html += '<span class="dot-pack">';
+    for (let i = start; i < Math.min(start + 5, n); i++) {
+      html += '<span class="dot' + (i >= n - faded ? ' dot-faded' : '') + '"></span>';
+    }
+    html += '</span>';
+  }
   return html + '</div>';
 }
 function analogClock(hour: number, minute: number): string {
@@ -215,16 +272,18 @@ function gameHtml(): string {
   const number = session.index + 1, percent = (session.index / session.deck.length) * 100;
   const memoryPreview = q.visual.kind === 'memory' && session.phase === 'preview';
   const solved = session.phase === 'solved';
+  const locked = session.locked;
   const options = memoryPreview ? '<button type="button" class="primary-btn" data-action="remember">おぼえた！ こたえる ➜</button>' :
     '<div class="answer-instruction">こたえを ひとつ えらんでね</div><div class="answer-grid">' +
     q.choices.map(choice => '<button type="button" class="answer-btn" aria-label="こたえ ' + safe(choice) +
-      '" data-answer="' + safe(choice) + '"' + (solved ? ' disabled' : '') +
+      '" data-answer="' + safe(choice) + '"' + (solved || locked ? ' disabled' : '') +
       '><span class="answer-choice">' + safe(choice) + '</span></button>').join('') + '</div>';
   const hint = !memoryPreview && !solved ? '<button type="button" class="hint-btn" data-action="hint">💡 ヒントを みる</button>' : '';
   const feedback = session.feedback ? '<div class="feedback ' + (solved ? 'feedback-good' : 'feedback-try') +
     '" role="status">' + safe(session.feedback) + '</div>' : '';
   return layout('<section class="play-head"><button type="button" class="back-btn" data-action="home">← もどる</button>' +
-    '<span class="pill">' + safe(game.title) + '</span><span class="pill">' + number + ' / ' + session.deck.length + '</span></section>' +
+    '<span class="pill">' + safe(game.title) + ' · LV ' + session.level + '/' + MAX_LEVEL +
+    '</span><span class="pill">' + number + ' / ' + session.deck.length + '</span></section>' +
     '<div class="progress" role="progressbar" aria-label="もんだいの すすみぐあい" aria-valuemin="0" aria-valuemax="5" aria-valuenow="' +
     session.index + '"><div style="width:' + percent + '%"></div></div>' +
     '<section class="challenge" style="--accent:' + game.color + '"><div class="challenge-tag">' + game.icon + ' QUESTION ' + number + '</div>' +
@@ -233,7 +292,8 @@ function gameHtml(): string {
     (memoryPreview ? '<p class="memory-note">じかんは きにしなくて いいよ。おぼえたら ボタンを おしてね。</p>' : '') +
     '<button type="button" class="read-btn" data-action="speak">🔊 もんだいを きく</button>' +
     '<div class="answers">' + options + '</div>' + feedback + hint +
-    (solved ? '<button type="button" class="primary-btn next-btn" data-action="next">' +
+    (solved ? '<div class="auto-next" role="status">✨ じどうで つぎへ すすむよ…</div>' +
+      '<button type="button" class="primary-btn next-btn" data-action="next">' +
       (number === session.deck.length ? '🎉 けっかを みる' : 'つぎの もんだい ➜') + '</button>' : '') +
     '</section><p class="play-note">まちがえても だいじょうぶ。なんかいでも かんがえられるよ。</p>');
 }
@@ -243,6 +303,10 @@ function resultHtml(): string {
   return layout('<section class="result-card"><div class="result-emoji" aria-hidden="true">' + game.icon + '🏆</div>' +
     '<p class="eyebrow">QUEST CLEAR!</p><h1>クエスト クリア！</h1>' +
     '<p>' + safe(activeProfile().name) + '、' + safe(game.title) + ' を がんばったね！</p>' +
+    '<div class="unlock-result">⭐ レベル ' + progressFor(save.completed[game.id] ?? 0).level +
+    '/' + MAX_LEVEL + (progressFor(save.completed[game.id] ?? 0).level > session.level ?
+    ' 🎊 あたらしい レベルが ひらいた！' :
+    ' · ' + progressFor(save.completed[game.id] ?? 0).current + '/' + CLEARS_PER_LEVEL + ' クリア') + '</div>' +
     '<div class="result-scores"><div><strong>' + session.right + '</strong><small>ひとりで できた</small></div>' +
     '<div><strong>' + session.helped + '</strong><small>ヒントで できた</small></div>' +
     '<div><strong>' + session.deck.length + '</strong><small>クリアした もんだい</small></div></div>' +
@@ -294,8 +358,15 @@ function parentHtml(): string {
     '<p class="footnote">※習得の推定値です。学校の到達度評価や発達診断ではありません。</p>' +
     '<h2>ゲーム別の進捗</h2><div class="table-wrap"><table><thead><tr><th>ゲーム</th><th>クリア</th><th>復習待ち</th></tr></thead>' +
     '<tbody>' + rows + '</tbody></table></div>' +
-    '<div class="parent-actions"><button type="button" class="secondary-btn" data-action="export">⬇ このプレイヤーの記録を保存</button>' +
-    '<p>旧版の学習記録は削除しません。新版は別のキーに保存しています。記録の移行・統合はまだ行っていません。</p></div></section>', true);
+    '<div class="parent-actions"><button type="button" class="secondary-btn" data-action="export">⬇ このキャラのきろくを ほぞん</button>' +
+    '<h2>きろくの リセット</h2>' +
+    '<p>このキャラの学習記録（XP・クリア・復習）だけを最初に戻します。音量設定、ほかの3キャラ、旧版データは残ります。</p>' +
+    (resetArmed ? '<div class="reset-confirm" role="alert"><strong>ほんとうに ' + safe(activeProfile().name) +
+      ' のきろくを けしますか？</strong><p>もどせません。必要なら先に「きろくを ほぞん」してください。</p>' +
+      '<div class="reset-actions"><button type="button" class="danger-btn" data-action="reset-now">はい、リセットする</button>' +
+      '<button type="button" class="secondary-btn" data-action="reset-cancel">やめる</button></div></div>' :
+      '<button type="button" class="reset-open" data-action="reset-open">🗑️ このキャラのきろくを リセット</button>') +
+    '<p>旧版の学習記録は削除しません。新版は別のキーに保存しています。</p></div></section>', true);
 }
 function render(): void {
   if (!app) return;
@@ -308,9 +379,11 @@ function render(): void {
   gameAudio.setScene(page);
 }
 function startGame(id: GameId): void {
-  const deck = chooseRound(id, save, Date.now());
-  session = { gameId: id, deck, index: 0, right: 0, helped: 0, wrong: 0, phase: deck[0].visual.kind === 'memory' ? 'preview' : 'answer',
-    attempts: 0, hints: 0, feedback: '', committed: new Set() };
+  stopTimers();
+  const level = unlockedLevel(save.completed[id] ?? 0);
+  const deck = chooseRound(id, save, Date.now(), 5, level);
+  session = { gameId: id, level, deck, index: 0, right: 0, helped: 0, wrong: 0, phase: deck[0].visual.kind === 'memory' ? 'preview' : 'answer',
+    attempts: 0, hints: 0, feedback: '', locked: false, committed: new Set() };
   page = 'game';
   gameAudio.effect('select');
   render();
