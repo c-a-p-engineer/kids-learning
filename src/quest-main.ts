@@ -307,7 +307,7 @@ function gameHtml(): string {
 function resultHtml(): string {
   if (!session) return homeHtml();
   const game = GAMES.find(g => g.id === session?.gameId)!;
-  const practice = session.gameId === 'trace' || session.gameId === 'move' || session.gameId === 'connect' || session.gameId === 'maze';
+  const practice = session.gameId === 'trace' || session.gameId === 'lines' || session.gameId === 'move' || session.gameId === 'connect' || session.gameId === 'maze';
   return layout('<section class="result-card"><div class="result-emoji" aria-hidden="true">' + game.icon + '🏆</div>' +
     '<p class="eyebrow">QUEST CLEAR!</p><h1>クエスト クリア！</h1>' +
     '<p>' + safe(activeProfile().name) + '、' + safe(game.title) + ' を がんばったね！</p>' +
@@ -453,7 +453,8 @@ function makeHint(q: Question): string {
     case 'category': return 'どこで みかける ものかな？';
     case 'odd': return 'いちばん おおい えと ちがう えを さがそう。';
     case 'colors': return 'まわりに おなじ いろの ものは あるかな？';
-    case 'trace': return 'ゆびを ゆっくり うごかして てんを つなごう。';
+    case 'trace': return 'あおい スタートから、きいろの わくの なかを ひとふでで なぞろう。';
+    case 'lines': return 'まず まっすぐな せんから、ゆっくり なぞってみよう。';
     case 'blocks': return '5こずつ まとめて かぞえてみよう。';
     case 'train': return 'えの なまえを ゆっくり こえに だしてみよう。';
     case 'move': return 'できる ところだけ まねしてみよう。むりしなくて いいよ。';
@@ -623,14 +624,14 @@ function completeActivity(result: ActivityResult): void {
   else render();
 }
 function onTracePointer(event: PointerEvent, phase: 'down' | 'move' | 'up' | 'cancel'): void {
-  if (page !== 'game' || session?.gameId !== 'trace' || session.phase !== 'answer' ||
+  if (page !== 'game' || (session?.gameId !== 'trace' && session?.gameId !== 'lines') || session?.phase !== 'answer' ||
       session.locked || !activityState) return;
   const svg = event.target instanceof Element ? event.target.closest<SVGSVGElement>('[data-trace-board]') : null;
   if (!svg) return;
   if (phase === 'down' || phase === 'move') event.preventDefault();
   const result = tracePointer(session.deck[session.index], activityState, phase, event, svg);
   if (result.kind === 'submit') completeActivity(result);
-  else if (phase === 'up' || phase === 'cancel') render();
+  else if (result.refresh || phase === 'up' || phase === 'cancel') render();
 }
 for (const [eventType, phase] of [
   ['pointerdown', 'down'], ['pointermove', 'move'], ['pointerup', 'up'], ['pointercancel', 'cancel']
