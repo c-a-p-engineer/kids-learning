@@ -24,6 +24,12 @@ export function prepareAnswer(save: LearningSave, q: Question, kind: LearningEve
   recordDaily(data, when, q.gameId, kind, earned);
   return { data, recalled };
 }
+/** A wrong tap updates only daily mistakes and never silently loses persistence errors. */
+export function prepareMistake(save: LearningSave, q: Question, when: Date): LearningSave {
+  const data = workingCopy(save, when);
+  recordDaily(data, when, q.gameId, 'mistake');
+  return data;
+}
 /** Persist only at the five-question boundary, preserving previous data on a failed write. */
 export function prepareClear(save: LearningSave, session: Session, when: Date): LearningSave {
   const data = workingCopy(save, when);
