@@ -22,9 +22,9 @@ export const GAMES = [
   { id: 'blocks', title: 'かずの ブロックこうじょう', icon: '🧱', subject: 'さんすう', description: 'ブロックを いれて かずを つくろう', color: '#56bd9f' },
   { id: 'train', title: 'ことば れっしゃ', icon: '🚃', subject: 'こくご', description: 'もじの しゃりょうを じゅんに つなごう', color: '#779de6' },
   { id: 'move', title: 'からだ まねっこ', icon: '🙌', subject: 'うんどう', description: 'おててや あしを ゆっくり うごかそう', color: '#d38ddc' },
-  { id: 'connect', title: 'てんを つなごう', icon: '🖊️', subject: 'うんぴつ', description: '1から じゅんに てんを タップ', color: '#e99975' },
-  { id: 'maze', title: 'でんしゃの めいろ', icon: '🚂', subject: 'かんがえる', description: 'みちを つないで ほしへ いこう', color: '#7cbdb3' },
-  { id: 'clockhands', title: 'とけいを つくろう', icon: '🕰️', subject: 'せいかつ', description: 'はりを うごかして じかんを あわせよう', color: '#7f9bdc' }
+  { id: 'connect', title: 'てんを つなごう', icon: '🖊️', subject: 'うんぴつ', description: '1から じゅんに ゆびで せんを なぞろう', color: '#e99975' },
+  { id: 'maze', title: 'でんしゃの めいろ', icon: '🚂', subject: 'かんがえる', description: 'でんしゃを ゆびで なぞって ゴールへ', color: '#7cbdb3' },
+  { id: 'clockhands', title: 'とけいを つくろう', icon: '🕰️', subject: 'せいかつ', description: 'とけいの はりを つかんで うごかそう', color: '#7f9bdc' }
 ] as const;
 
 export const MAX_LEVEL = 5;
