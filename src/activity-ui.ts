@@ -13,7 +13,7 @@ export interface ActivityState {
   stroke: string[];
   drawing: boolean;
   pointerId: number | null;
-  lastPoint: [number, number] | null;
+  lastPoint: Point | null;
   distance: number;
   assisted: boolean;
   altIndex: number;
