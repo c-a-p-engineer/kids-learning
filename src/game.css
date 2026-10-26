@@ -291,3 +291,43 @@ main{padding:7px 12px 20px}.hero{padding:25px 18px;min-height:210px;border-radiu
 @media(prefers-reduced-motion:reduce){
   .level-progress span{transition:none}
 }
+
+
+/* V2.4 — User-adjustable typography. Use rems so OS browser default also remains respected. */
+html{font-size:var(--learning-font-percent,100%)}
+.text-size-options{border-color:#c4d6f5;background:#eef4ff}
+.text-size-preview{display:flex;flex-direction:column;align-items:flex-start;gap:8px;
+  margin:14px 0 4px;padding:18px;border:2px solid #ccdaf7;border-radius:16px;
+  background:white;color:#303f77;line-height:1.55;overflow-wrap:break-word}
+.text-size-preview span{font-size:1.12rem;font-weight:800}
+.text-size-preview strong{font-size:1.4rem;line-height:1.5;word-break:keep-all}
+.text-size-preview small{font-size:1rem;color:#556a9b;font-weight:700}
+.text-size-slider{accent-color:#5268bc}
+.answer-grid.long-choices{grid-template-columns:repeat(auto-fit,minmax(min(100%,13rem),1fr))}
+.answer-grid.long-choices .answer-btn{min-height:75px;padding:13px 12px}
+.answer-grid.long-choices .answer-choice{font-size:clamp(1.45rem,5.8vw,2.25rem)!important;
+  line-height:1.45;word-break:keep-all;overflow-wrap:break-word}
+.options-heading>div{min-width:0}
+.play-head{flex-wrap:wrap}
+.play-head>.pill{max-width:100%;white-space:normal;overflow-wrap:anywhere;text-align:center}
+.challenge h1{overflow-wrap:break-word}
+.feedback{overflow-wrap:break-word}
+@media(max-width:630px){
+  .topbar{min-height:70px;height:auto;flex-wrap:wrap;row-gap:4px;padding-block:8px}
+  .top-actions{margin-left:auto}
+  .brand{min-width:0}
+  .quest-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .learning-text-large .quest-grid{grid-template-columns:1fr}
+  .learning-text-large .quest-card{min-height:155px}
+  .challenge{max-width:100%}
+  .answer-grid.long-choices{grid-template-columns:1fr}
+  .answer-grid.long-choices .answer-btn{min-height:72px}
+  .answer-grid.long-choices .answer-choice{font-size:clamp(1.45rem,6vw,2.25rem)!important}
+  .options-panel .options-heading{flex-wrap:wrap}
+  .text-size-preview{padding:13px}
+  .play-head .pill{font-size:.8rem}
+}
+@media(max-width:375px){
+  .learning-text-large .topbar .brand{font-size:.86rem}
+  .learning-text-large .level-pill{display:none}
+}
