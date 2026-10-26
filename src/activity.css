@@ -1,0 +1,60 @@
+/* V2.5: task-specific interactive activities. Keep existing question UI untouched. */
+.interactive{width:100%;display:flex;flex-direction:column;align-items:center;gap:13px}
+.activity-instructions{max-width:38rem;text-align:center;color:#4f6188;font-weight:850;line-height:1.65;margin:8px 0 2px}
+.activity-message{width:100%;padding:11px;border-radius:13px;background:#e7f7ef;color:#24624d;font-weight:800}
+.activity-controls{display:flex;justify-content:center;flex-wrap:wrap;gap:12px;width:100%}
+.activity-controls button,.activity-undo,.trace-step,.move-buttons button,.train-tile{
+  min-height:50px;border:2px solid #c6dafa;border-bottom-width:5px;border-radius:15px;
+  background:#f9fbff;color:#293b73;font-weight:900;touch-action:manipulation}
+.activity-controls button{font-size:1.1rem;padding:13px 19px;flex:1;min-width:120px;max-width:195px}
+.activity-controls button:active,.train-tile:active,.trace-step:active{transform:translateY(3px)}
+.interactive button:disabled{opacity:.47;cursor:default;transform:none}
+.activity-undo{background:#f0f4ff;font-size:.94rem;padding:10px 18px}
+.trace-board{width:min(100%,340px);padding:10px;border-radius:24px;background:linear-gradient(155deg,#eef8ff,#f7fffa);
+  border:3px solid #beddee;box-shadow:0 8px 0 #d3e2f1;overflow:hidden}
+.trace-board svg{display:block;aspect-ratio:1/1;width:100%;height:auto;pointer-events:all;touch-action:none;user-select:none;-webkit-user-select:none}
+.trace-board svg circle,.trace-board svg path{pointer-events:none}
+.activity-counter{font-size:1.05rem;color:#3b6582;font-weight:900;margin:0}
+.trace-access{width:100%;max-width:420px;border:2px solid #d9e5f9;background:#f7faff;border-radius:17px;padding:12px 16px}
+.trace-access summary{min-height:44px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-weight:900;color:#51649c}
+.trace-access p{color:#54698c;line-height:1.6;text-align:center}
+.trace-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.trace-step{min-width:0;font-size:1.1rem}
+.trace-step.reached{background:#d4f6e8;border-color:#90d7b8}
+.build-status{display:flex;align-items:center;justify-content:center;gap:20px;flex-wrap:wrap;font-weight:900;color:#4d5f8e}
+.build-status span{font-size:1.15rem}.build-status strong{font-size:1.6rem;color:#236b64}
+.build-groups{width:100%;display:flex;flex-direction:column;align-items:center;gap:9px;padding:18px 7px;
+  background:#eff5ff;border-radius:20px;border:2px solid #d0e3fb}
+.build-group{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;padding:8px 12px;
+  border:2px solid #d3e3fc;background:white;border-radius:14px}
+.build-dot{width:clamp(30px,7vw,46px);height:clamp(30px,7vw,46px);border-radius:11px;background:#edf2f9;
+  border:3px dashed #cbdaf0}
+.build-dot.filled{background:linear-gradient(125deg,#ffc95d,#eda536);border:3px solid white;
+  box-shadow:0 4px 0 #d99d3f,0 0 0 1px #f2c771}
+.machine{font-size:2.7rem;animation:bob 2.8s ease-in-out infinite}
+.train-mascot{font-size:5.5rem;line-height:1.3}
+.train-slots{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;width:100%}
+.train-slot{display:flex;align-items:center;justify-content:center;width:clamp(48px,13vw,77px);
+  height:clamp(62px,17vw,87px);font-size:2rem;font-weight:950;border-radius:13px;
+  border:3px dashed #b9cbeb;background:#f2f6fd;color:#a3b5d6}
+.train-slot.placed{border:3px solid #7dabd6;color:#3a5896;background:#e3f4ff}
+.train-track{font-size:1.2rem;color:#9ab0cf;max-width:100%;overflow:hidden}
+.train-tiles{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.train-tile{min-width:61px;min-height:72px;font-size:2rem;padding:10px 15px;background:#ffefc8;border-color:#efd08e}
+.move-icon{font-size:clamp(5rem,22vw,8rem);filter:drop-shadow(0 7px 0 #dfe8f6)}
+.move-name{font-size:clamp(1.4rem,5vw,2rem);color:#334b89;font-weight:900;margin:0}
+.move-instructions{font-size:clamp(1.15rem,4vw,1.55rem);font-weight:800;margin:5px 0;line-height:1.7}
+.move-seated{background:#eaf5ff;color:#3f678b;font-weight:800;padding:13px 18px;border-radius:15px;line-height:1.55;margin:5px 0}
+.move-safety{font-size:.86rem;color:#64748d;text-align:center;line-height:1.7;max-width:35rem;margin:7px 0 0}
+.move-buttons{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;width:100%}
+.move-buttons button{min-height:68px;padding:14px 20px;font-size:1.06rem}
+.move-buttons .move-done{background:#ffcd6a;border-color:#e7a846;color:#634615}
+.move-buttons .move-skip{background:#ecf2ff}
+@media(max-width:630px){
+  .interactive{gap:10px}.build-group{gap:6px;padding:8px}.build-dot{width:clamp(28px,7vw,42px);height:clamp(28px,7vw,42px)}
+  .activity-controls button{min-width:100px;max-width:none}
+  .train-slot{font-size:1.65rem}.train-tile{font-size:1.8rem;min-width:53px}
+  .move-buttons{flex-direction:column}.move-buttons button{width:100%}
+}
+@media(prefers-reduced-motion:reduce){.machine{animation:none}}
+.quiet-mode .machine{animation:none}
