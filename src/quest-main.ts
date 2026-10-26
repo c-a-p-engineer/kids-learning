@@ -8,6 +8,7 @@ import { freshWorkshop, workshopHtml, workshopClick } from './workshop-ui';
 import type { WorkshopState } from './workshop-ui';
 import { worldHtml, worldProgress } from './growth-world';
 import { parentPeriod, learningCsv } from './parent-report';
+import { prepareAnswer, prepareClear } from './learning-commit';
 import { createSession, advanceSession, attemptOutcome } from './session';
 import type { Session, AnswerMode } from './session';
 import { isTouchGame } from './touch-content';
@@ -510,19 +511,27 @@ function answer(choice: string, mode?: AnswerMode): void {
   }
   const event = q.id + '|' + session.index;
   if (session.committed.has(event)) return;
-  session.committed.add(event);
   const { independent, earned, kind } = attemptOutcome(session.attempts, session.hints, mode);
   const practice = mode !== undefined;
+  const prepared = prepareAnswer(save, q, kind, independent, earned, new Date());
+  try {
+    persistSlot(localStorage, slot, prepared.data);
+    save = prepared.data;
+    if (storageWarning.startsWith('ほぞんできません')) storageWarning = '';
+  } catch {
+    // No XP/review/daily count is committed when persistence fails.
+    session.attempts = Math.max(0, session.attempts - 1);
+    session.feedback = 'きろくを ほぞんできなかったよ。ほごしゃに つたえてね。';
+    storageWarning = 'ほぞんできません。ブラウザの あきようりょうを かくにんしてください。';
+    render();
+    return;
+  }
+  session.committed.add(event);
   if (mode === 'skip') session.skipped++;
   else if (mode === 'practice') session.practiced++;
   else if (independent) session.right++;
   else session.helped++;
-  const recalled = !practice && Boolean(save.reviews[q.id]?.dueAt && save.reviews[q.id].dueAt <= Date.now());
-  // Tracing and self-reported movement are practice, NOT validated recall or motor proficiency.
-  if (!practice) save.reviews[q.id] = nextReview(save.reviews[q.id], q, independent, Date.now());
-  save.xp += earned;
-  recordDaily(save, new Date(), q.gameId, kind, earned);
-  saveNow();
+  const recalled = prepared.recalled;
   session.phase = 'solved';
   session.feedback = mode === 'skip' ? '🌱 みてくれて ありがとう。つぎへ いこう！' :
     (practice ? '✨ やってみたね！ ' : independent ? '✨ せいかい！ じぶんで できた！ ' :
@@ -536,12 +545,17 @@ function next(): void {
   if (!session || session.phase !== 'solved' || page !== 'game') return;
   stopTimers();
   if (session.index === session.deck.length - 1) {
-    save.sessions++;
-    recordDaily(save, new Date(), session.gameId, 'clear');
-    // Rest-only movement sessions are welcome, but do not unlock harder levels.
-    if (session.gameId !== 'move' || session.practiced > 0)
-      save.completed[session.gameId] = (save.completed[session.gameId] ?? 0) + 1;
-    saveNow();
+    const prepared = prepareClear(save, session, new Date());
+    try {
+      persistSlot(localStorage, slot, prepared);
+      save = prepared;
+      if (storageWarning.startsWith('ほぞんできません')) storageWarning = '';
+    } catch {
+      session.feedback = 'クリアきろくを ほぞんできなかったよ。ほごしゃに つたえてね。';
+      storageWarning = 'ほぞんできません。クリアは まだ ほぞんされていません。';
+      render();
+      return;
+    }
     page = 'result';
     gameAudio.effect('clear');
   } else {
