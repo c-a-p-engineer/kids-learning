@@ -65,16 +65,13 @@ function traceHtml(q: Question, state: ActivityState, disabled: boolean): string
     '<circle cx="' + x + '" cy="' + y + '" r="' + (i === state.waypointIndex ? 10 : 6) +
     '" fill="' + (i < state.waypointIndex ? '#32ac8e' : '#f5b548') +
     '" stroke="#fff" stroke-width="2"/>').join('');
-  return '<div class="interactive trace-interactive"><p class="activity-instructions">' +
-    (q.gameId === 'lines' ? 'まずは せんを なぞる れんしゅう！' : 'かく じゅんばんに ゆびで なぞろう！') +
-    '</p><div class="trace-stroke-count" role="status"><strong>' + guide.label +
+  return '<div class="interactive trace-interactive"><div class="trace-stroke-count" role="status"><strong>' + guide.label +
     '</strong><span>' + total + 'かく　｜　いま ' + current + 'かくめ</span></div>' +
     '<div class="trace-board"><svg data-trace-board viewBox="0 0 240 240" aria-label="' + esc(guide.label) +
     'は ' + total + 'かく。' + current + 'かくめの きいろい みちを なぞろう" role="img">' +
     paths + '<g data-ink>' + ink + '</g><g data-guide-nodes>' + nodes + '</g></svg></div>' +
     '<p class="activity-counter">つぎの てん：' + Math.min(activeStroke.length, state.waypointIndex + 1) +
     '/' + activeStroke.length + '</p>' +
-    '<p class="trace-rule">きいろい わくから でたら、いまの 1かくだけ やりなおしだよ。</p>' +
     '<button type="button" class="activity-undo" data-activity="trace-reset"' +
     (disabled ? ' disabled' : '') + '>↻ はじめから</button>' +
     '</div>';
@@ -83,30 +80,29 @@ function blocksHtml(q: Question, state: ActivityState, disabled: boolean): strin
   const target = q.visual.a ?? 10;
   return '<div class="interactive blocks-interactive"><div class="build-status"><span>🎯 もくひょう ' +
     target + 'こ</span><strong>' + state.count + ' / ' + target + '</strong></div>' +
-    fiveFrame(target, state.count) +
-    '<p class="activity-instructions">1こずつ、または 5こまとめて ブロックを いれよう。</p>' +
+    '<button type="button" class="build-tap-back" data-activity="block-back" aria-label="おいた ブロックを 1こ もどす"' +
+    (disabled || state.count === 0 ? ' disabled' : '') + '>' + fiveFrame(target, state.count) + '</button>' +
     '<div class="activity-controls"><button type="button" data-activity="block-one"' + (disabled ? ' disabled' : '') +
     '>🟡 +1こ</button><button type="button" data-activity="block-five"' + (disabled ? ' disabled' : '') +
-    '>🧱 +5こ</button><button type="button" data-activity="block-back"' + (disabled || state.count === 0 ? ' disabled' : '') +
-    '>↩ 1こ もどす</button></div>' +
+    '>🧱 +5こ</button></div>' +
     '<div class="machine" aria-hidden="true">' + (state.count >= target ? '⚙️✨' : '⚙️🔧') + '</div></div>';
 }
 function trainHtml(q: Question, state: ActivityState, disabled: boolean): string {
   const letters = q.visual.preview ?? [];
   const made = state.usedTiles.map(i => letters[i]).join('');
   const slots = Array.from({ length: Array.from(q.answer).length }, (_, i) =>
-    '<span class="train-slot' + (i < state.usedTiles.length ? ' placed' : '') + '">' +
-    (i < state.usedTiles.length ? esc(letters[state.usedTiles[i]]) : '・') + '</span>').join('');
+    (i < state.usedTiles.length ?
+      '<button type="button" class="train-slot placed" data-activity="train-remove" data-index="' + i +
+      '" aria-label="' + esc(letters[state.usedTiles[i]]) + ' を もどす"' +
+      (disabled ? ' disabled' : '') + '>' + esc(letters[state.usedTiles[i]]) + '</button>' :
+      '<span class="train-slot">・</span>')).join('');
   const tiles = letters.map((letter, i) => '<button type="button" class="train-tile" data-activity="train-tile" ' +
     'data-index="' + i + '"' + (disabled || state.usedTiles.includes(i) ? ' disabled' : '') +
     ' aria-label="もじ ' + esc(letter) + ' を つなぐ">' + esc(letter) + '</button>').join('');
   return '<div class="interactive train-interactive"><div class="train-mascot" aria-hidden="true">' +
-    esc(q.visual.symbol ?? '🚂') + '</div><p class="activity-instructions">もじを おして、れっしゃを つなごう！</p>' +
-    '<div class="train-slots" aria-label="いま つくった ことば ' + esc(made) + '">' + slots + '</div>' +
+    esc(q.visual.symbol ?? '🚂') + '</div>' +    '<div class="train-slots" aria-label="いま つくった ことば ' + esc(made) + '">' + slots + '</div>' +
     '<div class="train-track" aria-hidden="true">━━━━━━━━━━━━━━</div>' +
-    '<div class="train-tiles">' + tiles + '</div>' +
-    '<button type="button" class="activity-undo" data-activity="train-back"' +
-    (disabled || state.usedTiles.length === 0 ? ' disabled' : '') + '>↩ ひとつ もどす</button></div>';
+    '<div class="train-tiles">' + tiles + '</div></div>';
 }
 function moveHtml(q: Question, disabled: boolean): string {
   const card = MOVE_CARDS[q.visual.a ?? 0] ?? MOVE_CARDS[0];
@@ -114,8 +110,9 @@ function moveHtml(q: Question, disabled: boolean): string {
     card.emoji + '</span><p class="move-name">' + esc(card.name) + '</p>' +
     '<p class="move-instructions">' + esc(card.instruction) + '</p>' +
     '<p class="move-seated">🪑 ' + esc(card.seated) + '</p>' +
-    '<p class="move-safety">あぶない ものが ない ところでね。いたい・つらいときは やめよう。' +
-    'みるだけでも いいよ。カメラは つかわないよ。</p>' +
+    '<p class="move-safety">いたいときは やめよう。みるだけでも いいよ。</p>' +
+    '<details class="move-parent-note"><summary>ほごしゃの かたへ</summary>' +
+    '<p>安全な場所で無理なく。撮影や姿勢の採点はありません。</p></details>' +
     '<div class="move-buttons"><button type="button" class="move-done" data-activity="move-done"' +
     (disabled ? ' disabled' : '') + '>🌟 やってみた！</button>' +
     '<button type="button" class="move-skip" data-activity="move-skip"' +
@@ -157,7 +154,11 @@ export function activityClick(q: Question, state: ActivityState, action: string,
       }
       state.feedback = '';
     }
-    if (action === 'train-back') { state.usedTiles.pop(); state.feedback = ''; }
+    if (action === 'train-remove' && Number.isInteger(index) && index >= 0 &&
+      index < state.usedTiles.length) {
+      state.usedTiles.splice(index, 1);
+      state.feedback = '';
+    }
   } else if (q.gameId === 'trace' || q.gameId === 'lines' || q.gameId === 'digits') {
     const guide = TRACE_GUIDES[q.visual.symbol ?? ''];
     if (!guide) return { kind: 'progress' };
