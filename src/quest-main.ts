@@ -166,7 +166,16 @@ async function saveNow(): Promise<boolean> {
     if (storageWarning.startsWith('ほぞんできません')) storageWarning = '';
     return true;
   } catch {
-    storageWarning = 'ほぞんできません。ほごしゃに つたえてね。いまの へんこうは ほぞんされていません。';
+    storageWarning = 'あんぜんに ほぞんできません。ほごしゃに つたえてね。';
+    if (!slotStale) {
+      try {
+        save = loadSlot(localStorage, slot);
+        gameAudio.configure(save.settings.sound, save.settings.bgm,
+          save.settings.seVolume, save.settings.bgmVolume);
+        applyTextSize();
+      } catch { /* Keep warning: do not replace records after a read failure. */ }
+    }
+    render();
     return false;
   }
 }
@@ -400,6 +409,11 @@ function render(): void {
 }
 function startGame(id: GameId, requestedLevel?: number): void {
   if (slotStale) { render(); return; }
+  if (!navigator.locks?.request) {
+    storageWarning = 'このブラウザでは あんぜんに きろくを ほぞんできません。ほごしゃに つたえてね。';
+    render();
+    return;
+  }
   try {
     if (readSlotSnapshot(localStorage, slot) !== slotSnapshot) {
       markSlotStale(); render(); return;
