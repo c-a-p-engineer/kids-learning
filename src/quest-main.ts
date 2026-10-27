@@ -27,6 +27,8 @@ import type { ActivityResult, ActivityState } from './activity-ui';
 import { burst, dismissEffects } from './reward-effects';
 import { dots, visualHtml } from './question-visuals';
 import { optionsBody } from './settings-view';
+import { parentBody } from './parent-view';
+import { resultBody } from './result-view';
 import { makeHint } from './question-hints';
 import { GAMES, STORAGE_KEY, MAX_LEVEL, CLEARS_PER_LEVEL, progressFor, unlockedLevel, clampTextSize, clampVolume, chooseRound, countDue, evaluate, freshSave, isGameId, nextReview } from './engine';
 import type { GameId, LearningSave, Question } from './engine';
@@ -310,81 +312,9 @@ function gameHtml(): string {
       '</button>' : '') +
     '</section>');
 }
-function resultHtml(): string {
-  if (!session) return homeHtml();
-  const game = GAMES.find(g => g.id === session?.gameId)!;
-  const practice = session.gameId === 'trace' || session.gameId === 'lines' || session.gameId === 'digits' || session.gameId === 'move' || session.gameId === 'connect' || session.gameId === 'maze' || session.gameId === 'routine' || session.gameId === 'rhythm';
-  const progress = progressFor(save.completed[game.id] ?? 0);
-  const advance = progress.level > session.level;
-  const replayLabel = advance ? '🌟 レベル ' + progress.level + ' へ すすむ' :
-    '🔁 レベル ' + progress.level + ' を もういちど';
-  return layout('<section class="result-card"><div class="result-emoji" aria-hidden="true">' + game.icon + '🏆</div>' +
-    '<p class="eyebrow">QUEST CLEAR!</p><h1>クエスト クリア！</h1>' +
-    '<p>' + safe(activeProfile().name) + '、' + safe(game.title) + ' を がんばったね！</p>' +
-    '<div class="unlock-result">⭐ レベル ' + progress.level + '/' + MAX_LEVEL +
-    (advance ? ' 🎊 つぎは レベル ' + progress.level + '！' :
-      progress.maxed ? ' 🏆 ぜんレベル かいほう！' :
-      ' · つぎまで ' + progress.current + '/' + CLEARS_PER_LEVEL + ' クリア') + '</div>' +
-    (practice ?
-      '<div class="result-scores"><div><strong>' + session.practiced + '</strong><small>やってみた</small></div>' +
-      '<div><strong>' + session.skipped + '</strong><small>おやすみ</small></div>' +
-      '<div><strong>' + session.deck.length + '</strong><small>あそんだ かず</small></div></div>' :
-      '<div class="result-scores"><div><strong>' + session.right + '</strong><small>ひとりで できた</small></div>' +
-      '<div><strong>' + session.helped + '</strong><small>ヒントで できた</small></div>' +
-      '<div><strong>' + session.deck.length + '</strong><small>クリアした もんだい</small></div></div>') +
-    '<p class="result-explain">' + (practice ?
-      'てを うごかしたり、まねしたり。できた ことを たいせつにしよう。' :
-      'あしたも おぼえていたら さらに すごい！<br>おぼえているか、また ためしてみよう。') + '</p>' +
-    '<button type="button" class="primary-btn" data-action="home">ほかの クエストへ ➜</button>' +
-    '<button type="button" class="secondary-btn" data-action="replay">' + replayLabel + '</button></section>');
-}
+function resultHtml(): string { return session ? layout(resultBody(session, save, activeProfile().name)) : homeHtml(); }
 function optionsHtml(): string { return layout(optionsBody(save.settings)); }
-function parentHtml(): string {
-  const due = GAMES.reduce((n, game) => n + countDue(game.id, save, Date.now()), 0);
-  const mastered = Object.values(save.reviews).filter(r => r.stage >= 1 && r.correct).length;
-  const rows = GAMES.map(game => '<tr><th scope="row">' + safe(game.title) + '</th><td>' +
-    (save.completed[game.id] ?? 0) + ' 回</td><td>' + countDue(game.id, save, Date.now()) + ' 件</td></tr>').join('');
-  return layout('<section class="parent"><h1>ほごしゃダッシュボード</h1><p>' + safe(activeProfile().name) +
-    ' の端末内記録です。ゲームの点数は診断やIQ測定ではありません。</p>' +
-    '<div class="parent-stats"><div><strong>' + save.xp + '</strong><span>経験値</span></div>' +
-    '<div><strong>' + save.sessions + '</strong><span>完了セッション</span></div>' +
-    '<div><strong>' + due + '</strong><span>復習待ち</span></div>' +
-    '<div><strong>' + mastered + '</strong><span>再想起の実績※</span></div></div>' +
-    '<p class="footnote">※習得の推定値です。学校の到達度評価や発達診断ではありません。</p>' +
-    '<h2>さいきんの きろく</h2><div class="parent-periods">' +
-    [7, 30, 90].map(days => {
-      const p = parentPeriod(save, new Date(), days);
-      return '<div class="parent-period"><strong>' + days + 'にち</strong>' +
-        '<span>' + p.days + 'にち がくしゅう</span><span>ひとりで ' + p.independent +
-        'こ</span><span>れんしゅう ' + p.practiced + 'こ</span><span>' + p.clears +
-        'クリア</span></div>';
-    }).join('') + '</div>' +
-    '<button type="button" class="secondary-btn" data-action="export-csv">📄 90にちの きろくを CSVに ほぞん</button>' +
-    '<h2>ゲーム別の進捗</h2><div class="table-wrap"><table><thead><tr><th>ゲーム</th><th>クリア</th><th>復習待ち</th></tr></thead>' +
-    '<tbody>' + rows + '</tbody></table></div>' +
-    '<div class="parent-actions"><button type="button" class="secondary-btn" data-action="export">⬇ このキャラのきろくを ほぞん</button>' +
-    '<h2>バックアップから ふくげん</h2>' +
-    '<p>このキャラのV2バックアップだけ復元できます。いまの記録は上書きされるので、先に保存してね。</p>' +
-    '<label class="backup-file-label" for="backup-file">📂 バックアップJSONを えらぶ</label>' +
-    '<input id="backup-file" type="file" accept=".json,application/json" aria-label="バックアップJSONファイル" />' +
-    (backupError ? '<p class="backup-error" role="alert">' + safe(backupError) + '</p>' : '') +
-    (backupDraft ? '<div class="backup-preview"><strong>ふくげんする データ（かくにん）</strong>' +
-      '<p>' + safe(activeProfile().name) + '：' + safe(backupDraft.exportedAt.slice(0, 10)) + ' のバックアップ</p>' +
-      (() => { const delta = backupDelta(save, backupDraft.data);
-        return '<p>XP：' + delta.xp[0] + ' → ' + delta.xp[1] +
-          ' / クリア：' + delta.clears[0] + ' → ' + delta.clears[1] +
-          ' / きろくの日：' + delta.days[0] + ' → ' + delta.days[1] + '</p>'; })() +
-      '<div class="reset-actions"><button type="button" class="danger-btn" data-action="backup-confirm">このキャラに ふくげんする</button>' +
-      '<button type="button" class="secondary-btn" data-action="backup-cancel">やめる</button></div></div>' : '') +
-    '<h2>きろくの リセット</h2>' +
-    '<p>このキャラの学習記録（XP・クリア・復習）だけを最初に戻します。音量設定、ほかの3キャラ、旧版データは残ります。</p>' +
-    (resetArmed ? '<div class="reset-confirm" role="alert"><strong>ほんとうに ' + safe(activeProfile().name) +
-      ' のきろくを けしますか？</strong><p>もどせません。必要なら先に「きろくを ほぞん」してください。</p>' +
-      '<div class="reset-actions"><button type="button" class="danger-btn" data-action="reset-now">はい、リセットする</button>' +
-      '<button type="button" class="secondary-btn" data-action="reset-cancel">やめる</button></div></div>' :
-      '<button type="button" class="reset-open" data-action="reset-open">🗑️ このキャラのきろくを リセット</button>') +
-    '<p>旧版の学習記録は削除しません。新版は別のキーに保存しています。</p></div></section>', true);
-}
+function parentHtml(): string { return layout(parentBody(save, activeProfile().name, resetArmed, backupDraft, backupError), true); }
 function render(): void {
   if (!app) return;
   if (slotStale) {
