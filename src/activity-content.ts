@@ -7,7 +7,7 @@ export const isActivity = (id: GameId): id is ActivityId =>
   id === 'trace' || id === 'lines' || id === 'digits' || id === 'blocks' || id === 'train' || id === 'move';
 
 // Keep teaching content separate from stroke geometry and input validation.
-import { TRACE_GUIDES, PREWRITING, KANA, NUMERALS } from './trace-guides';
+import { TRACE_GUIDES, PREWRITING, LEGACY_KANA, ADDITIONAL_KANA, NUMERALS } from './trace-guides';
 export { TRACE_GUIDES } from './trace-guides';
 export type { TraceGlyph } from './trace-guides';
 
@@ -45,8 +45,12 @@ export const MOVE_CARDS = [
 export function makeActivityQuestion(gameId: ActivityId, i: number, level: number): Question {
   const id = gameId + (level > 1 ? ':L' + level : '') + ':' + i;
   if (gameId === 'trace' || gameId === 'lines' || gameId === 'digits') {
-    const names: readonly string[] = gameId === 'lines' ? PREWRITING : gameId === 'digits' ? NUMERALS : KANA;
-    const symbol = names[(i + (level - 1) * 2) % names.length];
+    // 0–79 remain canonical for historical saved reviews; 80+ contains new kana.
+    const names: readonly string[] = gameId === 'lines' ? PREWRITING :
+      gameId === 'digits' ? NUMERALS :
+      gameId === 'trace' && i >= 80 ? ADDITIONAL_KANA : LEGACY_KANA;
+    const index = gameId === 'trace' && i >= 80 ? i - 80 : i;
+    const symbol = names[(index + (level - 1) * 2) % names.length];
     const guide = TRACE_GUIDES[symbol];
     return { id, gameId, prompt: gameId === 'lines' ?
       'ゆびで ' + guide.label + 'を なぞろう！' : gameId === 'digits' ?
