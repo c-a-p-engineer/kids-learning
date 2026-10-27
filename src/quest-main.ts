@@ -16,7 +16,7 @@ import { isTouchGame } from './touch-content';
 import { touchHtml, touchClick, touchPointer, freshTouch } from './touch-ui';
 import type { TouchState } from './touch-ui';
 import { recordDaily } from './progression';
-import { loadSlot, persistSlotIfUnchanged, readSlotSnapshot, StaleSlotError, backupText, parseBackup, backupDelta } from './storage';
+import { loadSlot, lockedSlotWrite, readSlotSnapshot, StaleSlotError, backupText, parseBackup, backupDelta } from './storage';
 import type { Backup } from './storage';
 import { statusHtml, skillTreeHtml, PROGRESS_CATEGORIES } from './progress-ui';
 import type { ProgressCategory } from './progress-ui';
@@ -25,8 +25,11 @@ import { isActivity, MOVE_CARDS } from './activity-content';
 import { activityHtml, activityClick, newActivityState, tracePointer } from './activity-ui';
 import type { ActivityResult, ActivityState } from './activity-ui';
 import { burst, dismissEffects } from './reward-effects';
+import { dots, visualHtml } from './question-visuals';
+import { optionsBody } from './settings-view';
+import { makeHint } from './question-hints';
 import { GAMES, STORAGE_KEY, MAX_LEVEL, CLEARS_PER_LEVEL, progressFor, unlockedLevel, clampTextSize, clampVolume, chooseRound, countDue, evaluate, freshSave, isGameId, nextReview } from './engine';
-import type { GameId, LearningSave, Question, Visual } from './engine';
+import type { GameId, LearningSave, Question } from './engine';
 
 const app = document.getElementById('app');
 if (!app) throw new Error('Root #app not found');
@@ -80,6 +83,7 @@ let slot = getSlot();
 let storageWarning = '';
 let slotSnapshot: string | null = null;
 let slotStale = false;
+let writePending = false;
 let save = loadSave();
 const HOME_TITLE = 'まなびクエスト';
 const PROFILES = [
@@ -129,13 +133,23 @@ function markSlotStale(): void {
   backupDraft = null;
   page = 'home';
 }
-function persistCurrent(next: LearningSave): void {
-  if (slotStale) throw new StaleSlotError();
+async function persistCurrent(next: LearningSave): Promise<void> {
+  if (slotStale || writePending) throw new StaleSlotError();
+  writePending = true;
+  const writeSlot = slot, expected = slotSnapshot;
   try {
-    slotSnapshot = persistSlotIfUnchanged(localStorage, slot, next, slotSnapshot);
+    const newSnapshot = await lockedSlotWrite(localStorage, writeSlot, next, expected,
+      navigator.locks);
+    if (writeSlot !== slot || slotStale) {
+      markSlotStale();
+      throw new StaleSlotError();
+    }
+    slotSnapshot = newSnapshot;
   } catch (error) {
     if (error instanceof StaleSlotError) markSlotStale();
     throw error;
+  } finally {
+    writePending = false;
   }
 }
 function refreshSlot(): void {
@@ -146,18 +160,27 @@ function refreshSlot(): void {
   applyTextSize();
   render();
 }
-function saveNow(): boolean {
+async function saveNow(): Promise<boolean> {
   try {
-    persistCurrent(save);
+    await persistCurrent(save);
     if (storageWarning.startsWith('ほぞんできません')) storageWarning = '';
     return true;
   } catch {
-    storageWarning = 'ほぞんできません。ほごしゃに つたえてね。いまの へんこうは ほぞんされていません。';
+    storageWarning = 'あんぜんに ほぞんできません。ほごしゃに つたえてね。';
+    if (!slotStale) {
+      try {
+        save = loadSlot(localStorage, slot);
+        gameAudio.configure(save.settings.sound, save.settings.bgm,
+          save.settings.seVolume, save.settings.bgmVolume);
+        applyTextSize();
+      } catch { /* Keep warning: do not replace records after a read failure. */ }
+    }
+    render();
     return false;
   }
 }
 function setSlot(next: number): void {
-  if (!Number.isInteger(next) || next < 1 || next > 4) return;
+  if (writePending || !Number.isInteger(next) || next < 1 || next > 4) return;
   dismissEffects();
   stopTimers();
   resetArmed = false;
@@ -228,64 +251,6 @@ function homeHtml(): string {
     '<nav class="category-tabs" aria-label="がくしゅう ぶんや">' + categories + '</nav>' +
     '<div class="quest-grid">' + cards + '</div></section>' +
     '<div class="home-bottom">⏱ 1ゲーム 5もんで おしまい。いつでも おわって いいよ。</div>');
-}
-function dots(n: number, faded = 0): string {
-  // Exactly five per group, including 10/15/20. On phones groups wrap rather than shrinking dots.
-  let html = '<div class="dot-row dot-groups" aria-hidden="true">';
-  for (let start = 0; start < n; start += 5) {
-    html += '<span class="dot-pack">';
-    for (let i = start; i < Math.min(start + 5, n); i++) {
-      html += '<span class="dot' + (i >= n - faded ? ' dot-faded' : '') + '"></span>';
-    }
-    html += '</span>';
-  }
-  return html + '</div>';
-}
-function analogClock(hour: number, minute: number): string {
-  const h = (hour % 12) * 30 + minute * 0.5 - 90, m = minute * 6 - 90;
-  const hand = (angle: number, radius: number): string => {
-    const rad = angle * Math.PI / 180;
-    return (100 + Math.cos(rad) * radius).toFixed(1) + ',' + (100 + Math.sin(rad) * radius).toFixed(1);
-  };
-  let ticks = '';
-  for (let i = 1; i <= 12; i++) {
-    const pos = hand(i * 30 - 90, 72).split(',');
-    ticks += '<text x="' + pos[0] + '" y="' + pos[1] + '" text-anchor="middle" dominant-baseline="middle">' + i + '</text>';
-  }
-  return '<svg class="clock" viewBox="0 0 200 200" role="img" aria-label="はりの ついた アナログとけい">' +
-    '<circle cx="100" cy="100" r="94" fill="#fff" stroke="#8293c8" stroke-width="7"/>' + ticks +
-    '<polyline points="100,100 ' + hand(h, 49) + '" stroke="#32436e" stroke-width="9" stroke-linecap="round"/>' +
-    '<polyline points="100,100 ' + hand(m, 69) + '" stroke="#ee7593" stroke-width="5" stroke-linecap="round"/>' +
-    '<circle cx="100" cy="100" r="7" fill="#32436e"/></svg>';
-}
-function visualHtml(visual: Visual, preview: boolean): string {
-  const a = visual.a ?? 0, b = visual.b ?? 0;
-  switch (visual.kind) {
-    case 'dots': return '<div class="visual-group"><span class="floating-symbol">🛡️</span>' + dots(a) + '</div>';
-    case 'add': return '<div class="visual-group"><div class="math-line">' + a + ' ＋ ' + b + ' ＝ ❓</div>' +
-      '<div class="visual-math">' + dots(a) + '<b>＋</b>' + dots(b) + '</div></div>';
-    case 'subtract': return '<div class="visual-group"><div class="math-line">' + a + ' − ' + b + ' ＝ ❓</div>' +
-      dots(a, b) + '<small>うすい まるは とった かず</small></div>';
-    case 'sequence': return '<div class="track">' + (visual.numbers ?? []).map(n => '<span>' + (n < 0 ? '？' : n) + '</span>').join('') + '</div>';
-    case 'compare': return ''; // cards are the answer surface
-    case 'picture': return '<div class="big-emoji" aria-hidden="true">' + safe(visual.symbol ?? '') + '</div>';
-    case 'shape': return '<div class="big-shape" aria-hidden="true">' + safe(visual.symbol ?? '') + '</div>';
-    case 'clock': return analogClock(visual.hour ?? 1, visual.minute ?? 0);
-    case 'bond': return '<div class="visual-group"><div class="math-line">' + a +
-      ' ＋ ❓ ＝ 10</div>' + dots(a) + '<small>10まで あと いくつ？</small></div>';
-    case 'pattern': return '<div class="pattern-line">' +
-      (visual.preview ?? []).map(x => '<span>' + safe(x) + '</span>').join('') + '<span class="pattern-missing">❔</span></div>';
-    case 'category': return '<div class="big-emoji" aria-hidden="true">' + safe(visual.symbol ?? '') + '</div>';
-    case 'odd': return '<div class="odd-line">' +
-      (visual.preview ?? []).map((x, i) => '<div class="odd-item"><span>' + safe(x) +
-      '</span><strong>' + (i + 1) + '</strong></div>').join('') + '</div>';
-    case 'color': return '<div class="color-swatch" style="--swatch:' + safe(visual.symbol ?? '') +
-      '" role="img" aria-label="いろの ついた まる"></div>';
-    case 'memory': return preview ? '<div class="memory-preview">' + (visual.preview ?? []).map(x => '<span>' + safe(x) + '</span>').join('') + '</div>' :
-      '<div class="memory-hidden">✨ ❔ ✨<small>おぼえた えを えらぼう！</small></div>';
-  }
-  // Interaction-only visuals are rendered by activity-ui.ts, not by this choice renderer.
-  return '';
 }
 function gameHtml(): string {
   if (!session) return homeHtml();
@@ -373,54 +338,7 @@ function resultHtml(): string {
     '<button type="button" class="primary-btn" data-action="home">ほかの クエストへ ➜</button>' +
     '<button type="button" class="secondary-btn" data-action="replay">' + replayLabel + '</button></section>');
 }
-function optionsHtml(): string {
-  const settings = save.settings;
-  return layout('<section class="options-panel">' +
-    '<p class="eyebrow">SETTINGS</p><h1>⚙️ せってい</h1>' +
-    '<p class="options-lead">もじの おおきさ・おと・バイブを すきな ように かえてね。</p>' +
-    '<div class="options-group text-size-options">' +
-    '<div class="options-heading"><div><strong>🔤 もじの おおきさ</strong>' +
-    '<small>もんだい・こたえ・ヒントの もじを かえられるよ</small></div></div>' +
-    '<div class="volume-heading"><label for="text-size">もじの サイズ</label><output id="text-size-output" for="text-size">' +
-    settings.textSize + '%</output></div>' +
-    '<input type="range" class="volume-slider text-size-slider" id="text-size" data-text-size ' +
-    'min="80" max="160" step="10" value="' + settings.textSize +
-    '" aria-label="もじの おおきさ" aria-valuetext="' + settings.textSize + 'パーセント" />' +
-    '<div class="volume-ends"><span>ちいさく</span><span>おおきく</span></div>' +
-    '<div class="text-size-preview" aria-label="もじの サイズ みほん"><span>もんだい：3 ＋ 2 ＝ ❓</span>' +
-    '<strong>こたえ：5　どうぶつ</strong><small>ヒント：まるを かぞえてみよう</small></div>' +
-    '<button type="button" class="sample-sound" data-action="text-default">100%に もどす</button>' +
-    '</div>' +
-    '<div class="options-group"><div class="options-heading"><div><strong>🎵 BGM（おんがく）</strong>' +
-    '<small>ゲームの あいだに ながれる おんがく</small></div>' +
-    '<button type="button" class="toggle-btn" data-action="bgm" aria-pressed="' + settings.bgm +
-    '">' + (settings.bgm ? 'ON 🔊' : 'OFF 🔇') + '</button></div>' +
-    '<div class="volume-heading"><label for="bgm-volume">BGMの おおきさ</label><output id="bgm-output" for="bgm-volume">' + settings.bgmVolume + '%</output></div>' +
-    '<input type="range" class="volume-slider" id="bgm-volume" data-volume="bgm" min="0" max="100" step="5" value="' +
-    settings.bgmVolume + '" aria-label="BGMの おおきさ" />' +
-    '<div class="volume-ends"><span>ちいさい</span><span>おおきい</span></div></div>' +
-    '<div class="options-group"><div class="options-heading"><div><strong>✨ SE（こうかおん）</strong>' +
-    '<small>せいかい・タップ・クリアの おと</small></div>' +
-    '<button type="button" class="toggle-btn" data-action="sound" aria-pressed="' + settings.sound +
-    '">' + (settings.sound ? 'ON 🔊' : 'OFF 🔇') + '</button></div>' +
-    '<div class="volume-heading"><label for="se-volume">こうかおんの おおきさ</label><output id="se-output" for="se-volume">' + settings.seVolume + '%</output></div>' +
-    '<input type="range" class="volume-slider" id="se-volume" data-volume="se" min="0" max="100" step="5" value="' +
-    settings.seVolume + '" aria-label="こうかおんの おおきさ" />' +
-    '<div class="volume-ends"><span>ちいさい</span><span>おおきい</span></div>' +
-    '<button type="button" class="sample-sound" data-action="test-se">🔔 こうかおんを ためす</button></div>' +
-    '<div class="options-group"><div class="options-heading"><div><strong>📳 バイブ（しんどう）</strong>' +
-    '<small>せいかい・ざんねん・クリアで ちいさく ふるえるよ。たいおう たんまつだけ。</small></div>' +
-    '<button type="button" class="toggle-btn" data-action="haptics" aria-pressed="' + settings.haptics +
-    '">' + (settings.haptics ? 'ON 📳' : 'OFF 🌙') + '</button></div>' +
-    '<button type="button" class="sample-sound" data-action="test-haptics">📳 バイブを ためす</button></div>' +
-    '<div class="options-group"><div class="options-heading"><div><strong>🌟 ひかる えんしゅつ</strong>' +
-    '<small>キラキラ・かみふぶきを へらせるよ</small></div>' +
-    '<button type="button" class="toggle-btn" data-action="quiet" aria-pressed="' + !settings.quiet +
-    '">' + (settings.quiet ? 'OFF 🌙' : 'ON ✨') + '</button></div></div>' +
-    '<p class="options-footnote">おとが でないときは、たんまつの おんりょう・マナーモードも かくにんしてね。</p>' +
-    '<button type="button" class="primary-btn options-back" data-action="back-options">← ゲームに もどる</button>' +
-    '</section>');
-}
+function optionsHtml(): string { return layout(optionsBody(save.settings)); }
 function parentHtml(): string {
   const due = GAMES.reduce((n, game) => n + countDue(game.id, save, Date.now()), 0);
   const mastered = Object.values(save.reviews).filter(r => r.stage >= 1 && r.correct).length;
@@ -491,6 +409,11 @@ function render(): void {
 }
 function startGame(id: GameId, requestedLevel?: number): void {
   if (slotStale) { render(); return; }
+  if (!navigator.locks?.request) {
+    storageWarning = 'このブラウザでは あんぜんに きろくを ほぞんできません。ほごしゃに つたえてね。';
+    render();
+    return;
+  }
   try {
     if (readSlotSnapshot(localStorage, slot) !== slotSnapshot) {
       markSlotStale(); render(); return;
@@ -510,47 +433,15 @@ function startGame(id: GameId, requestedLevel?: number): void {
   render();
   window.scrollTo({ top: 0, behavior: 'auto' });
 }
-function makeHint(q: Question): string {
-  switch (q.gameId) {
-    case 'count': return 'ひとつずつ ゆびで かぞえてみよう。';
-    case 'add': return 'まず ひだりの まる、そのあと みぎの まるを かぞえよう。';
-    case 'subtract': return 'うすい まるは もう ないよ。のこりを かぞえよう。';
-    case 'sequence': return 'となりの かずは いくつ ふえているかな？';
-    case 'compare': return 'まるの かずを くらべてみよう。';
-    case 'kana': return 'えの なまえを こえに だしてみよう。';
-    case 'words': return 'えを みて、なまえを いってみよう。';
-    case 'shapes': return 'かど と まるみを よく みよう。';
-    case 'memory': return 'さっき みた えを あたまに うかべてみよう。';
-    case 'clock': return 'みじかい はりは なんじを さしているかな？';
-    case 'bond': return '10まで あと いくつ たりないかな？';
-    case 'pattern': return 'おなじ じゅんばんが くりかえされているよ。';
-    case 'category': return 'どこで みかける ものかな？';
-    case 'odd': return 'いちばん おおい えと ちがう えを さがそう。';
-    case 'colors': return 'まわりに おなじ いろの ものは あるかな？';
-    case 'trace': return 'あおい スタートから、きいろの わくの なかを ひとふでで なぞろう。';
-    case 'lines': return 'まず まっすぐな せんから、ゆっくり なぞってみよう。';
-    case 'digits': return 'すうじの あおい スタートから、きいろい みちを なぞろう。';
-    case 'blocks': return '5こずつ まとめて かぞえてみよう。';
-    case 'train': return 'えの なまえを ゆっくり こえに だしてみよう。';
-    case 'move': return 'できる ところだけ まねしてみよう。むりしなくて いいよ。';
-    case 'connect': return '1から じゅんに ゆびを はなさず なぞろう。';
-    case 'maze': return 'でんしゃから ほしまで みちを なぞってみよう。';
-    case 'clockhands': return 'あおい みじかい はりと オレンジの ながい はりを つかんで うごかそう。';
-    case 'shop': return '1えん・5えん・10えんを つかって ぴったりに しよう。';
-    case 'routine': return 'つぎに なにを するかな？ えを みて ならべよう。';
-    case 'split': return 'いしを みぎと ひだりの はこに わけよう。';
-    case 'rhythm': return 'いろの じゅんばんを みて たいこを たたこう。';
-  }
-}
-function answer(choice: string, mode?: AnswerMode): void {
-  if (!session || session.phase !== 'answer' || session.locked || page !== 'game') return;
+async function answer(choice: string, mode?: AnswerMode): Promise<void> {
+  if (writePending || !session || session.phase !== 'answer' || session.locked || page !== 'game') return;
   const q = session.deck[session.index];
   if (!isActivity(q.gameId) && !isTouchGame(q.gameId) && !isWorkshop(q.gameId) && !q.choices.includes(choice)) return;
   session.attempts++;
   if (!evaluate(q, choice)) {
     const prepared = prepareMistake(save, q, new Date());
     try {
-      persistCurrent(prepared);
+      await persistCurrent(prepared);
       save = prepared;
       if (storageWarning.startsWith('ほぞんできません')) storageWarning = '';
     } catch {
@@ -586,7 +477,7 @@ function answer(choice: string, mode?: AnswerMode): void {
   const practice = mode !== undefined;
   const prepared = prepareAnswer(save, q, kind, independent, earned, new Date());
   try {
-    persistCurrent(prepared.data);
+    await persistCurrent(prepared.data);
     save = prepared.data;
     if (storageWarning.startsWith('ほぞんできません')) storageWarning = '';
   } catch {
@@ -614,13 +505,13 @@ function answer(choice: string, mode?: AnswerMode): void {
   if (mode !== 'skip') burst(recalled && independent ? 'review' : 'correct', earned);
   scheduleAdvance();
 }
-function next(): void {
-  if (!session || session.phase !== 'solved' || page !== 'game') return;
+async function next(): Promise<void> {
+  if (writePending || !session || session.phase !== 'solved' || page !== 'game') return;
   stopTimers();
   if (session.index === session.deck.length - 1) {
     const prepared = prepareClear(save, session, new Date());
     try {
-      persistCurrent(prepared);
+      await persistCurrent(prepared);
       save = prepared;
       if (storageWarning.startsWith('ほぞんできません')) storageWarning = '';
     } catch {
@@ -652,13 +543,13 @@ function hint(): void {
   gameAudio.effect('hint');
   render();
 }
-function resetCurrentLearning(): void {
-  if (page !== 'parent' || !resetArmed) return;
+async function resetCurrentLearning(): Promise<void> {
+  if (writePending || page !== 'parent' || !resetArmed) return;
   const old = save;
   const nextSave = freshSave();
   nextSave.settings = { ...old.settings };
   try {
-    persistCurrent(nextSave);
+    await persistCurrent(nextSave);
   } catch {
     storageWarning = 'リセットできませんでした。ブラウザのほぞんを かくにんしてください。';
     resetArmed = false;
@@ -700,11 +591,11 @@ async function prepareBackup(file: File): Promise<void> {
   }
   if (page === 'parent') render();
 }
-function restoreBackup(): void {
-  if (page !== 'parent' || !backupDraft || backupDraft.slot !== slot) return;
+async function restoreBackup(): Promise<void> {
+  if (writePending || page !== 'parent' || !backupDraft || backupDraft.slot !== slot) return;
   try {
     // Single atomic localStorage write; preserve current in-memory state on failure.
-    persistCurrent(backupDraft.data);
+    await persistCurrent(backupDraft.data);
     save = backupDraft.data;
     backupDraft = null; backupError = '';
     storageWarning = 'バックアップを ふくげんしました。';
@@ -737,7 +628,7 @@ function completeActivity(result: ActivityResult): void {
   else render();
 }
 function onTouchPointer(event: PointerEvent, phase: 'down' | 'move' | 'up' | 'cancel'): void {
-  if (slotStale) return;
+  if (slotStale || writePending) return;
   if (page !== 'game' || session?.phase !== 'answer' || session.locked || !touchState ||
       !isTouchGame(session.gameId)) return;
   const svg = event.target instanceof Element ?
@@ -752,7 +643,7 @@ function onTouchPointer(event: PointerEvent, phase: 'down' | 'move' | 'up' | 'ca
   else if (result.refresh || phase === 'up' || phase === 'cancel') render();
 }
 function onTracePointer(event: PointerEvent, phase: 'down' | 'move' | 'up' | 'cancel'): void {
-  if (slotStale) return;
+  if (slotStale || writePending) return;
   if (page !== 'game' || (session?.gameId !== 'trace' && session?.gameId !== 'lines' && session?.gameId !== 'digits') || session?.phase !== 'answer' ||
       session.locked || !activityState) return;
   const svg = event.target instanceof Element ? event.target.closest<SVGSVGElement>('[data-trace-board]') : null;
@@ -796,7 +687,7 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 app.addEventListener('input', event => {
-  if (slotStale) return;
+  if (slotStale || writePending) return;
   const target = event.target;
   if (!(target instanceof HTMLInputElement)) return;
   if (page === 'options' && target.hasAttribute('data-text-size')) {
@@ -831,6 +722,7 @@ app.addEventListener('click', event => {
     if (target.closest<HTMLElement>('[data-action="sync-reload"]')) refreshSlot();
     return;
   }
+  if (writePending) return;
   gameAudio.unlock();
   const workshopButton = target.closest<HTMLButtonElement>('[data-workshop]');
   if (workshopButton && page === 'game' && session?.phase === 'answer' &&
