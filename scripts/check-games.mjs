@@ -394,7 +394,7 @@ for (let level = 1; level <= 5; level++) for (let i = 80; i < 90; i++) {
   const trace = activityUi.newActivityState(q);
   let outcome;
   for (const stroke of guide.strokes) {
-    assert(stroke.length >= 4);
+    assert(stroke.length >= 3, 'short strokes such as the upper mark of う are valid');
     for (const [x, y] of stroke) assert(x >= 0 && y >= 0 && x <= 240 && y <= 240);
     for (let n = 0; n < stroke.length; n++) {
       outcome = activityUi.traceSample(q, trace,
