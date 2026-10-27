@@ -69,3 +69,16 @@
 .trace-board svg .stroke-number{pointer-events:none}
 .trace-board svg text{font-family:system-ui,sans-serif}
 @media(max-width:390px){.trace-stroke-count{font-size:1rem}.trace-stroke-count strong{font-size:1.18rem}}
+
+/* Directly touch the placed object to remove it; preserve keyboard focus and large targets. */
+.build-tap-back{display:block;width:min(100%,430px);padding:0;border:0;background:transparent;
+  border-radius:20px;cursor:pointer;touch-action:manipulation}
+.build-tap-back .build-groups{min-height:72px}
+.build-tap-back:not(:disabled):active{transform:scale(.99)}
+.build-tap-back:focus-visible,.train-slot.placed:focus-visible{outline:4px solid #f5b840;outline-offset:4px}
+button.train-slot.placed{font-family:inherit;cursor:pointer;touch-action:manipulation;min-width:48px;min-height:62px}
+button.train-slot.placed:not(:disabled):active{transform:translateY(2px)}
+.move-parent-note{max-width:430px;color:#607291;text-align:center}
+.move-parent-note summary{cursor:pointer;min-height:44px;font-weight:850}
+.move-parent-note p{margin:5px 0;font-size:.84rem}
+@media(min-width:1px){.build-tap-back:disabled{opacity:1}}
