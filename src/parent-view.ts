@@ -5,7 +5,7 @@ import { backupDelta } from './storage';
 import type { Backup } from './storage';
 const safe = (s: string): string => s.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] || char);
 
-export function parentBody(save: LearningSave, profileName: string, resetArmed: boolean, backupDraft: Backup | null, backupError: string, now = now): string {
+export function parentBody(save: LearningSave, profileName: string, resetArmed: boolean, backupDraft: Backup | null, backupError: string, now: Date = new Date()): string {
   const due = GAMES.reduce((n, game) => n + countDue(game.id, save, now.getTime()), 0);
   const mastered = Object.values(save.reviews).filter(r => r.stage >= 1 && r.correct).length;
   const rows = GAMES.map(game => '<tr><th scope="row">' + safe(game.title) + '</th><td>' +
