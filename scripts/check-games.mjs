@@ -844,7 +844,8 @@ assert(!sourceControl.includes('function visualHtml('), 'pure visuals moved out 
 assert(sourceControl.includes("data-action=\"sync-reload\""), 'stale users get a reload option');
 assert(!sourceControl.includes('こたえを ひとつ えらんでね'), 'duplicated answer instructions should be gone');
 const codeWithHaptics = readFileSync(new URL('../src/quest-main.ts', import.meta.url), 'utf8');
-assert(codeWithHaptics.includes('data-action="haptics"'));
+const settingsMarkup = readFileSync(new URL('../src/settings-view.ts', import.meta.url), 'utf8');
+assert(settingsMarkup.includes('data-action="haptics"'));
 assert(codeWithHaptics.includes("action === 'test-haptics'"));
 console.log('PASS: haptics toggle, settings migration, device fallback, sensory reduction and feedback patterns');
 
