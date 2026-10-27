@@ -1,4 +1,5 @@
 import { isActivity, makeActivityQuestion } from './activity-content';
+import { ADDITIONAL_KANA } from './trace-guides';
 import { isTouchGame, makeTouchQuestion } from './touch-content';
 import { isWorkshop, makeWorkshopQuestion } from './workshop-content';
 
@@ -288,7 +289,12 @@ export function chooseRound(gameId: GameId, save: LearningSave, now: number, siz
   const offset = save.completed[gameId] || 0;
   for (let attempt = 0; result.length < size && attempt < size + 30; attempt++) {
     const maxQuestions = level === 1 ? (gameId === 'clock' ? 24 : 48) : 80;
-    const candidate = makeQuestion(gameId, (offset * size + attempt) % maxQuestions, level);
+    const legacyIndex = (offset * size + attempt) % maxQuestions;
+    // Put one new kana into roughly every three fresh questions without remapping old IDs.
+    const index = gameId === 'trace' && attempt % 3 === 2
+      ? 80 + (offset * size + attempt) % ADDITIONAL_KANA.length
+      : legacyIndex;
+    const candidate = makeQuestion(gameId, index, level);
     if (!seen.has(candidate.id)) { result.push(candidate); seen.add(candidate.id); }
   }
   return result;

@@ -50,7 +50,7 @@ function traceHtml(q: Question, state: ActivityState, disabled: boolean): string
     const color = i < state.traceIndex ? '#7bd7b4' : i === state.traceIndex ? '#e8bb70' : '#c8dafa';
     const start = points[0];
     return '<path d="' + strokePath(points) + '" fill="none" stroke="' + color +
-      '" stroke-width="44" stroke-linecap="round" stroke-linejoin="round"/>' +
+      '" stroke-width="52" stroke-linecap="round" stroke-linejoin="round"/>' +
       '<path d="' + strokePath(points) + '" fill="none" stroke="#fff" stroke-width="10" stroke-dasharray="3 16"' +
       ' stroke-linecap="round" stroke-linejoin="round"/>' +
       '<g class="stroke-number" aria-hidden="true"><circle cx="' + start[0] + '" cy="' + start[1] +
@@ -70,7 +70,7 @@ function traceHtml(q: Question, state: ActivityState, disabled: boolean): string
     '<div class="trace-board"><svg data-trace-board viewBox="0 0 240 240" aria-label="' + esc(guide.label) +
     'は ' + total + 'かく。' + current + 'かくめの きいろい みちを なぞろう" role="img">' +
     paths + '<g data-ink>' + ink + '</g><g data-guide-nodes>' + nodes + '</g></svg></div>' +
-    '<p class="activity-counter">つぎの てん：' + Math.min(activeStroke.length, state.waypointIndex + 1) +
+    '<p class="activity-counter" aria-label="つぎの てん">' + Math.min(activeStroke.length, state.waypointIndex + 1) +
     '/' + activeStroke.length + '</p>' +
     '<button type="button" class="activity-undo" data-activity="trace-reset"' +
     (disabled ? ' disabled' : '') + '>↻ はじめから</button>' +
@@ -197,7 +197,7 @@ function rejectCurrentStroke(state: ActivityState): ActivityResult {
 }
 /** Pure, geometry-based input; only ordered waypoints within the path corridor count. */
 export function traceSample(q: Question, state: ActivityState,
-  phase: 'down' | 'move' | 'up' | 'cancel', pos: Point): ActivityResult {
+  phase: 'down' | 'move' | 'up' | 'cancel', pos: Point, touchAllowance = 0): ActivityResult {
   if (q.gameId !== 'trace' && q.gameId !== 'lines' && q.gameId !== 'digits') return { kind: 'progress' };
   const stroke = TRACE_GUIDES[q.visual.symbol ?? '']?.strokes[state.traceIndex];
   if (!stroke) return { kind: 'progress' };
@@ -219,7 +219,7 @@ export function traceSample(q: Question, state: ActivityState,
     const point: Point = [old[0] + (pos[0] - old[0]) * step / hops,
       old[1] + (pos[1] - old[1]) * step / hops];
     if (!Number.isFinite(point[0]) || !Number.isFinite(point[1]) ||
-      distanceToStroke(point, stroke) > CORRIDOR_RADIUS)
+      distanceToStroke(point, stroke) > CORRIDOR_RADIUS + Math.min(2, Math.max(0, touchAllowance)))
       return rejectCurrentStroke(state);
     const next = stroke[state.waypointIndex];
     if (next && Math.hypot(next[0] - point[0], next[1] - point[1]) <= START_RADIUS) {
@@ -255,7 +255,7 @@ export function tracePointer(q: Question, state: ActivityState,
   if (rect.width <= 0 || rect.height <= 0) return { kind: 'progress' };
   const position: Point = [(event.clientX - rect.left) * 240 / rect.width,
     (event.clientY - rect.top) * 240 / rect.height];
-  const result = traceSample(q, state, phase, position);
+  const result = traceSample(q, state, phase, position, event.pointerType === 'touch' ? 2 : 0);
   if ((phase === 'down' || phase === 'move') && state.drawing) {
     const ink = svg.querySelector<SVGGElement>('[data-ink]');
     if (ink) {

@@ -8,11 +8,11 @@ import ts from 'typescript';
 
 // Transpile each dependency to a temporary ESM module: no extra runtime or test framework.
 const temp = mkdtempSync(join(tmpdir(), 'kids-learning-test-'));
-for (const moduleName of ['engine', 'activity-content', 'activity-ui', 'progression', 'progress-ui', 'touch-content', 'touch-ui', 'storage', 'trace-guides', 'session', 'workshop-content', 'workshop-ui', 'growth-world', 'parent-report', 'learning-commit', 'haptics', 'question-visuals', 'question-hints']) {
+for (const moduleName of ['engine', 'activity-content', 'activity-ui', 'progression', 'progress-ui', 'touch-content', 'touch-ui', 'storage', 'trace-guides', 'session', 'workshop-content', 'workshop-ui', 'growth-world', 'parent-report', 'learning-commit', 'haptics', 'question-visuals', 'question-hints', 'parent-view', 'result-view']) {
   const source = readFileSync(new URL('../src/' + moduleName + '.ts', import.meta.url), 'utf8');
   const js = ts.transpileModule(source, {
     compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.ESNext }
-  }).outputText.replace(/from '\.\/(activity-content|engine|progression|touch-content|trace-guides|workshop-content)'/g, "from './$1.mjs'");
+  }).outputText.replace(/from '\.\/(activity-content|engine|progression|touch-content|trace-guides|workshop-content|parent-report|storage|session)'/g, "from './$1.mjs'");
   writeFileSync(join(temp, moduleName + '.mjs'), js);
 }
 const engine = await import(pathToFileURL(join(temp, 'engine.mjs')).href);
@@ -32,6 +32,8 @@ const commit = await import(pathToFileURL(join(temp, 'learning-commit.mjs')).hre
 const haptics = await import(pathToFileURL(join(temp, 'haptics.mjs')).href);
 const visuals = await import(pathToFileURL(join(temp, 'question-visuals.mjs')).href);
 const hints = await import(pathToFileURL(join(temp, 'question-hints.mjs')).href);
+const parentView = await import(pathToFileURL(join(temp, 'parent-view.mjs')).href);
+const resultView = await import(pathToFileURL(join(temp, 'result-view.mjs')).href);
 const now = Date.UTC(2026, 9, 26);
 
 assert.equal(engine.GAMES.length, 28);
@@ -377,6 +379,51 @@ assert(visuals.dots(11).includes('dot-pack'));
 assert(visuals.visualHtml({ kind: 'clock', hour: 7, minute: 30 }, false).includes('viewBox="0 0 200 200"'));
 assert(hints.makeHint(engine.makeQuestion('maze', 0, 1)).includes('でんしゃ'));
 console.log('PASS: stroke-aware tracing and warmup, number block input, letter construction, seated movement and rest');
+// Existing questions 0–79 must retain their exact kana glyph after expansion.
+const legacyGlyphs = ['く','し','つ','へ','こ','い','の','て'];
+for (let level = 1; level <= 5; level++) for (let i = 0; i < 80; i++) {
+  const q = engine.makeQuestion('trace', i, level);
+  assert.equal(q.answer, legacyGlyphs[(i + (level - 1) * 2) % legacyGlyphs.length], q.id);
+}
+const extraGlyphs = ['う','り','そ','ろ','ん','る','と','ち','に','け'];
+for (let level = 1; level <= 5; level++) for (let i = 80; i < 90; i++) {
+  const q = engine.makeQuestion('trace', i, level);
+  assert.equal(q.answer, extraGlyphs[(i - 80 + (level - 1) * 2) % extraGlyphs.length], q.id);
+  const guide = activity.TRACE_GUIDES[q.answer];
+  assert(guide && guide.strokes.length > 0 && guide.strokes.length <= 4);
+  const trace = activityUi.newActivityState(q);
+  let outcome;
+  for (const stroke of guide.strokes) {
+    assert(stroke.length >= 3, 'short strokes such as the upper mark of う are valid');
+    for (const [x, y] of stroke) assert(x >= 0 && y >= 0 && x <= 240 && y <= 240);
+    for (let n = 0; n < stroke.length; n++) {
+      outcome = activityUi.traceSample(q, trace,
+        n === 0 ? 'down' : n === stroke.length - 1 ? 'up' : 'move', stroke[n]);
+    }
+  }
+  assert.equal(outcome.kind, 'submit', q.id);
+}
+const newKanaRound = engine.chooseRound('trace', engine.freshSave(), now, 5, 1);
+assert(newKanaRound.some(q => Number(q.id.split(':').at(-1)) >= 80));
+assert.equal(new Set(newKanaRound.map(q => q.id)).size, 5);
+const straight = engine.makeQuestion('lines', 0);
+const pointsStraight = activity.TRACE_GUIDES['まっすぐ'].strokes[0];
+const simulateOffset = (touchAllowance) => {
+  const state = activityUi.newActivityState(straight);
+  let last;
+  for (let n = 0; n < pointsStraight.length; n++) {
+    const p = pointsStraight[n];
+    last = activityUi.traceSample(straight, state,
+      n === 0 ? 'down' : n === pointsStraight.length - 1 ? 'up' : 'move',
+      [p[0] + 27, p[1]], touchAllowance);
+  }
+  return last;
+};
+assert.equal(simulateOffset(2).kind, 'submit', 'bounded touch wobble follows visible lane');
+assert.equal(simulateOffset(0).kind, 'progress', 'mouse must stay inside 26px corridor');
+assert.equal(activity.TRACE_GUIDES['の'].strokes.length, 1);
+console.log('PASS: 18 kana guides, 400 stable historical IDs, extended pool and bounded touch tolerance');
+
 
 
 // V2.6 daily records never retroactively fabricate dates for an old V2.5 save.
@@ -448,6 +495,19 @@ assert(!renderedSkills.includes('data-skill-play="add" data-level="3"'), 'locked
 assert(renderedSkills.includes('skill-node locked'), 'locked branches must stay visibly locked');
 assert(!renderedSkills.includes('data-skill-play="words"'), 'category filter must hide unrelated games');
 console.log('PASS: V2.6 per-profile calendar records, migrations, stats charts and unlock-based skill tree');
+const pureParent = parentView.parentBody(personOne, 'きつね', false, null, '', new Date(2026, 9, 26));
+assert(pureParent.includes('ほごしゃダッシュボード'));
+assert(pureParent.includes('data-action="export-csv"'));
+assert(!pureParent.includes('class="app-shell'), 'pure parent renderer does not own app shell');
+const backupObject = storage.parseBackup(storage.backupText(1, personOne), 1);
+const previewParent = parentView.parentBody(personOne, 'きつね', true, backupObject, '', new Date(2026, 9, 26));
+assert(previewParent.includes('data-action="reset-now"'));
+assert(previewParent.includes('data-action="backup-confirm"'));
+const pureResultSession = session.createSession('add', 1, engine.chooseRound('add', personOne, now));
+assert(resultView.resultBody(pureResultSession, personOne, 'きつね').includes('クエスト クリア！'));
+assert(resultView.resultBody(pureResultSession, personOne, 'きつね').includes('data-action="replay"'));
+console.log('PASS: detached parent/backup/reset and five-question result renderers');
+
 
 
 // Direct number-tap comparison: answer is the winning side; always two distinct numbers.
@@ -642,7 +702,8 @@ assert(pageCode.includes("action === 'replay' && session) startGame(session.game
   'replay must defer to startGame default (current unlocked level)');
 assert(!pageCode.includes("startGame(session.gameId, session.level)"),
   'replay must not force the just-cleared old level');
-assert(pageCode.includes('レベル ' + "' + progress.level + ' へ すすむ"),
+const resultCode = readFileSync(new URL('../src/result-view.ts', import.meta.url), 'utf8');
+assert(resultCode.includes('レベル ' + "' + progress.level + ' へ すすむ"),
   'result button must clearly indicate the new level');
 for (const [clears, nextLevel] of [[0, 1], [1, 1], [2, 2], [3, 2],
   [4, 3], [5, 3], [6, 4], [7, 4], [8, 5], [25, 5]]) {

@@ -48,6 +48,52 @@ export const TRACE_GUIDES: Record<string, Guide> = {
     [[39,81],[69,79],[100,78],[132,74],[165,69],[198,64],[169,87],
      [149,107],[135,129],[130,153],[145,175],[171,185],[190,180]]
   ] },
+  // New practice glyphs use a reserved question-index range (80+).
+  // Earlier indices and their saved review answers stay exactly unchanged.
+  'う': { label: 'う', strokes: [
+    [[101,42],[120,49],[137,52]],
+    [[71,97],[94,88],[124,83],[150,88],[168,108],[170,132],[160,157],[142,177],[117,190],[99,192]]
+  ] },
+  'り': { label: 'り', strokes: [
+    [[75,53],[80,82],[80,111],[77,141],[71,154]],
+    [[161,50],[164,78],[162,105],[155,133],[141,159],[120,181],[95,190]]
+  ] },
+  'そ': { label: 'そ', strokes: [
+    [[76,54],[104,55],[134,58],[163,61],[139,79],[115,99],[93,116],[76,132],
+     [107,127],[135,124],[162,126],[137,141],[117,163],[119,182],[142,196],[166,198]]
+  ] },
+  'ろ': { label: 'ろ', strokes: [
+    [[73,54],[102,55],[133,54],[168,58],[149,81],[124,105],[97,128],
+     [125,123],[151,129],[167,153],[156,176],[133,189],[104,190]]
+  ] },
+  'ん': { label: 'ん', strokes: [
+    [[77,47],[94,63],[112,82],[125,103],[121,125],[107,151],[94,177],
+     [101,190],[116,176],[140,152],[156,155],[167,179],[179,190]]
+  ] },
+  'る': { label: 'る', strokes: [
+    [[77,55],[107,53],[139,55],[167,56],[152,76],[128,101],[99,126],
+     [132,124],[160,133],[169,154],[162,175],[141,190],[118,187],
+     [107,174],[121,167],[140,176]]
+  ] },
+  'と': { label: 'と', strokes: [
+    [[105,44],[108,72],[110,99],[126,121]],
+    [[177,82],[153,93],[128,107],[103,123],[82,143],[76,165],[94,184],[121,192],[154,186],[177,176]]
+  ] },
+  'ち': { label: 'ち', strokes: [
+    [[56,83],[83,81],[115,78],[149,75],[185,70]],
+    [[126,38],[115,70],[102,102],[87,128],[74,150],[97,148],[124,143],
+     [151,150],[165,166],[159,184],[136,196],[107,195]]
+  ] },
+  'に': { label: 'に', strokes: [
+    [[73,46],[68,77],[64,112],[64,145],[66,178],[75,191]],
+    [[112,77],[139,70],[170,69],[188,71]],
+    [[123,145],[121,161],[136,174],[165,178],[187,168]]
+  ] },
+  'け': { label: 'け', strokes: [
+    [[67,44],[63,73],[62,104],[64,138],[70,169],[83,184]],
+    [[107,89],[136,86],[169,82],[195,81]],
+    [[155,49],[155,79],[154,113],[153,145],[143,176],[125,196]]
+  ] },
   // Numeral tracing is an orientation exercise, not handwriting certification.
   '0': { label: '0', strokes: [[[132,37],[105,39],[78,55],[65,83],[63,119],[70,153],[90,182],[120,197],[151,185],[171,157],[177,119],[172,82],[154,52],[132,37]]] },
   '1': { label: '1', strokes: [[[93,77],[119,47],[119,79],[119,112],[119,146],[119,180],[119,207]]] },
@@ -62,7 +108,9 @@ export const TRACE_GUIDES: Record<string, Guide> = {
 };
 export type TraceGlyph = keyof typeof TRACE_GUIDES;
 export const PREWRITING = ['まっすぐ','よこ','カーブ','なみ','ぐるり'] as const;
-export const KANA = ['く','し','つ','へ','こ','い','の','て'] as const;
+export const LEGACY_KANA = ['く','し','つ','へ','こ','い','の','て'] as const;
+export const ADDITIONAL_KANA = ['う','り','そ','ろ','ん','る','と','ち','に','け'] as const;
+export const KANA = [...LEGACY_KANA, ...ADDITIONAL_KANA] as const;
 export const NUMERALS = ['0','1','2','3','4','5','6','7','8','9'] as const;
 /** One source of truth for the drawing and the allowed corridor. */
 export function strokePath(points: readonly Point[]): string {
@@ -82,8 +130,8 @@ export function distanceToStroke(point: Point, points: readonly Point[]): number
   }
   return min;
 }
-// 240×240 SVG coordinate system. A child may wobble inside this ~46px full-width lane.
+// 240×240 SVG coordinate system. The drawn 52px-wide lane matches this ±26px tolerance.
 // Completely leaving it fails only the current stroke, without XP or level penalty.
-export const CORRIDOR_RADIUS = 23;
-export const START_RADIUS = 25;
-export const END_RADIUS = 29;
+export const CORRIDOR_RADIUS = 26;
+export const START_RADIUS = 28;
+export const END_RADIUS = 31;
