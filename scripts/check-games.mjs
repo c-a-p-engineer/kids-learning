@@ -8,7 +8,7 @@ import ts from 'typescript';
 
 // Transpile each dependency to a temporary ESM module: no extra runtime or test framework.
 const temp = mkdtempSync(join(tmpdir(), 'kids-learning-test-'));
-for (const moduleName of ['engine', 'activity-content', 'activity-ui', 'progression', 'progress-ui', 'touch-content', 'touch-ui', 'storage', 'trace-guides', 'session', 'workshop-content', 'workshop-ui', 'growth-world', 'parent-report', 'learning-commit', 'haptics']) {
+for (const moduleName of ['engine', 'activity-content', 'activity-ui', 'progression', 'progress-ui', 'touch-content', 'touch-ui', 'storage', 'trace-guides', 'session', 'workshop-content', 'workshop-ui', 'growth-world', 'parent-report', 'learning-commit', 'haptics', 'question-visuals', 'question-hints']) {
   const source = readFileSync(new URL('../src/' + moduleName + '.ts', import.meta.url), 'utf8');
   const js = ts.transpileModule(source, {
     compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.ESNext }
@@ -30,6 +30,8 @@ const world = await import(pathToFileURL(join(temp, 'growth-world.mjs')).href);
 const reporting = await import(pathToFileURL(join(temp, 'parent-report.mjs')).href);
 const commit = await import(pathToFileURL(join(temp, 'learning-commit.mjs')).href);
 const haptics = await import(pathToFileURL(join(temp, 'haptics.mjs')).href);
+const visuals = await import(pathToFileURL(join(temp, 'question-visuals.mjs')).href);
+const hints = await import(pathToFileURL(join(temp, 'question-hints.mjs')).href);
 const now = Date.UTC(2026, 9, 26);
 
 assert.equal(engine.GAMES.length, 28);
@@ -316,6 +318,25 @@ assert.equal(moveResult.assisted, true);
 const restResult = activityUi.activityClick(moveQ, activityUi.newActivityState(moveQ), 'move-skip', -1);
 assert.equal(restResult.kind, 'submit');
 assert.equal(restResult.skipped, true);
+
+const blockRepairQ = engine.makeQuestion('blocks', 0, 1);
+const blockRepair = activityUi.newActivityState(blockRepairQ);
+activityUi.activityClick(blockRepairQ, blockRepair, 'block-one', -1);
+assert(activityUi.activityHtml(blockRepairQ, blockRepair).includes('build-tap-back'));
+activityUi.activityClick(blockRepairQ, blockRepair, 'block-back', -1);
+assert.equal(blockRepair.count, 0);
+assert(!activityUi.activityHtml(blockRepairQ, blockRepair).includes('1こ もどす</button>'));
+const trainRepairQ = engine.makeQuestion('train', 0, 1);
+const trainRepair = activityUi.newActivityState(trainRepairQ);
+activityUi.activityClick(trainRepairQ, trainRepair, 'train-tile', 0);
+activityUi.activityClick(trainRepairQ, trainRepair, 'train-tile', 1);
+assert(activityUi.activityHtml(trainRepairQ, trainRepair).includes('data-activity="train-remove"'));
+activityUi.activityClick(trainRepairQ, trainRepair, 'train-remove', 0);
+assert.deepEqual(trainRepair.usedTiles, [1]);
+assert(!activityUi.activityHtml(trainRepairQ, trainRepair).includes('ひとつ もどす'));
+assert(visuals.dots(11).includes('dot-pack'));
+assert(visuals.visualHtml({ kind: 'clock', hour: 7, minute: 30 }, false).includes('viewBox="0 0 200 200"'));
+assert(hints.makeHint(engine.makeQuestion('maze', 0, 1)).includes('でんしゃ'));
 console.log('PASS: stroke-aware tracing and warmup, number block input, letter construction, seated movement and rest');
 
 
@@ -504,6 +525,28 @@ assert.equal(storage.loadSlot(store, 2).xp, 144, 'one character must not overwri
 const noCapacity = { getItem: key => store.getItem(key), setItem: () => { throw Error('QuotaExceededError'); } };
 assert.throws(() => storage.persistSlotIfUnchanged(noCapacity, 2, nextSaved, rawSecond));
 assert.equal(storage.loadSlot(store, 2).xp, 144);
+
+const lockQueue = new Map();
+const testLocks = {
+  request(name, _options, fn) {
+    const previous = lockQueue.get(name) ?? Promise.resolve();
+    const current = previous.catch(() => {}).then(() => fn());
+    lockQueue.set(name, current);
+    return current;
+  }
+};
+const baseSnapshot = storage.readSlotSnapshot(store, 2);
+const simultaneous = await Promise.allSettled([
+  storage.lockedSlotWrite(store, 2, { ...saved, xp: 151 }, baseSnapshot, testLocks),
+  storage.lockedSlotWrite(store, 2, { ...saved, xp: 152 }, baseSnapshot, testLocks)
+]);
+assert.deepEqual(simultaneous.map(x => x.status), ['fulfilled', 'rejected']);
+assert(simultaneous[1].reason instanceof storage.StaleSlotError);
+assert.equal(storage.loadSlot(store, 2).xp, 151);
+await assert.rejects(storage.lockedSlotWrite(store, 2, { ...saved, xp: 999 },
+  storage.readSlotSnapshot(store, 2), undefined), /Web Locks unavailable/);
+assert.equal(storage.loadSlot(store, 2).xp, 151, 'no locks must fail closed');
+console.log('PASS: browser lock serialization, race protection and unsupported lock fail-closed');
 
 const sanitized = storage.normalizeSave({ ...saved, xp: 'not a number', daily: { '2026-10-26': { answered: 3 } } });
 assert.equal(sanitized.xp, 0);
@@ -753,9 +796,12 @@ assert.equal(haptics.emitHaptic('correct', enabled, {}), false);
 assert.equal(haptics.emitHaptic('correct', enabled, { vibrate: () => { throw Error('unsupported'); } }), false);
 assert.equal(emitted.length, 3);
 const sourceControl = readFileSync(new URL('../src/quest-main.ts', import.meta.url), 'utf8');
-assert(sourceControl.includes('persistSlotIfUnchanged'), 'all app saves use stale-tab guard');
+assert(sourceControl.includes('lockedSlotWrite'), 'all app saves use exclusive atomic Web Lock guard');
 assert(!sourceControl.includes('persistSlot(localStorage'), 'unguarded app writes are forbidden');
 assert(sourceControl.includes("window.addEventListener('storage'"), 'tab changes trigger safety screen');
+assert(sourceControl.includes('navigator.locks'), 'all profile saves request browser locks');
+assert(!sourceControl.includes('function makeHint('), 'pure hints moved out of main');
+assert(!sourceControl.includes('function visualHtml('), 'pure visuals moved out of main');
 assert(sourceControl.includes("data-action=\"sync-reload\""), 'stale users get a reload option');
 assert(!sourceControl.includes('こたえを ひとつ えらんでね'), 'duplicated answer instructions should be gone');
 const codeWithHaptics = readFileSync(new URL('../src/quest-main.ts', import.meta.url), 'utf8');
