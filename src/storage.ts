@@ -86,6 +86,18 @@ export function persistSlotIfUnchanged(
   storage.setItem(slotKey(slot), serialized);
   return serialized;
 }
+/** Per-character exclusive browser lock guards the compare + write as one critical section.
+ * Fail closed when Web Locks are unavailable; an unsafe optimistic fallback can lose progress.
+ */
+export async function lockedSlotWrite(
+  storage: Pick<Storage, 'getItem' | 'setItem'>,
+  slot: number, next: LearningSave, expected: string | null,
+  locks: Pick<LockManager, 'request'> | undefined
+): Promise<string> {
+  if (!locks || typeof locks.request !== 'function') throw new Error('Web Locks unavailable: save refused');
+  return locks.request('kids-learning-v2-player-' + slot, { mode: 'exclusive' }, () =>
+    persistSlotIfUnchanged(storage, slot, next, expected));
+}
 export interface Backup {
   exportedAt: string;
   slot: number;
