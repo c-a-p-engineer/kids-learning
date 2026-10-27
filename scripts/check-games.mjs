@@ -702,7 +702,8 @@ assert(pageCode.includes("action === 'replay' && session) startGame(session.game
   'replay must defer to startGame default (current unlocked level)');
 assert(!pageCode.includes("startGame(session.gameId, session.level)"),
   'replay must not force the just-cleared old level');
-assert(pageCode.includes('レベル ' + "' + progress.level + ' へ すすむ"),
+const resultCode = readFileSync(new URL('../src/result-view.ts', import.meta.url), 'utf8');
+assert(resultCode.includes('レベル ' + "' + progress.level + ' へ すすむ"),
   'result button must clearly indicate the new level');
 for (const [clears, nextLevel] of [[0, 1], [1, 1], [2, 2], [3, 2],
   [4, 3], [5, 3], [6, 4], [7, 4], [8, 5], [25, 5]]) {
