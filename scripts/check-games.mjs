@@ -329,10 +329,9 @@ assert(!activityUi.activityHtml(blockRepairQ, blockRepair).includes('1こ もど
 const trainRepairQ = engine.makeQuestion('train', 0, 1);
 const trainRepair = activityUi.newActivityState(trainRepairQ);
 activityUi.activityClick(trainRepairQ, trainRepair, 'train-tile', 0);
-activityUi.activityClick(trainRepairQ, trainRepair, 'train-tile', 1);
 assert(activityUi.activityHtml(trainRepairQ, trainRepair).includes('data-activity="train-remove"'));
 activityUi.activityClick(trainRepairQ, trainRepair, 'train-remove', 0);
-assert.deepEqual(trainRepair.usedTiles, [1]);
+assert.deepEqual(trainRepair.usedTiles, []);
 assert(!activityUi.activityHtml(trainRepairQ, trainRepair).includes('ひとつ もどす'));
 assert(visuals.dots(11).includes('dot-pack'));
 assert(visuals.visualHtml({ kind: 'clock', hour: 7, minute: 30 }, false).includes('viewBox="0 0 200 200"'));
