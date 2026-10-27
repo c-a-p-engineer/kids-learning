@@ -16,7 +16,7 @@ import { isTouchGame } from './touch-content';
 import { touchHtml, touchClick, touchPointer, freshTouch } from './touch-ui';
 import type { TouchState } from './touch-ui';
 import { recordDaily } from './progression';
-import { loadSlot, persistSlotIfUnchanged, readSlotSnapshot, StaleSlotError, backupText, parseBackup, backupDelta } from './storage';
+import { loadSlot, lockedSlotWrite, readSlotSnapshot, StaleSlotError, backupText, parseBackup, backupDelta } from './storage';
 import type { Backup } from './storage';
 import { statusHtml, skillTreeHtml, PROGRESS_CATEGORIES } from './progress-ui';
 import type { ProgressCategory } from './progress-ui';
@@ -80,6 +80,7 @@ let slot = getSlot();
 let storageWarning = '';
 let slotSnapshot: string | null = null;
 let slotStale = false;
+let writePending = false;
 let save = loadSave();
 const HOME_TITLE = 'まなびクエスト';
 const PROFILES = [
@@ -129,13 +130,23 @@ function markSlotStale(): void {
   backupDraft = null;
   page = 'home';
 }
-function persistCurrent(next: LearningSave): void {
-  if (slotStale) throw new StaleSlotError();
+async function persistCurrent(next: LearningSave): Promise<void> {
+  if (slotStale || writePending) throw new StaleSlotError();
+  writePending = true;
+  const writeSlot = slot, expected = slotSnapshot;
   try {
-    slotSnapshot = persistSlotIfUnchanged(localStorage, slot, next, slotSnapshot);
+    const newSnapshot = await lockedSlotWrite(localStorage, writeSlot, next, expected,
+      navigator.locks);
+    if (writeSlot !== slot || slotStale) {
+      markSlotStale();
+      throw new StaleSlotError();
+    }
+    slotSnapshot = newSnapshot;
   } catch (error) {
     if (error instanceof StaleSlotError) markSlotStale();
     throw error;
+  } finally {
+    writePending = false;
   }
 }
 function refreshSlot(): void {
@@ -146,9 +157,9 @@ function refreshSlot(): void {
   applyTextSize();
   render();
 }
-function saveNow(): boolean {
+async function saveNow(): Promise<boolean> {
   try {
-    persistCurrent(save);
+    await persistCurrent(save);
     if (storageWarning.startsWith('ほぞんできません')) storageWarning = '';
     return true;
   } catch {
@@ -157,7 +168,7 @@ function saveNow(): boolean {
   }
 }
 function setSlot(next: number): void {
-  if (!Number.isInteger(next) || next < 1 || next > 4) return;
+  if (writePending || !Number.isInteger(next) || next < 1 || next > 4) return;
   dismissEffects();
   stopTimers();
   resetArmed = false;
@@ -542,15 +553,15 @@ function makeHint(q: Question): string {
     case 'rhythm': return 'いろの じゅんばんを みて たいこを たたこう。';
   }
 }
-function answer(choice: string, mode?: AnswerMode): void {
-  if (!session || session.phase !== 'answer' || session.locked || page !== 'game') return;
+async function answer(choice: string, mode?: AnswerMode): Promise<void> {
+  if (writePending || !session || session.phase !== 'answer' || session.locked || page !== 'game') return;
   const q = session.deck[session.index];
   if (!isActivity(q.gameId) && !isTouchGame(q.gameId) && !isWorkshop(q.gameId) && !q.choices.includes(choice)) return;
   session.attempts++;
   if (!evaluate(q, choice)) {
     const prepared = prepareMistake(save, q, new Date());
     try {
-      persistCurrent(prepared);
+      await persistCurrent(prepared);
       save = prepared;
       if (storageWarning.startsWith('ほぞんできません')) storageWarning = '';
     } catch {
@@ -586,7 +597,7 @@ function answer(choice: string, mode?: AnswerMode): void {
   const practice = mode !== undefined;
   const prepared = prepareAnswer(save, q, kind, independent, earned, new Date());
   try {
-    persistCurrent(prepared.data);
+    await persistCurrent(prepared.data);
     save = prepared.data;
     if (storageWarning.startsWith('ほぞんできません')) storageWarning = '';
   } catch {
@@ -614,13 +625,13 @@ function answer(choice: string, mode?: AnswerMode): void {
   if (mode !== 'skip') burst(recalled && independent ? 'review' : 'correct', earned);
   scheduleAdvance();
 }
-function next(): void {
-  if (!session || session.phase !== 'solved' || page !== 'game') return;
+async function next(): Promise<void> {
+  if (writePending || !session || session.phase !== 'solved' || page !== 'game') return;
   stopTimers();
   if (session.index === session.deck.length - 1) {
     const prepared = prepareClear(save, session, new Date());
     try {
-      persistCurrent(prepared);
+      await persistCurrent(prepared);
       save = prepared;
       if (storageWarning.startsWith('ほぞんできません')) storageWarning = '';
     } catch {
@@ -652,13 +663,13 @@ function hint(): void {
   gameAudio.effect('hint');
   render();
 }
-function resetCurrentLearning(): void {
-  if (page !== 'parent' || !resetArmed) return;
+async function resetCurrentLearning(): Promise<void> {
+  if (writePending || page !== 'parent' || !resetArmed) return;
   const old = save;
   const nextSave = freshSave();
   nextSave.settings = { ...old.settings };
   try {
-    persistCurrent(nextSave);
+    await persistCurrent(nextSave);
   } catch {
     storageWarning = 'リセットできませんでした。ブラウザのほぞんを かくにんしてください。';
     resetArmed = false;
@@ -700,11 +711,11 @@ async function prepareBackup(file: File): Promise<void> {
   }
   if (page === 'parent') render();
 }
-function restoreBackup(): void {
-  if (page !== 'parent' || !backupDraft || backupDraft.slot !== slot) return;
+async function restoreBackup(): Promise<void> {
+  if (writePending || page !== 'parent' || !backupDraft || backupDraft.slot !== slot) return;
   try {
     // Single atomic localStorage write; preserve current in-memory state on failure.
-    persistCurrent(backupDraft.data);
+    await persistCurrent(backupDraft.data);
     save = backupDraft.data;
     backupDraft = null; backupError = '';
     storageWarning = 'バックアップを ふくげんしました。';
@@ -737,7 +748,7 @@ function completeActivity(result: ActivityResult): void {
   else render();
 }
 function onTouchPointer(event: PointerEvent, phase: 'down' | 'move' | 'up' | 'cancel'): void {
-  if (slotStale) return;
+  if (slotStale || writePending) return;
   if (page !== 'game' || session?.phase !== 'answer' || session.locked || !touchState ||
       !isTouchGame(session.gameId)) return;
   const svg = event.target instanceof Element ?
@@ -752,7 +763,7 @@ function onTouchPointer(event: PointerEvent, phase: 'down' | 'move' | 'up' | 'ca
   else if (result.refresh || phase === 'up' || phase === 'cancel') render();
 }
 function onTracePointer(event: PointerEvent, phase: 'down' | 'move' | 'up' | 'cancel'): void {
-  if (slotStale) return;
+  if (slotStale || writePending) return;
   if (page !== 'game' || (session?.gameId !== 'trace' && session?.gameId !== 'lines' && session?.gameId !== 'digits') || session?.phase !== 'answer' ||
       session.locked || !activityState) return;
   const svg = event.target instanceof Element ? event.target.closest<SVGSVGElement>('[data-trace-board]') : null;
@@ -796,7 +807,7 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 app.addEventListener('input', event => {
-  if (slotStale) return;
+  if (slotStale || writePending) return;
   const target = event.target;
   if (!(target instanceof HTMLInputElement)) return;
   if (page === 'options' && target.hasAttribute('data-text-size')) {
@@ -831,6 +842,7 @@ app.addEventListener('click', event => {
     if (target.closest<HTMLElement>('[data-action="sync-reload"]')) refreshSlot();
     return;
   }
+  if (writePending) return;
   gameAudio.unlock();
   const workshopButton = target.closest<HTMLButtonElement>('[data-workshop]');
   if (workshopButton && page === 'game' && session?.phase === 'answer' &&
