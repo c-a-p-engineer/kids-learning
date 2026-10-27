@@ -49,5 +49,5 @@ export function parentBody(save: LearningSave, profileName: string, resetArmed: 
       '<div class="reset-actions"><button type="button" class="danger-btn" data-action="reset-now">はい、リセットする</button>' +
       '<button type="button" class="secondary-btn" data-action="reset-cancel">やめる</button></div></div>' :
       '<button type="button" class="reset-open" data-action="reset-open">🗑️ このキャラのきろくを リセット</button>') +
-    '<p>旧版の学習記録は削除しません。新版は別のキーに保存しています。</p></div></section>', true);
+    '<p>旧版の学習記録は削除しません。新版は別のキーに保存しています。</p></div></section>';
 }
